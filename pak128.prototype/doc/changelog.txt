@@ -1,4 +1,11 @@
 ---------------------------------------------------------------------------------------------------
+Version: 2.11
+Date: 0000-00-00
+  Changed:
+    - Traffic lights now have a yellow phase
+  Fixed:
+    - Fixed the direction of the traffic lights (E, W, NE, SW, SE, NW)
+---------------------------------------------------------------------------------------------------
 Version: 2.10.1
 Date: 2026-03-12
   Added:
