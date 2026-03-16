@@ -7,7 +7,7 @@
 
 obj=roadsign
 name=traffic_light
-copyright=Napik
+copyright=Napik, Umoxfo
 
 waytype=road
 min_speed=0
@@ -17,7 +17,7 @@ maintenance=500
 
 retire_year=2000
 
-Image[N,S,E,W,NE,SW,SE,NW][0-1]=p128_sign_road_trafficlights.<$1>.<$0>
+Image[N,S,W,E,NW,SE,SW,NE][0-3]=p128_sign_road_trafficlights.<$1>.<$0>
 Icon=> p128_sign_road_trafficlights.0.8
 Cursor=p128_sign_road_trafficlights.0.9
 
