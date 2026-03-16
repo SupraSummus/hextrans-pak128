@@ -1,8 +1,11 @@
 ---------------------------------------------------------------------------------------------------
 Version: 2.11
 Date: 0000-00-00
-  Balancing:
+  Changed:
     - Quadrupled level (and therefore capacity/maintenance) of suspension railway stations
+    - Traffic lights now have a yellow phase
+  Fixed:
+    - Fixed the direction of the traffic lights (E, W, NE, SW, SE, NW)
 ---------------------------------------------------------------------------------------------------
 Version: 2.10.1
 Date: 2026-03-12
