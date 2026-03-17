@@ -283,6 +283,7 @@ copyright=Fabio Gonella
 waytype=track
 is_signal=1
 cost=500
+maintenance=500
 
 intro_year = 1970
 
@@ -337,6 +338,7 @@ copyright=Fabio Gonella
 
 waytype=track
 cost=2000
+maintenance=2000
 is_longblocksignal=1
 
 intro_year = 1970
