@@ -8,6 +8,7 @@ Date: 0000-00-00
   Fixed:
     - Fixed swapped increase/decrease water height tools
     - Fixed the direction of the traffic lights (E, W, NE, SW, SE, NW)
+    - Fixed stray pixels in subway station graphics
 ---------------------------------------------------------------------------------------------------
 Version: 2.10.1
 Date: 2026-03-12
