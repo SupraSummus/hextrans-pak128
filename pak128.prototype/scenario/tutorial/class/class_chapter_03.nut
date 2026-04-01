@@ -642,13 +642,15 @@ class tutorial.chapter_03 extends basic_chapter
             tile1.remove_object(player_x(1), mo_label)
 
             //elimina el cuadro label
-            local opt = 0
-            local del = true
-            local text = "X"
-            label_bord(limit_ch3_rail_line_1a.a, limit_ch3_rail_line_1a.b, opt, del, text)
+            label_bord(limit_ch3_rail_line_1a.a, limit_ch3_rail_line_1a.b, 0, true, "X")
 
             pot[0]=1
             wayend=0
+
+            // rules for bridge build
+            local cube = select_cube(bridge2_coords.b, bridge2_coords.a, "bridge")
+            rules.forbid_way_tool_rect(player_all, tool_build_bridge, wt_rail, 0, cube[2], cube[3], get_message(5) )
+            rules.allow_way_tool_cube(player_all, tool_build_bridge, wt_rail, 0, cube[0], cube[1])
           }
         }
         //Para el puente
@@ -666,6 +668,11 @@ class tutorial.chapter_03 extends basic_chapter
 
             if (my_tile(bridge2_coords.a).find_object(mo_bridge)){
               pot[1]=1
+              // clear bridge build rules
+              local cube = select_cube(bridge2_coords.b, bridge2_coords.a, "bridge")
+              rules.clear_way_tool_rect(player_all, tool_build_bridge, wt_rail, 0, cube[2], cube[3], true)
+              rules.clear_way_tool_cube(player_all, tool_build_bridge, wt_rail, 0, cube[0], cube[1], false)
+
             }
           }
         }
@@ -1417,11 +1424,8 @@ class tutorial.chapter_03 extends basic_chapter
         }
         //Construye un puente
         if (pot[0]==1 && pot[1]==0){
-          if (pos.x>=bridge2_coords.b.x-1 && pos.y>=bridge2_coords.b.y-1 && pos.x<=bridge2_coords.a.x+1 && pos.y<=bridge2_coords.a.y+1){
-            if(tool_id==tool_build_way || tool_id==tool_build_bridge)
-              return null
-          }
-          else
+          return null
+        } else {
             return translate("You must build the bridge here")+" ("+coord3d_to_string(bridge2_coords.a)+")."
         }
         //Segundo tramo de rieles
@@ -1968,7 +1972,7 @@ class tutorial.chapter_03 extends basic_chapter
           //gui.add_message(""+st_lim_a.len()+"")
 
           for ( local j = 0; j < ch3_rail_stations.len(); j++ ) {
-            result = format(translate("Select station No.%d"),j+1)+" ("+ch3_rail_stations[j].tostring()+".)"
+            result = format(translate("Select station No.%d"), j+1) + " (" + coord3d_to_string(ch3_rail_stations[j]) + ")."
             if(tmpsw[j]==0){
               local check = check_rail_station(ch3_rail_stations[j], 0, pos)
               if( check ){
@@ -2944,4 +2948,3 @@ class tutorial.chapter_03 extends basic_chapter
 }        // END of class
 
 // END OF FILE
-

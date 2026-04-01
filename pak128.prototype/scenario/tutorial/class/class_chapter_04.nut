@@ -67,6 +67,10 @@ class tutorial.chapter_04 extends basic_chapter
     local fac_2 = factory_data.rawget("5")
     local fac_3 = factory_data.rawget("6")
 
+    local t = check_coord3d(ch4_schedule_line3)
+    ch4_schedule_line3.clear()
+    ch4_schedule_line3.extend(t)
+
     line1_name = get_good_data(3, 3) + " " + fac_1.name + " - " + fac_2.name
     line2_name = get_good_data(4, 3) + " " + fac_2.name + " - " + fac_3.name
     line3_name = "Passanger Ship"

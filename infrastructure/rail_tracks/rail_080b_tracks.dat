@@ -10,8 +10,6 @@ topspeed=80
 max_weight=240
 intro_year=1950
 intro_month=1
-retire_year=2999
-retire_month=1
 icon=> rail_080b_tracks.0.6
 cursor=rail_080b_tracks.0.7,0,-16
 #SUMMER

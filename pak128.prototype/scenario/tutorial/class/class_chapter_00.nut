@@ -21,12 +21,12 @@ class tutorial.chapter_00 extends basic_chapter
     return 0
   }
 
-  function set_goal_text(text){
-    local tx_a = format("<em>%s %s<em>",pak_name, translate("OK"))
-    if(!resul_version.pak) tx_a = "<st>"+pak_name+"</st>"
+  function set_goal_text(text) {
+    local tx_a = format("<em>%s %s<em>", pak_name, translate("OK"))
+    if ( !resul_version.pak ) tx_a = "<st>" + pak_name + "</st>"
 
-    local tx_b = format("<em>v%s %s<em>",simu_version, translate("OK"))
-    if(!resul_version.st) tx_b = "<st>v"+simu_version+"</st>"
+    local tx_b = format("<em>v%s %s<em>", simu_version, translate("OK"))
+    if ( !resul_version.st ) tx_b = "<st>v" + simu_version + "</st>"
 
     text.pak = tx_a
     text.stv = tx_b
@@ -52,7 +52,7 @@ class tutorial.chapter_00 extends basic_chapter
     return result
   }
 
-  function is_tool_allowed(pl, tool_id, wt){
+  function is_tool_allowed(pl, tool_id, wt) {
     local result = true
     return result
   }

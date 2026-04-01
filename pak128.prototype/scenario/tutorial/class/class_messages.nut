@@ -30,8 +30,8 @@ ch7_name        <- "Bus networks"
  *   2 = Action not allowed
  *   3 = Only road schedules allowed
  *   4 = It is not allowed to start vehicles.
- *
- *
+ *   5 = You did not click the correct fields.
+ *   6 = You haven't chosen the right tool.
  *
  *
  *
@@ -54,10 +54,10 @@ function get_message(id) {
       txt_message = translate("It is not allowed to start vehicles.")
       break
     case 5:
-
+      txt_message = translate("You did not click the correct fields.")
       break
     case 6:
-
+      txt_message = translate("You haven't chosen the right tool.")
       break
     case 7:
 
@@ -99,6 +99,10 @@ function get_message(id) {
  */
 function get_tile_message(id, tile) {
   local txt_tile = ""
+  local type = typeof(tile)
+  if(type == "integer"){
+    return ""
+  }
   /*if ( tz == null ) {
     local tile = coord(tx, ty)
     txt_tile = coord_to_string(tile)
