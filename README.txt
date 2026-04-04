@@ -23,7 +23,9 @@ If you wish to use the set only as a reference, you will be mostly interested in
 
 The materials available here are only these specific to this set; general guides and references can be found at:
 * https://simutrans-germany.com/wiki/wiki/tiki-index.php
-* https://graphics.simutrans.com/
+
+Additional material and documentation (mostly in Jpanese) is here:
+* https://japanese.simutrans.com/index.php?Site_Map
 
 
 License matters
@@ -48,4 +50,4 @@ Contact
 -------
 
 Pak128 is maintained by a number of Simutrans community members. Preferred method of communication is via the Simutrans International Forum, particularly the pak128 sub-boards:
-https://forum.simutrans.com/index.php?board=26.0
+https://forum.simutrans.com/index.php?board=26.0 We also take github pull requests.
