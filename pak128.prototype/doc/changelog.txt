@@ -5,6 +5,7 @@ Date: 0000-00-00
     - Roadsigns and signals now cost monthly maintenance (1% of build cost at bits_per_month=18)
     - Quadrupled level (and therefore capacity/maintenance) of suspension railway stations
     - Traffic lights now have a yellow phase
+    - Enabled PMNV Post Trailer (Mack_Truck_Post_Trailer) for Scania R620 Topline.
   Fixed:
     - Fixed swapped increase/decrease water height tools
     - Fixed the direction of the traffic lights (E, W, NE, SW, SE, NW)
