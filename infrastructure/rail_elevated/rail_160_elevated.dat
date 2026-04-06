@@ -11,8 +11,6 @@ topspeed=160
 max_weight=120
 intro_year=1930
 intro_month=1
-retire_year=2000
-retire_month=1
 icon=> rail_160_elevated.0.6
 cursor=rail_160_elevated.0.7,0,-48
 #SUMMER

@@ -7,10 +7,8 @@ topspeed=120
 copyright=fabio&gauthier
 system_type=1
 
-intro_year=1980
+intro_year=1940
 intro_month=1
-retire_year=2999
-retire_month=1
 
 icon=> rail_120b_elevated.0.2
 cursor=rail_120b_elevated.0.3,0,-48
