@@ -31,10 +31,12 @@ rem for newer Windows versions can be added /EXCLUDE:svn
 
 rem new writing
 rem  ------------------------
+
 ( 
   echo obj=ground>version-pak128.dat
   echo name=Outside>>version-pak128.dat
-  echo copyright="pak128 2.10.0 for 124.3" >>version-pak128.dat
+  echo copyright="pak128 2.10.1 for 124.4 up" >>version-pak128.dat
+  echo Image[0][0]=base\special\tile.1.1 >>version-pak128.dat
 )
 makeobj.exe pak128 simutrans/pak128/ground.Outside.pak version-pak128.dat
 del version-pak128.dat
