@@ -9,8 +9,6 @@ maintenance=1800
 topspeed=160
 intro_year=1930
 intro_month=1
-retire_year=2000
-retire_month=1
 icon=> rail_160_tunnel.0.6
 cursor=rail_160_tunnel.0.7,0,-16
 #SUMMER
