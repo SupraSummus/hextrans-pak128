@@ -124,16 +124,21 @@ class Scene:
         self.ambient = ambient
         self.sun_dir = SUN_DIR if sun_dir is None else sun_dir / np.linalg.norm(sun_dir)
 
-    def add_quad(self, points, color):
-        """Append a quad given 4 world-space points (CCW from outside)."""
+    def add_quad(self, points, color, layer="back"):
+        """Append a quad given 4 world-space points (CCW from outside).
+
+        `layer` tags which sheet entry the quad belongs to ("back" /
+        "front" for pak128 bridge slicing). See render(layer_filter).
+        """
         base = len(self.verts)
         self.verts.extend(map(tuple, points))
-        self.quads.append((base, base + 1, base + 2, base + 3, color))
+        self.quads.append((base, base + 1, base + 2, base + 3, color, layer))
 
-    def add_box(self, p0, p1, color):
+    def add_box(self, p0, p1, color, layer="back"):
         """Append the 5 outward-facing quads of a box (skips the bottom).
 
-        p0, p1 are opposite corners; p0 < p1 component-wise.
+        p0, p1 are opposite corners; p0 < p1 component-wise. `layer`
+        propagates to all 5 quads.
         """
         x0, y0, z0 = p0
         x1, y1, z1 = p1
@@ -143,19 +148,28 @@ class Scene:
             (x0, y0, z1), (x1, y0, z1), (x1, y1, z1), (x0, y1, z1),
         ])
         self.quads.extend([
-            (b + 4, b + 5, b + 6, b + 7, color),  # top
-            (b + 0, b + 1, b + 5, b + 4, color),  # south (-y)
-            (b + 2, b + 3, b + 7, b + 6, color),  # north (+y)
-            (b + 1, b + 2, b + 6, b + 5, color),  # east  (+x)
-            (b + 0, b + 4, b + 7, b + 3, color),  # west  (-x)
+            (b + 4, b + 5, b + 6, b + 7, color, layer),  # top
+            (b + 0, b + 1, b + 5, b + 4, color, layer),  # south (-y)
+            (b + 2, b + 3, b + 7, b + 6, color, layer),  # north (+y)
+            (b + 1, b + 2, b + 6, b + 5, color, layer),  # east  (+x)
+            (b + 0, b + 4, b + 7, b + 3, color, layer),  # west  (-x)
         ])
 
-    def render(self, out_path: str, img_size=IMG_SIZE):
+    def render(self, out_path: str, img_size=IMG_SIZE, layer_filter=None):
+        """Render the scene to RGBA PNG.
+
+        `layer_filter`: if not None, only quads whose layer matches are
+        drawn — used to emit one PNG per pak128 sheet entry (Back vs.
+        Front). The depth buffer still considers only included quads,
+        so occlusion within the slice is correct.
+        """
         verts = np.asarray(self.verts, dtype=np.float64)
         rgba = np.zeros((img_size, img_size, 4), dtype=np.uint8)
         zbuf = np.full((img_size, img_size), -np.inf, dtype=np.float32)
 
-        for v0, v1, v2, v3, color in self.quads:
+        for v0, v1, v2, v3, color, layer in self.quads:
+            if layer_filter is not None and layer != layer_filter:
+                continue
             wq = verts[[v0, v1, v2, v3]]
             n = _quad_normal(wq)
             light = max(0.0, float(np.dot(-self.sun_dir, n)))
