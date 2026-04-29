@@ -358,7 +358,54 @@ candidate is still ~6 px taller than the reference); the other
 segments, winter variants); hex output (blocked on the engine-
 side hex depth-clip plane spec).
 
-### Parametric pipeline: not yet started
+### Parametric pipeline: hex ground deliverable baked
+
+`models/parametric/ground/render.py` is the canonical renderer for
+hex ground tiles. An earlier crash-fast probe validated bit-for-bit
+that it reproduces the engine's `synth_overlay::rasterise_ground`
+output for the flat tile across all 8 climates, so the documented
+constants in `synth_geometry.h` (vertex layout, lift, light direction,
+shade math, fill convention) are known reproducible. **Going forward
+the renderer is the source of truth for the hex ground deliverable;
+the engine's in-process synth path stays as a runtime fallback floor.**
+
+`build_pakset.py` runs the renderer for every valid hex slope and
+bakes a pak128-style deliverable into `landscape/grounds/`:
+
+- `texture-hex-lightmap.png` — atlas of 141 grayscale lightmap cells
+  (12 × 12 × 128 px = 1536 × 1536 px). Each cell carries per-region
+  Lambert shading as RGB8 grayscale (5-bit `brightness/16` expanded;
+  identity = 132) and the hex silhouette as alpha. Per-region shading
+  comes from a Python port of
+  `synth_plane_partition.h::find_min_partition`, so multi-region
+  slopes (saddles, wedges) get one Lambert face per coplanar region
+  rather than a single averaged shade. Cell layout names follow
+  pakset convention (`texture-hex-lightmap.<row>.<col>`).
+- `texture-hex-lightmap.dat` — `Obj=ground`, `Name=HexLightTexture`,
+  one `Image[<slope_t>][0]` entry per normalised slope shape, indexed
+  by the **raw `slope_t` value itself** (base-4 per corner: E=1,
+  SE=4, SW=16, W=64, NW=256, NE=1024). The engine's hex-aware ground
+  lookup calls `get_image_ptr(slope - hgt_shift)` directly without a
+  compact-index translation table. The index space is sparse — only
+  the 141 normalised shapes (per-edge delta ≤ 1, min(corner_heights)
+  == 0, since base elevation lives in the tile's `hgt` field, not in
+  the slope encoding) appear out of 3655 declared slots. Invalid
+  encodings read as IMG_EMPTY and are never requested at runtime
+  because they can't appear on real terrain.
+
+The climate texture is **not** regenerated: pak128's existing
+`landscape/grounds/texture-climate.png` is real biome art (grass,
+sand, …) with no tile geometry baked in, so we reuse it unchanged.
+The runtime path is `create_textured_tile(hex_lightmap[slope],
+texture-climate[c])`, mirroring the square pakset's
+`(texture-lightmap × ClimateTexture)` model.
+
+**Engine consumption is the next blocker.** The engine's
+`get_ground_tile` still indexes via `climate_image[c] +
+doubleslope_to_imgnr[slope]` (square projection, 81 slopes); a
+hex-aware lookup that consumes the 340-slope `HexLightTexture` block
+is engine-side work. Until that lands, the synth path keeps serving
+ground tiles in-process and the baked PNG sits unused on disk.
 
 The first-pass terrain work in `models/terrain/flat_tile/` and
 `models/terrain/slope_sw1/` was mis-targeted (diffed against
@@ -381,30 +428,25 @@ lightmap doesn't move us toward the hex deliverable.
 
 ### What's missing
 
-- A `capture_synth.py` (or equivalent) that runs the engine
-  headlessly and dumps `synth_overlay::*` outputs as PNGs into
-  `models/parametric/<family>/refs/`. This is the parametric
-  pipeline's ground truth.
-- A renderer (Blender Python or numpy) using the hex camera +
-  light from `synth_geometry.h` for the parametric pipeline.
-- A parametric scene per synth family (ground, marker, border,
-  alpha, back_wall) parametrised by `slope_t::type` and climate.
+- Engine-side hex lookup that indexes the 340-slope
+  `HexLightTexture` block (instead of the square
+  `climate_image[c] + doubleslope_to_imgnr[slope]` path).
+  Without it, the baked atlas sits on disk unused.
+- Renderer + atlas for the other synth families (marker, border,
+  alpha, back-wall).
 
 ### Recommended next iteration
 
-1. Stand up `capture_synth.py` and dump the synth ground tiles for
-   all slopes × climates as `models/parametric/ground/refs/`.
-2. Stand up a minimal Blender Python `render.py` whose camera and
-   light are read straight from the constants in `synth_geometry.h`
-   (don't re-derive). Smoke-test it on a flat hex tile vs. the synth
-   flat reference; expect near-zero diff.
-3. Extend the scene to take `slope_t::type` and corner heights via
-   `hex_corner_height`, and sweep one climate. Diff every slope.
-4. Once one climate matches, sweep over all climates by varying the
-   climate texture input.
-5. Bake the full sweep, commit PNGs to the pakset, and on the engine
-   side flip `synth_overlay::prefer_over_pakset` to false to let the
-   pakset take over.
+1. Engine work to consume the new pakset block. On the hex branch
+   of `SupraSummus/hextrans`, add a `get_hex_ground_tile(slope, c)`
+   path that looks up the 0..339 compact slope index against
+   `HexLightTexture`'s `climate_image_hex[c]` block, parallel to
+   the existing square `get_ground_tile`. Once it lands, flip
+   `synth_overlay::prefer_over_pakset` to false on a pakset with
+   `texture-hex-lightmap` and verify in-game.
+2. Repeat the bake-and-commit pattern for the next synth family
+   (marker is simplest — no climate axis, no shading) once the
+   engine ships a pakset-driven hex marker lookup.
 
 The first asset for the bespoke pipeline (vehicles or a simple
 bridge) can start in parallel once the parametric pipeline's renderer
@@ -426,13 +468,6 @@ infrastructure.
 
 ## Open questions / TBD
 
-- **Synth capture mechanism.** How exactly do we dump
-  `synth_overlay::*` outputs as PNGs? Options: (a) a small standalone
-  C++ harness that links the engine's descriptor module, calls the
-  synth functions, and writes via the existing image writer; (b) a
-  full headless engine run with a screenshot hook; (c) re-implement
-  the synth algorithm in Python and trust they match. (a) is the
-  cleanest; (c) defeats the purpose of having synth as ground truth.
 - **Hex depth-clip planes for bespoke output.** The bespoke pipeline
   re-renders 3D assets through the hex camera with hex depth planes
   to produce hex sheet entries. The square pakset's depth planes are

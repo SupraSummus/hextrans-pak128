@@ -59,14 +59,27 @@ analogous to `synth_geometry.h` for the camera and light. Blocks
 all bespoke hex deliverables. Lives on the engine side
 (`SupraSummus/hextrans`), not here.
 
-**Synth capture mechanism not built.** No tooling yet to dump
-`synth_overlay::{get_ground, get_marker, get_border, get_alpha,
-get_back_wall}` outputs as PNGs. Blocks all parametric pipeline
-work. Cleanest option is a small standalone C++ harness that
-links the engine's descriptor module and writes through the
-existing image writer; alternative is a headless engine run with
-a screenshot hook. Re-implementing the synth algorithm in Python
-defeats the purpose of having synth as ground truth.
+**Engine has no hex-aware ground lookup yet.** `build_pakset.py`
+emits `landscape/grounds/texture-hex-lightmap.{png,dat}` with 141
+`HexLightTexture` entries — one per normalised slope shape (per-edge
+delta ≤ 1 and min(corner_heights) == 0, since base elevation lives
+in the tile's `hgt` field, not in the slope encoding).  The .dat is
+indexed by **raw `slope_t`** itself (base-4 per corner; sparse, with
+gaps for invalid encodings that read as IMG_EMPTY) so the engine
+just needs to do `slope -= hgt_shift; get_image_ptr(slope)` — no
+compact-index translation table.  The engine's `get_ground_tile`
+currently indexes via `climate_image[c] + doubleslope_to_imgnr[slope]`,
+square-only, 81 slopes after the 6→4 projection.  A hex-aware
+`get_hex_ground_tile(slope, c)` needs to shift `slope_t` so its
+minimum corner is 0 and re-apply that shift in the drawn yoff so the
+elevation factored out comes back at draw time.  As a heads-up: the
+engine's own `synth_overlay::init` currently iterates 0..4095 and
+generates 340 sprites without the min=0 normalisation — that's also
+worth tightening alongside the consumption work, since the redundant
+elevated copies waste startup time and gfx slots.  Until the engine
+path lands, the baked atlas sits unused on disk and the in-process
+synth path keeps serving ground tiles.
+
 
 **Old terrain attempts not deleted.** `models/terrain/flat_tile/`
 and `models/terrain/slope_sw1/` were mis-targeted (diffed against
