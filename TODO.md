@@ -17,8 +17,8 @@ enough that someone else can pick it up cold.
 
 ## Open
 
-**X-bracing on rail_060_bridge_NS.** The numpy z-buffer rasterizer
-in `models/tools/render.py` only supports axis-aligned boxes via
+**X-bracing on rail_060_bridge.** The numpy z-buffer rasterizer
+in `tools/3d/render.py` only supports axis-aligned boxes via
 `add_box`, so the diagonal X-bracing between trestle posts can't
 be modelled cleanly. Two options: extend `Scene.add_quad` with
 explicit non-axis-aligned corners (a thin plate in the y-z plane,
@@ -26,13 +26,13 @@ rendered double-sided), or switch this asset class to Blender.
 Defer until other rail bridge variants are in flight so the fix
 applies once across the family.
 
-**rail_060_bridge_NS Back-layer height off by ~6 px.** The Back
+**rail_060_bridge Back-layer height off by ~6 px.** The Back
 debug XOR shows the candidate is taller than the reference at the
 railing top. Likely `RAILING_TOP_Z` (currently 0.24) is slightly
 too high. Back-solve from the reference's top y_min when picking
 this up.
 
-**rail_060_bridge_NS remaining sheet entries.** ~28 entries still
+**rail_060_bridge remaining sheet entries.** ~28 entries still
 un-modelled: BackImage/FrontImage[EW] (perpendicular orientation),
 BackRamp/FrontRamp × {N,S,E,W}, BackStart/FrontStart × 4,
 BackStart2/FrontStart2 × 4 (double-height), backPillar[S/W], plus
@@ -81,14 +81,6 @@ path lands, the baked atlas sits unused on disk and the in-process
 synth path keeps serving ground tiles.
 
 
-**Old terrain attempts not deleted.** `models/terrain/flat_tile/`
-and `models/terrain/slope_sw1/` were mis-targeted (diffed against
-pak128's square-projection legacy lightmap rather than synth
-output, rendered with OpenSCAD's square camera). Current state in
-CLAUDE.md flags them as "skip". Either delete them (clean
-directory) or keep them as a worked counterexample with a README;
-not both.
-
 **Aggregate scoring across slices not designed.** Multi-view
 supervision gives one score per slice; there's no rolled-up
 per-asset or per-pakset score. For tracking progress across many
@@ -104,6 +96,28 @@ against the flat tile. The canonical math is
 dimetric exactly. Cross-check that the rasterizer reproduces the
 engine projection bit-for-bit, not just close enough — pick this
 up before scaling to many assets where rounding errors compound.
+
+**Naming for future hex-baked deliverables.** The first parametric
+deliverable went out as `texture-hex-lightmap.{png,dat}` — the
+square-projection legacy was `texture-lightmap`, and the hex
+variant inserted `hex-` after the `texture-` prefix. The remaining
+synth families (marker, borders, alpha, back_wall) don't all have a
+`texture-` prefix in their legacy names (compare
+`landscape/grounds/marker.{png,dat}` vs
+`landscape/grounds/texture-slope.{png,dat}`), so the analogous hex
+names are not obvious. Pick a rule before the next family bakes
+(probably: `<legacy-stem>-hex.{png,dat}` so the legacy and hex
+variants sort next to each other in the directory listing) and
+commit it to CLAUDE.md's repo-layout section.
+
+**Re-bake CI check.** `landscape/grounds/texture-hex-lightmap.{png,dat}`
+are committed alongside their generator at
+`landscape/grounds/texture-hex-lightmap/`. Re-running `build_pakset.py`
+should produce a byte-identical diff. Add a CI job that does the
+re-run and fails on diff so the committed deliverable can't drift
+from the source. Same pattern will apply to the future synth
+families (marker, borders, …) and to bespoke models once one
+graduates to producing packaged output.
 
 **Sheet-coordinate compass cross-check on the bridge.** I
 established N=upper-right / E=lower-right / S=lower-left /

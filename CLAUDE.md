@@ -44,7 +44,9 @@ The work splits cleanly:
 
 The two pipelines share a renderer (camera, lighting, projection,
 depth-clip slicing) but have different reference data and different
-deliverables. The slope work in `models/terrain/` is pipeline (1).
+deliverables. The first parametric deliverable —
+`landscape/grounds/texture-hex-lightmap.{png,dat}` baked from
+`landscape/grounds/texture-hex-lightmap/` — is pipeline (1).
 
 ## Engine facts (look up, don't fit)
 
@@ -251,7 +253,7 @@ fits the asset:
 
 - A ~150-line numpy z-buffer rasterizer is enough for hard-surface
   CSG (terrain, simple bridges, low-poly vehicles); see
-  `models/tools/render.py`.
+  `tools/3d/render.py`.
 - Blender Python (`bpy`, headless via `blender -b`) is the right
   pick for textured / sculpted / mesh-heavy content.
 - OpenSCAD is fine for blocky parametric assets if you can post-
@@ -282,58 +284,82 @@ game looks up.
 - **Parametric pipeline.** The reference is one PNG per parameter
   combination (one slope × climate, one marker × slope, etc.), captured
   from the engine's `synth_overlay::*` output and stored under
-  `models/parametric/<family>/refs/`. No `.dat` cropping needed.
+  `landscape/grounds/<family>/refs/` (or wherever the family lives).
+  No `.dat` cropping needed.
 
 ### Texture vs. shape-only
 
 For new assets without textured supervision yet, compare alpha mask
 plus luminance over the alpha intersection (shape + shading, no
 texture). Once the pakset's tile textures are wired in as material
-inputs, switch to full RGB. `models/tools/diff.py` does shape +
+inputs, switch to full RGB. `tools/3d/diff.py` does shape +
 luminance today.
 
-## Repo layout (proposed, evolves)
+## Repo layout
 
-New work lives under a `models/` directory at the repo root, parallel
-to `landscape/`, `vehicles/`, etc. The parametric and bespoke
-pipelines have different shapes:
+Models live next to the pakset asset they generate or supervise, not
+in a separate `models/` tree. Shared rendering/diff tooling lives at
+`tools/3d/`. The two pipelines look like:
 
 ```
-models/
-  README.md                  # short pointer to this file
-  tools/
-    diff.py                  # diff CLI (reference vs candidate PNG)
-    crop_ref.py              # extract a tile from a pak sheet via .dat
-    capture_synth.py         # dump synth_overlay::* output as reference PNGs
-    render.py                # shared Blender-Python render entrypoint
-  parametric/                # pipeline (1): one scene, sweep parameters
-    ground/                  # synth ground tile family
-      scene.py               # parametric scene; takes (slope, climate)
-      sweep.sh               # render full (slope x climate) grid
-      out/                   # baked PNGs (slope_<id>_climate_<id>.png)
-      refs/                  # captured synth_overlay::get_ground output
-    marker/                  # synth marker family
-    border/                  # synth border family
-    alpha/                   # synth alpha-mask family
-    back_wall/               # synth cliff-face family
-  bespoke/                   # pipeline (2): one scene per asset
-    bridges/
-      rail_stone_bridge/     # one asset per directory
-        scene.py             # 3D parts (deck, pillar, ramp, …)
-        build.sh             # produces one PNG per pak128 sheet entry
-        out/                 # rendered slices (back_ns.png, front_ns.png, …)
-        score.txt            # last per-slice diff scores
-    vehicles/
-      ...
+tools/
+  3d/                                    # shared by both pipelines
+    render.py                            # numpy z-buffer rasterizer (layer-tagged)
+    diff.py                              # reference-vs-candidate score + 4-panel PNG
+    crop_ref.py                          # extract one tile from a pak sheet via .dat
+
+landscape/grounds/                       # parametric pipeline lives here
+  texture-hex-lightmap.png               # baked deliverable (committed; makeobj input)
+  texture-hex-lightmap.dat               # baked deliverable (committed; makeobj input)
+  texture-hex-lightmap/                  # source for the deliverable above
+    render.py                            # canonical per-slope renderer
+    build_pakset.py                      # bake the full atlas + .dat
+  …                                      # (other ground/.dat families to follow:
+                                         #  marker/, borders/, alpha/, back_wall/)
+
+infrastructure/rail_bridges/             # bespoke pipeline lives next to source art
+  rail_060_bridge.png                    # upstream pakset art (kept; supervisory ref)
+  rail_060_bridge.dat                    # upstream pakset descriptor (kept; packaged)
+  rail_060_bridge/                       # 3D model + supervision artefacts
+    scene.py                             # 3D parts (deck, pillar, ramp, …)
+    build.sh                             # crop refs, render slices, diff each
+    refs/                                # cropped pak128 sheet entries (cache)
+    out_back.png, out_front.png          # rendered slices
+    diff_debug_*.png                     # per-slice debug images
 ```
 
-Open question: commit rendered outputs and scores, or regenerate?
-Probably commit them so reviewers see the current state without
-rebuilding.
+Conventions, in order:
+
+- **Co-location.** A model directory shares a name (without extension)
+  with the deliverable it produces, and sits next to it. Lightmap:
+  `texture-hex-lightmap/` next to `texture-hex-lightmap.{png,dat}`.
+  Bridge: `rail_060_bridge/` next to `rail_060_bridge.{png,dat}`.
+- **Generated outputs are committed.** PNGs and .dats produced by a
+  baker live next to the model dir and are checked into git so
+  reviewers see the current state without rebuilding. Re-running the
+  baker should produce a byte-identical result; a future CI check will
+  enforce that.
+- **Source art for complex bespoke assets is kept** (e.g. the bridge
+  PNG/dat) even after a model exists, both because models start out
+  incomplete and because we want to keep them in sync with upstream
+  pakset changes.
+- **Source art is not packaged once a model produces sensible-quality
+  output.** When that point is reached for a given asset, move the
+  source art to a sibling `src/` (or similarly-named) subdir that
+  makeobj does not scan; the model-baked PNG/dat in the parent dir is
+  what gets packaged.
+- **Old art that is fully superseded is deleted.** No `_old` suffixes,
+  no commented-out blocks. Git history is the changelog. The square
+  `texture-lightmap.{png,dat}` is gone for this reason — the hex
+  pipeline replaces it outright.
+- **No subdir-aware pakset compile.** Makeobj only scans the listed
+  parent directory; model dirs (containing `.py`, `.sh`, `refs/`,
+  `out_*.png`) are silently ignored. Adding a new model dir requires
+  no Makefile change.
 
 ## Current state
 
-### Bespoke pipeline: `rail_060_bridge_NS`
+### Bespoke pipeline: `rail_060_bridge`
 
 Worked example for the bespoke pipeline. Multi-view supervision is
 wired (one diff per pak128 sheet entry, no composite); orientation
@@ -360,7 +386,7 @@ side hex depth-clip plane spec).
 
 ### Parametric pipeline: hex ground deliverable baked
 
-`models/parametric/ground/render.py` is the canonical renderer for
+`landscape/grounds/texture-hex-lightmap/render.py` is the canonical renderer for
 hex ground tiles. An earlier crash-fast probe validated bit-for-bit
 that it reproduces the engine's `synth_overlay::rasterise_ground`
 output for the flat tile across all 8 climates, so the documented
@@ -407,24 +433,13 @@ hex-aware lookup that consumes the 340-slope `HexLightTexture` block
 is engine-side work. Until that lands, the synth path keeps serving
 ground tiles in-process and the baked PNG sits unused on disk.
 
-The first-pass terrain work in `models/terrain/flat_tile/` and
-`models/terrain/slope_sw1/` was mis-targeted (diffed against
-pak128's square-projection legacy lightmap rather than the
-engine's hex synth output, and rendered with OpenSCAD's square
-dimetric camera). Skip those directories; the parametric pipeline
-needs to be rebuilt from scratch. Specifically, in the engine's
-`descriptor/ground_desc.cc::create_textured_tile`, each slope's
-`texture-lightmap` entry carries **both** silhouette (RLE alpha
-runs) and multiplicative shading; matching the legacy square
-lightmap doesn't move us toward the hex deliverable.
-
 ### What's reusable across both pipelines
 
-- `models/tools/crop_ref.py` — pak128 sheet cropping (bespoke).
-- `models/tools/diff.py` — shape + luminance score + 4-panel
+- `tools/3d/crop_ref.py` — pak128 sheet cropping (bespoke).
+- `tools/3d/diff.py` — shape + luminance score + 4-panel
   debug PNG.
-- `models/tools/render.py` — numpy z-buffer rasterizer with
-  layer tagging (now used by `rail_060_bridge_NS`).
+- `tools/3d/render.py` — numpy z-buffer rasterizer with
+  layer tagging (now used by `rail_060_bridge`).
 
 ### What's missing
 

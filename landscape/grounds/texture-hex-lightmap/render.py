@@ -442,7 +442,7 @@ def _per_region_brightness(slope: int, geom: HexGeom, partition: list[list[int]]
 
 def render_lightmap(slope: int, geom: HexGeom | None = None,
                     partition: list[list[int]] | None = None) -> np.ndarray:
-    """Render one slope's lightmap cell — pak128's `texture-lightmap` analogue.
+    """Render one slope's lightmap cell.
 
     Per-region grayscale = `brightness/16` (5-bit), expanded to RGB8
     with the same `(c5*255+15)/31` rounding the engine uses.  Brightness
@@ -479,8 +479,7 @@ def save_rgba(buf: np.ndarray, path: Path):
 
 def main():
     p = argparse.ArgumentParser(description="Render one hex slope as a grayscale "
-                                            "lightmap cell (pak128 texture-lightmap "
-                                            "analogue).")
+                                            "lightmap cell.")
     p.add_argument("slope", type=int, help="raw slope_t index (0..4095)")
     p.add_argument("out", type=Path, help="output PNG path")
     p.add_argument("--w", type=int, default=DEFAULT_W,

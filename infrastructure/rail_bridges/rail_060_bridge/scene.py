@@ -30,7 +30,8 @@ import sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-sys.path.insert(0, str(HERE.parent.parent / "tools"))
+REPO_ROOT = HERE.parents[2]  # infrastructure/rail_bridges/rail_060_bridge -> repo
+sys.path.insert(0, str(REPO_ROOT / "tools" / "3d"))
 
 from render import Scene  # noqa: E402
 

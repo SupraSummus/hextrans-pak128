@@ -11,9 +11,9 @@
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/../../.." && pwd)"
-TOOLS="$ROOT/models/tools"
+TOOLS="$ROOT/tools/3d"
 
-SHEET="$ROOT/infrastructure/rail_bridges/rail_060_bridge.png"
+SHEET="$HERE/../rail_060_bridge.png"
 
 python3 "$TOOLS/crop_ref.py" "$SHEET" --row 1 --col 0 -o "$HERE/refs/back.png"
 python3 "$TOOLS/crop_ref.py" "$SHEET" --row 1 --col 1 -o "$HERE/refs/front.png"
