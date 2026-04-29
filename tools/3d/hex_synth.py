@@ -540,7 +540,7 @@ def bake_pakset(*, script_path: Path, asset_name: str, obj_name: str,
             as the source-dir name (`script_path.parent.name`); the
             two are required to match by the co-location convention.
         obj_name: pakset `Name=…` field
-            (`Borders`, `Marker`, `HexLightTexture`, …).
+            (`Borders`, `Marker`, `LightTexture`, …).
         header_doc: per-asset doc paragraph for the .dat header,
             inserted between the auto-generated boilerplate and
             `Obj=ground`.  Each input line gets a `# ` prefix; blank

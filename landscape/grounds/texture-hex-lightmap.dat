@@ -16,7 +16,7 @@
 # Per-line comment carries the per-corner height tuple (E SE SW W NW NE).
 #
 Obj=ground
-Name=HexLightTexture
+Name=LightTexture
 
 # atlas: 12 cols x 12 rows, cells named texture-hex-lightmap.<row>.<col>
 
