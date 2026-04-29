@@ -318,8 +318,12 @@ landscape/grounds/                       # parametric pipeline lives here
   borders/                               # source for the deliverable above
     render.py                            # per-slope grid-line cell
     build_pakset.py                      # bake the full atlas + .dat
+  marker.png / marker.dat                # baked deliverable (committed)
+  marker/                                # source for the deliverable above
+    render.py                            # per-slope marker half cell
+    build_pakset.py                      # bake the full atlas + .dat
   …                                      # (other ground/.dat families to follow:
-                                         #  marker/, alpha/, back_wall/)
+                                         #  alpha/, back_wall/)
 
 infrastructure/rail_bridges/             # bespoke pipeline lives next to source art
   rail_060_bridge.png                    # upstream pakset art (kept; supervisory ref)
@@ -338,6 +342,17 @@ Conventions, in order:
   with the deliverable it produces, and sits next to it. Lightmap:
   `texture-hex-lightmap/` next to `texture-hex-lightmap.{png,dat}`.
   Bridge: `rail_060_bridge/` next to `rail_060_bridge.{png,dat}`.
+- **Hex-baked deliverables overwrite the legacy filename.** When a
+  parametric synth family (borders, marker, alpha, back_wall, …)
+  has an existing pak128 deliverable that the hex bake replaces
+  outright, the baked output keeps the legacy name
+  (`borders.{png,dat}`, `marker.{png,dat}`) rather than adding a
+  `texture-hex-` prefix. Lightmap is the one exception — it kept
+  the legacy `texture-` prefix and inserted `hex-` because the
+  square deliverable was packed differently (one cell per
+  `(climate × slope)` pair, not one per slope) and reusing the name
+  would have been misleading. Apply the overwrite rule to every
+  remaining synth family.
 - **Generated outputs are committed.** PNGs and .dats produced by a
   baker live next to the model dir and are checked into git so
   reviewers see the current state without rebuilding. Re-running the
@@ -449,9 +464,13 @@ ground tiles in-process and the baked PNG sits unused on disk.
   raw-`slope_t` decoding, `iter_valid_slopes()`,
   `find_min_partition` (port of `synth_plane_partition.h`),
   Lambert lighting, polygon fill, Bresenham `draw_line`, and
-  `build_atlas` (per-asset bakers pass a `render_cell` callback).
-  Keeps the lightmap and borders bakers in lockstep with each
-  other and with `synth_geometry.h` / `synth_overlay.cc`.
+  `bake_pakset` (per-asset bakers pass a `render_cell` callback,
+  per-asset doc paragraph, and `halves=1|2`; the helper handles
+  argparse, atlas, .dat header, per-line corner comment, and
+  stderr summary).  Keeps the lightmap, borders, and marker
+  bakers in lockstep with each other and with `synth_geometry.h`
+  / `synth_overlay.cc`; each per-asset `build_pakset.py` is now
+  ~50 lines, mostly the per-asset doc paragraph.
 
 ### Parametric pipeline: hex grid-border deliverable baked
 
@@ -469,16 +488,51 @@ Engine consumption is the next blocker — `get_border_image` still
 packs `(slope&1) + ((slope>>1)&6)` into 8 square indices; needs
 the same hex-aware lookup as `get_ground_tile`.
 
+### Parametric pipeline: hex marker deliverable baked
+
+`landscape/grounds/marker/render.py` is the canonical renderer
+for hex marker (cursor) cells, mirroring
+`synth_overlay::build_marker`: an open polyline at the slope's
+lifted vertices — `E → SE → SW → W` for the front half (3
+south-side edges) or `E → NE → NW → W` for the back half (3
+north-side edges) — drawn in bright orange `(255, 128, 0)` on a
+transparent background.  Colour matches the only non-background
+pixel value in the upstream pak128 `marker.png` this fork
+overwrites; diverges from the engine's debug-yellow
+`OUTLINE_COLOR = 0x7FE0` for the same reason borders does (the
+engine's synth path is a runtime fallback floor that ships with
+debug-friendly redundancy; the baked deliverable follows the
+legacy art convention).  The two halves bracket tile content at
+draw time
+(back drawn before vehicles/buildings, front drawn after) so the
+cursor silhouette wraps around objects on the tile.
+
+`build_pakset.py` runs the renderer for every valid hex slope
+× both halves and bakes `landscape/grounds/marker.{png,dat}`,
+overwriting the legacy 27-front-+-27-back square deliverable on
+this fork.  The atlas is 282 cells (141 fronts in
+`iter_valid_slopes()` order followed by 141 backs in the same
+order); the .dat emits two `Image[<slope_t>][k]` entries per
+slope (`k=0` front, `k=1` back) indexed by raw `slope_t` (same
+convention as `HexLightTexture` / `Borders`).  Engine consumption
+is the next blocker — `get_marker_image` still uses the legacy
+square hang-formula (`hang%27` / `(hang%3) + ((hang-(hang%9))/3)`)
+into 27-entry compact ranges; needs the same hex-aware lookup as
+the other synth families.
+
 ### What's missing
 
 - Engine-side hex lookup that indexes the raw-`slope_t` blocks
-  (`HexLightTexture`, `Borders`) instead of the square
+  (`HexLightTexture`, `Borders`, `Marker`) instead of the square
   `climate_image[c] + doubleslope_to_imgnr[slope]` /
-  `(slope&1) + ((slope>>1)&6)` paths. Without it, both baked
-  atlases sit on disk unused.
-- Renderer + atlas for the remaining synth families (marker,
-  alpha, back-wall). Should drop in cleanly via the
-  `tools/3d/hex_synth.py` shared module.
+  `(slope&1) + ((slope>>1)&6)` / hang-formula paths. Without it,
+  the baked atlases sit on disk unused.
+- Renderer + atlas for the remaining synth families (alpha,
+  back-wall). Should drop in cleanly via the
+  `tools/3d/hex_synth.py` shared module — `bake_pakset` already
+  handles the boilerplate, so each new family needs only a
+  `render.py` and a ~50-line `build_pakset.py` shaped like the
+  borders/marker callers.
 
 ### Recommended next iteration
 
@@ -490,9 +544,14 @@ the same hex-aware lookup as `get_ground_tile`.
    `synth_overlay::prefer_over_pakset` to false on a pakset with
    `texture-hex-lightmap` and verify in-game.
 2. Repeat the bake-and-commit pattern for the remaining synth
-   families. Borders is done; marker is simplest of the rest (no
-   climate axis, no shading — split front/back halves like the
-   engine's `build_marker`).
+   families. Borders and marker are done; alpha and back_wall are
+   what's left.  Alpha is climate-keyed (one mask per climate
+   transition) but otherwise close to borders in structure;
+   back_wall is per-(wall × index) rather than per-slope, which
+   `bake_pakset`'s slope-keyed iteration doesn't model — it'll
+   need either an `iter_keys` parameter or a sibling helper.
+   `fill_polygon` already lives in `tools/3d/hex_synth.py` for
+   lightmap's per-region fills.
 
 The first asset for the bespoke pipeline (vehicles or a simple
 bridge) can start in parallel once the parametric pipeline's renderer
