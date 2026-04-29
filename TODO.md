@@ -59,28 +59,6 @@ analogous to `synth_geometry.h` for the camera and light. Blocks
 all bespoke hex deliverables. Lives on the engine side
 (`SupraSummus/hextrans`), not here.
 
-**Engine has no hex-aware ground lookup yet.** `build_pakset.py`
-emits `landscape/grounds/texture-hex-lightmap.{png,dat}` with 141
-`HexLightTexture` entries — one per normalised slope shape (per-edge
-delta ≤ 1 and min(corner_heights) == 0, since base elevation lives
-in the tile's `hgt` field, not in the slope encoding).  The .dat is
-indexed by **raw `slope_t`** itself (base-4 per corner; sparse, with
-gaps for invalid encodings that read as IMG_EMPTY) so the engine
-just needs to do `slope -= hgt_shift; get_image_ptr(slope)` — no
-compact-index translation table.  The engine's `get_ground_tile`
-currently indexes via `climate_image[c] + doubleslope_to_imgnr[slope]`,
-square-only, 81 slopes after the 6→4 projection.  A hex-aware
-`get_hex_ground_tile(slope, c)` needs to shift `slope_t` so its
-minimum corner is 0 and re-apply that shift in the drawn yoff so the
-elevation factored out comes back at draw time.  As a heads-up: the
-engine's own `synth_overlay::init` currently iterates 0..4095 and
-generates 340 sprites without the min=0 normalisation — that's also
-worth tightening alongside the consumption work, since the redundant
-elevated copies waste startup time and gfx slots.  Until the engine
-path lands, the baked atlas sits unused on disk and the in-process
-synth path keeps serving ground tiles.
-
-
 **Aggregate scoring across slices not designed.** Multi-view
 supervision gives one score per slice; there's no rolled-up
 per-asset or per-pakset score. For tracking progress across many
@@ -97,26 +75,31 @@ dimetric exactly. Cross-check that the rasterizer reproduces the
 engine projection bit-for-bit, not just close enough — pick this
 up before scaling to many assets where rounding errors compound.
 
-**Naming for future hex-baked deliverables.** The first parametric
-deliverable went out as `texture-hex-lightmap.{png,dat}` — the
-square-projection legacy was `texture-lightmap`, and the hex
-variant inserted `hex-` after the `texture-` prefix. The remaining
-synth families (marker, borders, alpha, back_wall) don't all have a
-`texture-` prefix in their legacy names (compare
-`landscape/grounds/marker.{png,dat}` vs
-`landscape/grounds/texture-slope.{png,dat}`), so the analogous hex
-names are not obvious. Pick a rule before the next family bakes
-(probably: `<legacy-stem>-hex.{png,dat}` so the legacy and hex
-variants sort next to each other in the directory listing) and
-commit it to CLAUDE.md's repo-layout section.
+**Naming rule for hex-baked deliverables not pinned in CLAUDE.md.**
+Two patterns have landed: lightmap kept the legacy `texture-`
+prefix and inserted `hex-` (`texture-hex-lightmap.{png,dat}`);
+borders overwrote the legacy `borders.{png,dat}` directly.  Pick
+one rule for marker / alpha / back_wall and write it into
+CLAUDE.md's repo-layout section before the next bake.
+
+**Bake-script duplication.** `landscape/grounds/*/build_pakset.py`
+is ~70% boilerplate copy across asset families: identical CLI,
+output-dir resolution, atlas write, dat write loop, per-line
+corner comment.  Only the `Obj=…/Name=…` and the dat-header doc
+text differ.  Once a third family lands (marker is next), fold
+into `hex_synth.bake_pakset(asset_name, obj_name, render_fn,
+header_doc)` so each per-asset baker shrinks to ~10 lines.  At
+N=2 the right abstraction isn't obvious (does the dat-header want
+templating, or just verbatim per-asset?), so wait for the third
+example to disambiguate.
 
 **Re-bake CI check.** `landscape/grounds/texture-hex-lightmap.{png,dat}`
-are committed alongside their generator at
-`landscape/grounds/texture-hex-lightmap/`. Re-running `build_pakset.py`
-should produce a byte-identical diff. Add a CI job that does the
-re-run and fails on diff so the committed deliverable can't drift
-from the source. Same pattern will apply to the future synth
-families (marker, borders, …) and to bespoke models once one
+and `landscape/grounds/borders.{png,dat}` are committed alongside
+their generators.  Re-running `build_pakset.py` for each should
+produce a byte-identical diff.  Add a CI job that does the re-run
+and fails on diff so the committed deliverable can't drift from
+the source.  Same pattern will apply to the future synth families
+(marker, alpha, back_wall) and to bespoke models once one
 graduates to producing packaged output.
 
 **Sheet-coordinate compass cross-check on the bridge.** I
