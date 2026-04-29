@@ -426,7 +426,7 @@ bakes a pak128-style deliverable into `landscape/grounds/`:
   slopes (saddles, wedges) get one Lambert face per coplanar region
   rather than a single averaged shade. Cell layout names follow
   pakset convention (`texture-hex-lightmap.<row>.<col>`).
-- `texture-hex-lightmap.dat` — `Obj=ground`, `Name=HexLightTexture`,
+- `texture-hex-lightmap.dat` — `Obj=ground`, `Name=LightTexture`,
   one `Image[<slope_t>][0]` entry per normalised slope shape, indexed
   by the **raw `slope_t` value itself** (base-4 per corner: E=1,
   SE=4, SW=16, W=64, NW=256, NE=1024). The engine's hex-aware ground
@@ -448,7 +448,7 @@ texture-climate[c])`, mirroring the square pakset's
 **Engine consumption is the next blocker.** The engine's
 `get_ground_tile` still indexes via `climate_image[c] +
 doubleslope_to_imgnr[slope]` (square projection, 81 slopes); a
-hex-aware lookup that consumes the 340-slope `HexLightTexture` block
+hex-aware lookup that consumes the 340-slope `LightTexture` block
 is engine-side work. Until that lands, the synth path keeps serving
 ground tiles in-process and the baked PNG sits unused on disk.
 
@@ -483,7 +483,7 @@ yellow `OUTLINE_COLOR` (which is for the in-process synth path
 only).  `build_pakset.py` runs the renderer for every valid hex
 slope and bakes `landscape/grounds/borders.{png,dat}`, replacing
 the upstream 27-entry square deliverable on this fork.  The .dat
-indexes by raw `slope_t` (same convention as `HexLightTexture`).
+indexes by raw `slope_t` (same convention as `LightTexture`).
 Engine consumption is the next blocker — `get_border_image` still
 packs `(slope&1) + ((slope>>1)&6)` into 8 square indices; needs
 the same hex-aware lookup as `get_ground_tile`.
@@ -514,7 +514,7 @@ this fork.  The atlas is 282 cells (141 fronts in
 `iter_valid_slopes()` order followed by 141 backs in the same
 order); the .dat emits two `Image[<slope_t>][k]` entries per
 slope (`k=0` front, `k=1` back) indexed by raw `slope_t` (same
-convention as `HexLightTexture` / `Borders`).  Engine consumption
+convention as `LightTexture` / `Borders`).  Engine consumption
 is the next blocker — `get_marker_image` still uses the legacy
 square hang-formula (`hang%27` / `(hang%3) + ((hang-(hang%9))/3)`)
 into 27-entry compact ranges; needs the same hex-aware lookup as
@@ -523,7 +523,7 @@ the other synth families.
 ### What's missing
 
 - Engine-side hex lookup that indexes the raw-`slope_t` blocks
-  (`HexLightTexture`, `Borders`, `Marker`) instead of the square
+  (`LightTexture`, `Borders`, `Marker`) instead of the square
   `climate_image[c] + doubleslope_to_imgnr[slope]` /
   `(slope&1) + ((slope>>1)&6)` / hang-formula paths. Without it,
   the baked atlases sit on disk unused.
@@ -539,7 +539,7 @@ the other synth families.
 1. Engine work to consume the new pakset block. On the hex branch
    of `SupraSummus/hextrans`, add a `get_hex_ground_tile(slope, c)`
    path that looks up the 0..339 compact slope index against
-   `HexLightTexture`'s `climate_image_hex[c]` block, parallel to
+   `LightTexture`'s `climate_image_hex[c]` block, parallel to
    the existing square `get_ground_tile`. Once it lands, flip
    `synth_overlay::prefer_over_pakset` to false on a pakset with
    `texture-hex-lightmap` and verify in-game.
