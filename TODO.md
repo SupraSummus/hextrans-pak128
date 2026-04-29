@@ -75,32 +75,40 @@ dimetric exactly. Cross-check that the rasterizer reproduces the
 engine projection bit-for-bit, not just close enough — pick this
 up before scaling to many assets where rounding errors compound.
 
-**Naming rule for hex-baked deliverables not pinned in CLAUDE.md.**
-Two patterns have landed: lightmap kept the legacy `texture-`
-prefix and inserted `hex-` (`texture-hex-lightmap.{png,dat}`);
-borders overwrote the legacy `borders.{png,dat}` directly.  Pick
-one rule for marker / alpha / back_wall and write it into
-CLAUDE.md's repo-layout section before the next bake.
-
-**Bake-script duplication.** `landscape/grounds/*/build_pakset.py`
-is ~70% boilerplate copy across asset families: identical CLI,
-output-dir resolution, atlas write, dat write loop, per-line
-corner comment.  Only the `Obj=…/Name=…` and the dat-header doc
-text differ.  Once a third family lands (marker is next), fold
-into `hex_synth.bake_pakset(asset_name, obj_name, render_fn,
-header_doc)` so each per-asset baker shrinks to ~10 lines.  At
-N=2 the right abstraction isn't obvious (does the dat-header want
-templating, or just verbatim per-asset?), so wait for the third
-example to disambiguate.
-
-**Re-bake CI check.** `landscape/grounds/texture-hex-lightmap.{png,dat}`
-and `landscape/grounds/borders.{png,dat}` are committed alongside
+**Re-bake CI check.** `landscape/grounds/texture-hex-lightmap.{png,dat}`,
+`landscape/grounds/borders.{png,dat}`, and
+`landscape/grounds/marker.{png,dat}` are committed alongside
 their generators.  Re-running `build_pakset.py` for each should
-produce a byte-identical diff.  Add a CI job that does the re-run
-and fails on diff so the committed deliverable can't drift from
-the source.  Same pattern will apply to the future synth families
-(marker, alpha, back_wall) and to bespoke models once one
+produce a byte-identical diff (manually verified after the
+`hex_synth.bake_pakset` refactor).  Add a CI job that does the
+re-run and fails on diff so the committed deliverable can't
+drift from the source.  Same pattern will apply to the future
+synth families (alpha, back_wall) and to bespoke models once one
 graduates to producing packaged output.
+
+**`Image[<slope>][k]` second-axis semantics on the engine writer.**
+The marker baker emits `Image[<slope>][0]` (front) and
+`Image[<slope>][1]` (back) under one `Obj=ground / Name=Marker`
+block — using `[k]` as a front/back discriminator rather than the
+season axis it conventionally is.  Lightmap and borders only use
+`[0]`, so this encoding hasn't been exercised yet.  Whether
+`descriptor/writer/ground_writer.cc` (or whatever ends up parsing
+the hex marker block) preserves `[k]>0` for `Obj=ground` is
+unverified.  If it doesn't, the alternatives are a split-by-
+offset encoding (`Image[<slope>][0]` front, `Image[<slope>+4096][0]`
+back) or a separate `Obj=ground / Name=MarkerBack` block.  Pin
+this when wiring the engine-side hex marker lookup, before any
+in-game test depends on the current shape.
+
+**`bake_pakset` only iterates over slopes.** Today
+`hex_synth.bake_pakset` iterates `iter_valid_slopes() × halves`
+and indexes the .dat by raw `slope_t`.  back_wall is keyed by
+`(wall, index)` rather than slope (cliff faces are not slope-
+keyed; see `synth_overlay.cc::build_back_wall`), so when that
+family lands the helper either grows an `iter_keys` parameter
+plus a `key → image-index` mapping, or back_wall gets a sibling
+helper.  Decide which when starting back_wall — at N=1 for the
+non-slope-keyed shape the right factoring isn't obvious yet.
 
 **Sheet-coordinate compass cross-check on the bridge.** I
 established N=upper-right / E=lower-right / S=lower-left /
