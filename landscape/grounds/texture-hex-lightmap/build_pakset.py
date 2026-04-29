@@ -40,26 +40,10 @@ import argparse
 import sys
 from pathlib import Path
 
-import numpy as np
 from PIL import Image
 
 import render
-
-
-def build_lightmap_atlas(geom: render.HexGeom, cols: int):
-    """Return (atlas_rgba, slope_layout) — atlas + the (raw_slope, row, col)
-    list in pakset emission order."""
-    valid = list(render.iter_valid_slopes())
-    rows = (len(valid) + cols - 1) // cols
-    cell_w, cell_h = geom.w, geom.h
-    atlas = np.zeros((rows * cell_h, cols * cell_w, 4), dtype=np.uint8)
-    layout: list[tuple[int, int, int]] = []
-    for idx, slope in enumerate(valid):
-        r, c = divmod(idx, cols)
-        cell = render.render_lightmap(slope, geom=geom)
-        atlas[r * cell_h:(r + 1) * cell_h, c * cell_w:(c + 1) * cell_w] = cell
-        layout.append((slope, r, c))
-    return atlas, layout, rows
+from render import hex_synth
 
 
 def write_dat(path: Path, layout, rows: int, cols: int, sheet_basename: str):
@@ -118,8 +102,11 @@ def main():
         args.out_dir = Path(__file__).resolve().parent.parent
     args.out_dir.mkdir(parents=True, exist_ok=True)
 
-    geom = render.HexGeom(raster_w=args.w)
-    atlas, layout, rows = build_lightmap_atlas(geom, args.cols)
+    geom = hex_synth.HexGeom(raster_w=args.w)
+    atlas, layout, rows = hex_synth.build_atlas(
+        geom, args.cols,
+        lambda s, g: render.render_lightmap(s, geom=g),
+    )
 
     png_path = args.out_dir / f"{args.basename}.png"
     dat_path = args.out_dir / f"{args.basename}.dat"

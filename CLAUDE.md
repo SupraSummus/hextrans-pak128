@@ -312,10 +312,14 @@ landscape/grounds/                       # parametric pipeline lives here
   texture-hex-lightmap.png               # baked deliverable (committed; makeobj input)
   texture-hex-lightmap.dat               # baked deliverable (committed; makeobj input)
   texture-hex-lightmap/                  # source for the deliverable above
-    render.py                            # canonical per-slope renderer
+    render.py                            # per-slope lightmap cell
+    build_pakset.py                      # bake the full atlas + .dat
+  borders.png / borders.dat              # baked deliverable (committed)
+  borders/                               # source for the deliverable above
+    render.py                            # per-slope grid-line cell
     build_pakset.py                      # bake the full atlas + .dat
   …                                      # (other ground/.dat families to follow:
-                                         #  marker/, borders/, alpha/, back_wall/)
+                                         #  marker/, alpha/, back_wall/)
 
 infrastructure/rail_bridges/             # bespoke pipeline lives next to source art
   rail_060_bridge.png                    # upstream pakset art (kept; supervisory ref)
@@ -440,15 +444,41 @@ ground tiles in-process and the baked PNG sits unused on disk.
   debug PNG.
 - `tools/3d/render.py` — numpy z-buffer rasterizer with
   layer tagging (now used by `rail_060_bridge`).
+- `tools/3d/hex_synth.py` — shared engine-mirror utilities for
+  the parametric pipeline: `HexGeom` (per-slope vertex layout),
+  raw-`slope_t` decoding, `iter_valid_slopes()`,
+  `find_min_partition` (port of `synth_plane_partition.h`),
+  Lambert lighting, polygon fill, Bresenham `draw_line`, and
+  `build_atlas` (per-asset bakers pass a `render_cell` callback).
+  Keeps the lightmap and borders bakers in lockstep with each
+  other and with `synth_geometry.h` / `synth_overlay.cc`.
+
+### Parametric pipeline: hex grid-border deliverable baked
+
+`landscape/grounds/borders/render.py` is the canonical renderer
+for hex grid-line cells, mirroring `synth_overlay::build_border`:
+a closed 6-edge hex outline at the slope's lifted vertices, drawn
+in pak128 dark-grey (32, 32, 32) on a transparent background.
+Style matches the legacy `borders.png`, not the engine's debug
+yellow `OUTLINE_COLOR` (which is for the in-process synth path
+only).  `build_pakset.py` runs the renderer for every valid hex
+slope and bakes `landscape/grounds/borders.{png,dat}`, replacing
+the upstream 27-entry square deliverable on this fork.  The .dat
+indexes by raw `slope_t` (same convention as `HexLightTexture`).
+Engine consumption is the next blocker — `get_border_image` still
+packs `(slope&1) + ((slope>>1)&6)` into 8 square indices; needs
+the same hex-aware lookup as `get_ground_tile`.
 
 ### What's missing
 
-- Engine-side hex lookup that indexes the 340-slope
-  `HexLightTexture` block (instead of the square
-  `climate_image[c] + doubleslope_to_imgnr[slope]` path).
-  Without it, the baked atlas sits on disk unused.
-- Renderer + atlas for the other synth families (marker, border,
-  alpha, back-wall).
+- Engine-side hex lookup that indexes the raw-`slope_t` blocks
+  (`HexLightTexture`, `Borders`) instead of the square
+  `climate_image[c] + doubleslope_to_imgnr[slope]` /
+  `(slope&1) + ((slope>>1)&6)` paths. Without it, both baked
+  atlases sit on disk unused.
+- Renderer + atlas for the remaining synth families (marker,
+  alpha, back-wall). Should drop in cleanly via the
+  `tools/3d/hex_synth.py` shared module.
 
 ### Recommended next iteration
 
@@ -459,9 +489,10 @@ ground tiles in-process and the baked PNG sits unused on disk.
    the existing square `get_ground_tile`. Once it lands, flip
    `synth_overlay::prefer_over_pakset` to false on a pakset with
    `texture-hex-lightmap` and verify in-game.
-2. Repeat the bake-and-commit pattern for the next synth family
-   (marker is simplest — no climate axis, no shading) once the
-   engine ships a pakset-driven hex marker lookup.
+2. Repeat the bake-and-commit pattern for the remaining synth
+   families. Borders is done; marker is simplest of the rest (no
+   climate axis, no shading — split front/back halves like the
+   engine's `build_marker`).
 
 The first asset for the bespoke pipeline (vehicles or a simple
 bridge) can start in parallel once the parametric pipeline's renderer
