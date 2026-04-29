@@ -174,7 +174,10 @@ calclight:
 	@echo "===> MAKE lightmaps and borders (not recommended)"
 	@$(LIGHTMAP) -pak128 -marker16 -c#0xFF8000 landscape/grounds/marker.png
 	@$(LIGHTMAP) -pak128 -marker16 -c#0x202020 landscape/grounds/borders.png
-	@$(LIGHTMAP) -pak128 -slope16 -bright128 landscape/grounds/texture-lightmap.png
+
+bake-hex-lightmap:
+	@echo "===> BAKE landscape/grounds/texture-hex-lightmap.{png,dat}"
+	@python3 landscape/grounds/texture-hex-lightmap/build_pakset.py
 
 merge:
 
@@ -182,6 +185,5 @@ clean:
 	@echo "===> CLEAN"
 #	@rm ground/marker.png
 #	@rm ground/borders.png
-#	@rm ground/texture-lightmap.png
 	@rm -fr $(PAKDIR) $(DESTFILE).tbz2 $(DESTFILE).zip
 
