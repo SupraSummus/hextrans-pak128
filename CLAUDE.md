@@ -331,6 +331,10 @@ landscape/grounds/                       # parametric pipeline lives here.
     build_pakset.py                      # bake the full atlas + .dat
     legacy_reference.png                 # upstream pak128 art kept for compare.py
     compare.py                           # qualitative side-by-side eval
+  texture-shore/
+    texture-shore.png / texture-shore.dat # baked deliverable (committed; makeobj input)
+    render.py                            # per-(slope, water_mask) ALPHA_RED beach mask
+    build_pakset.py                      # bake the full atlas + .dat
   …                                      # (other ground/.dat families to follow:
                                          #  alpha/, back_wall/)
 
