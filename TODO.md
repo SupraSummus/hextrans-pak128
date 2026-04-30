@@ -128,15 +128,15 @@ into the alpha shore-transition family.
 top-K hash speckle that reads as uniform-random sparkle rather
 than the layered, clustered glints of pak128's palette art.  Two
 measurable gaps remain against the legacy: (a) motion energy/cycle
-412 vs 201 — the 31→0 stage wrap is a forced full re-hash since
-the slow-stage ratchet drops back to 0; cross-fading two hash sets
-phased on `cos(2π t/32)` / `sin(2π t/32)` would loop without a
-global jump.  (b) Per-frame stddev 13.8 vs 8.8 — single-tier glint
-amplitude too high; multi-tier brightness (e.g. 4% + 4% + 4% at
-staggered deltas) would lower contrast while keeping mean exact.
-Both deferred until the deliverable is in-game and the cartoon-vs-
-realistic balance can be judged against the rest of the hex
-tileset.
+392 vs 201 — per-frame ~1 / GLINT_PERSISTENCE re-hash is still
+roughly twice the legacy shimmer rate; raising GLINT_PERSISTENCE
+or cross-fading two hash sets phased on `cos(2π t/32)` /
+`sin(2π t/32)` would lower it.  (b) Per-frame stddev 13.8 vs 8.8 —
+single-tier glint amplitude too high; multi-tier brightness (e.g.
+4% + 4% + 4% at staggered deltas) would lower contrast while
+keeping mean exact.  Both deferred until the deliverable is in-game
+and the cartoon-vs-realistic balance can be judged against the
+rest of the hex tileset.
 
 **`bake_pakset` only iterates over slopes.** Today
 `hex_synth.bake_pakset` iterates `iter_valid_slopes() × halves`
