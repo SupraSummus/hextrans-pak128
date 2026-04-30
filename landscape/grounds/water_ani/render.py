@@ -66,6 +66,12 @@ LEGACY_DEEPEST_FACTOR = 0.78
 GLINT_FRACTION = 0.12
 GLINT_PERSISTENCE = 8
 
+# Loop closure: slow_stage must wrap mod N_SLOW_STAGES at frame N_STAGES.
+# Requires GLINT_PERSISTENCE | N_STAGES; otherwise the 31 → 0 transition
+# re-hashes every glint at once instead of ~1 / GLINT_PERSISTENCE.
+assert N_STAGES % GLINT_PERSISTENCE == 0
+N_SLOW_STAGES = N_STAGES // GLINT_PERSISTENCE
+
 
 def depth_shade_factor(depth: int) -> float:
     if N_DEPTHS <= 1:
@@ -83,13 +89,16 @@ def _stage_hash(xs: np.ndarray, ys: np.ndarray, stage: int) -> np.ndarray:
     A static per-pixel phase staggers when each pixel's slow_stage
     advances, so consecutive frames re-hash only ~1 / GLINT_PERSISTENCE
     of pixels.  Multiply-XOR-mix is cheap and deterministic — not a
-    real PRNG, just enough decorrelation between slow_stages.
+    real PRNG, just enough decorrelation between slow_stages.  The
+    final mod N_SLOW_STAGES closes the loop at the engine's
+    stage 31 → 0 wrap.
     """
     xs_u = xs.astype(np.uint32)
     ys_u = ys.astype(np.uint32)
     phase = (xs_u * np.uint32(0x12345) + ys_u * np.uint32(0x67891)) \
         % np.uint32(GLINT_PERSISTENCE)
-    slow_stage = (np.uint32(stage) + phase) // np.uint32(GLINT_PERSISTENCE)
+    slow_stage = ((np.uint32(stage) + phase) // np.uint32(GLINT_PERSISTENCE)) \
+        % np.uint32(N_SLOW_STAGES)
 
     h = (xs_u * np.uint32(0x9E3779B1)) ^ \
         (ys_u * np.uint32(0x85EBCA6B)) ^ \
