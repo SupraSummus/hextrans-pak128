@@ -77,14 +77,15 @@ def _hash_noise01(x: np.ndarray, y: np.ndarray) -> np.ndarray:
 
 
 def _wetness_field(slope: int, water_mask: int,
-                   geom: hex_synth.HexGeom) -> tuple[np.ndarray, np.ndarray]:
-    """Compute the per-pixel wetness ∈ [0, 1] inside the slope's
-    hex silhouette, and a boolean mask of which pixels are inside.
+                   geom: hex_synth.HexGeom) -> np.ndarray:
+    """Per-pixel wetness ∈ [0, 1] over the full geom rectangle.
 
     Wetness is barycentric over each of the 6 centre-fan triangles
     `(corner_i, corner_(i+1), centre)`; centre's wetness is the mean
-    of the 6 corners.  Returns `(wetness, inside)` as `(H, W)`-shaped
-    float32 / bool arrays.
+    of the 6 corners.  Pixels outside every centre-fan triangle
+    (rare edge slivers near the silhouette boundary) default to the
+    centroid wetness — only `silhouette_mask` decides whether they
+    get painted at all.
     """
     vx = np.array(geom.vx, dtype=np.float32)
     vy = np.array(geom.lifted_vy(slope), dtype=np.float32)
@@ -100,8 +101,8 @@ def _wetness_field(slope: int, water_mask: int,
     ys = np.arange(geom.h, dtype=np.float32) + 0.5
     px, py = np.meshgrid(xs, ys)  # both (H, W)
 
-    wetness = np.zeros((geom.h, geom.w), dtype=np.float32)
-    inside = np.zeros((geom.h, geom.w), dtype=bool)
+    wetness = np.full((geom.h, geom.w), cw, dtype=np.float32)
+    assigned = np.zeros((geom.h, geom.w), dtype=bool)
 
     for i in range(hex_synth.CORNER_COUNT):
         j = (i + 1) % hex_synth.CORNER_COUNT
@@ -114,26 +115,28 @@ def _wetness_field(slope: int, water_mask: int,
         u = ((by - cy) * (px - cx) + (cx - bx) * (py - cy)) / denom
         v = ((cy - ay) * (px - cx) + (ax - cx) * (py - cy)) / denom
         w = 1.0 - u - v
-        in_tri = (u >= 0) & (v >= 0) & (w >= 0) & ~inside
+        in_tri = (u >= 0) & (v >= 0) & (w >= 0) & ~assigned
         wetness[in_tri] = (u[in_tri] * aw + v[in_tri] * bw + w[in_tri] * cw)
-        inside |= in_tri
+        assigned |= in_tri
 
-    return wetness, inside
+    return wetness
 
 
 def render_shore(slope: int, water_mask: int,
                  geom: hex_synth.HexGeom | None = None) -> np.ndarray:
     """Render one `(slope, water_mask)` shore-transition cell.
 
-    Output is HxWx4 RGBA: pixels inside the slope-lifted hex
-    silhouette carry one of `{RED, BLUE}` chosen by dithered
-    wetness; pixels outside stay alpha=0 so makeobj's PNG → RLE
-    encoder skips them at compile time.
+    Output is HxWx4 RGBA.  Alpha mask is `hex_synth.silhouette_mask`,
+    bit-identical to the lightmap baker's silhouette so the engine's
+    `draw_alpha` walks source and alpha streams in lockstep without
+    a runtime normalisation cache.  Inside pixels carry `RED` or
+    `BLUE` chosen by dithered wetness; outside pixels stay alpha=0.
     """
     if geom is None:
         geom = hex_synth.HexGeom()
 
-    wetness, inside = _wetness_field(slope, water_mask, geom)
+    silhouette = hex_synth.silhouette_mask(slope, geom)
+    wetness = _wetness_field(slope, water_mask, geom)
 
     xs = np.arange(geom.w, dtype=np.uint32)
     ys = np.arange(geom.h, dtype=np.uint32)
@@ -143,8 +146,8 @@ def render_shore(slope: int, water_mask: int,
     # uniform colour.
     jitter = (_hash_noise01(gx, gy) - 0.5) * 0.8
 
-    is_wet = inside & ((wetness + jitter) >= 0.5)
-    is_dry = inside & ~is_wet
+    is_wet = silhouette & ((wetness + jitter) >= 0.5)
+    is_dry = silhouette & ~is_wet
 
     buf = np.zeros((geom.h, geom.w, 4), dtype=np.uint8)
     buf[is_wet] = SHORE_RED
