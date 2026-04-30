@@ -32,12 +32,18 @@ import numpy as np
 
 # ---- Engine constants (from `src/simutrans/descriptor/synth_geometry.h`) ----
 
-# pak128 raster width.  `u = W/4` is the natural lattice unit.  At
-# height_step=16 this gives a 128x128 hex bbox that drops into the
-# pakset's 128x128 cell layout without padding.  Override via --w when
+# pak128 raster width.  `u = W/4` is the natural lattice unit and
+# drops into the pakset's 128x128 cell layout.  Override via --w when
 # producing pak64 (W=64) or other sizes.
 DEFAULT_W = 128
-HEIGHT_STEP = 16  # env_t::pak_tile_height_step at runtime; 16 for pak64/pak128
+
+# Per-step logical height.  Matches `tile_height` in
+# `pak128.prototype/config/simuconf.tab` (8 since the 2013 "Pak128 Half
+# Height Conversion") and the engine's `env_t::pak_tile_height_step`.
+# Combined with the unhalved `hex_height_raster_scale_y` this gives a
+# 16-pixel screen lift per step at `W = 128`, the legacy pre-hex pak128
+# z scale.
+HEIGHT_STEP = 8
 
 
 def tile_raster_scale_y(v: int, rh: int) -> int:
@@ -46,9 +52,12 @@ def tile_raster_scale_y(v: int, rh: int) -> int:
 
 
 def hex_height_raster_scale_y(height_steps: int, w: int) -> int:
-    # `display/hex_proj.h`: half the legacy lift so base-elevation and
-    # per-corner relief stay in the same projection.
-    return tile_raster_scale_y(height_steps, w) // 2
+    # `display/hex_proj.h`: matches the legacy square
+    # `tile_raster_scale_y` so base-elevation, per-corner relief and
+    # object z-offsets share one projection.  An earlier revision
+    # halved this for the synthetic ground bbox; that motivation
+    # lapsed once pakset-owned `HexLightTexture` replaced synth ground.
+    return tile_raster_scale_y(height_steps, w)
 
 
 # ---- Hex corner indices (matching `hex_corner_t::type` in dataobj/ribi.h) --
