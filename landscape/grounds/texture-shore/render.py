@@ -81,11 +81,17 @@ def _wetness_field(slope: int, water_mask: int,
     """Per-pixel wetness ∈ [0, 1] over the full geom rectangle.
 
     Wetness is barycentric over each of the 6 centre-fan triangles
-    `(corner_i, corner_(i+1), centre)`; centre's wetness is the mean
-    of the 6 corners.  Pixels outside every centre-fan triangle
-    (rare edge slivers near the silhouette boundary) default to the
-    centroid wetness — only `silhouette_mask` decides whether they
-    get painted at all.
+    `(corner_i, corner_(i+1), centre)`.  The overlay is only ever
+    drawn on land tiles (`grund.cc::display`'s `if(get_typ()!=wasser)`
+    branch), so the wetness field has to be land-biased: water
+    encroaches from water corners, but the tile centre stays dry
+    unless every corner is water.  Picking `centre = mean(corners)`
+    instead would symmetrise red/blue around popcount = 3 and flood
+    the tile with water for popcount ≥ 4 (e.g. a thin land
+    peninsula with 5 water corners would lose its land bite).
+    Pixels outside every centre-fan triangle (rare edge slivers
+    near the silhouette boundary) default to the centroid wetness —
+    only `silhouette_mask` decides whether they get painted at all.
     """
     vx = np.array(geom.vx, dtype=np.float32)
     vy = np.array(geom.lifted_vy(slope), dtype=np.float32)
@@ -94,7 +100,7 @@ def _wetness_field(slope: int, water_mask: int,
 
     cx = float(vx.mean())
     cy = float(vy.mean())
-    cw = float(wet.mean())
+    cw = float(wet.min())
 
     # Pixel-centre coordinates over the full geom rectangle.
     xs = np.arange(geom.w, dtype=np.float32) + 0.5
@@ -141,12 +147,13 @@ def render_shore(slope: int, water_mask: int,
     xs = np.arange(geom.w, dtype=np.uint32)
     ys = np.arange(geom.h, dtype=np.uint32)
     gx, gy = np.meshgrid(xs, ys)
-    # Symmetric ±0.4 dither — wide enough to fuzz the boundary
-    # across ~6 px, narrow enough that pure interior corners stay a
-    # uniform colour.
-    jitter = (_hash_noise01(gx, gy) - 0.5) * 0.8
+    # Symmetric ±0.2 dither — keeps a soft gritty edge ~3 px wide
+    # without smearing the wet/dry boundary.  Threshold 0.65 biases
+    # the cut further toward land so the bake reads as "land tile
+    # with a water bite", not "half-and-half blend".
+    jitter = (_hash_noise01(gx, gy) - 0.5) * 0.4
 
-    is_wet = silhouette & ((wetness + jitter) >= 0.5)
+    is_wet = silhouette & ((wetness + jitter) >= 0.65)
     is_dry = silhouette & ~is_wet
 
     buf = np.zeros((geom.h, geom.w, 4), dtype=np.uint8)
