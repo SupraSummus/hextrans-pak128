@@ -76,8 +76,9 @@ engine projection bit-for-bit, not just close enough — pick this
 up before scaling to many assets where rounding errors compound.
 
 **Re-bake CI check.** `landscape/grounds/texture-hex-lightmap.{png,dat}`,
-`landscape/grounds/borders.{png,dat}`, and
-`landscape/grounds/marker.{png,dat}` are committed alongside
+`landscape/grounds/borders.{png,dat}`,
+`landscape/grounds/marker.{png,dat}`, and
+`landscape/grounds/water_ani.{png,dat}` are committed alongside
 their generators.  Re-running `build_pakset.py` for each should
 produce a byte-identical diff (manually verified after the
 `hex_synth.bake_pakset` refactor).  Add a CI job that does the
@@ -99,6 +100,43 @@ offset encoding (`Image[<slope>][0]` front, `Image[<slope>+4096][0]`
 back) or a separate `Obj=ground / Name=MarkerBack` block.  Pin
 this when wiring the engine-side hex marker lookup, before any
 in-game test depends on the current shape.
+
+**Hex-aware texture composition for shore water.** The engine's
+`get_water_tile(slope, stage)` path produces shore-water sprites by
+calling `create_texture_from_tile(sea->get_image_ptr(0, stage),
+boden_texture[water_climate])` — the water_ani[0][stage] cell is
+treated as a transparency-keyed overlay multiplied with the
+climate's water texture from `texture-climate.png`.  The function
+hardcodes square-dimetric tile-replication offsets (`±ref_w/2,
+±ref_w/4`) to splat the cell into a tileable square texture.  Those
+offsets don't tile a hex silhouette correctly, so any shore tile
+rendered through this path will produce wrong pixels under hex.
+Lives engine-side (`SupraSummus/hextrans`,
+`descriptor/ground_desc.cc::create_texture_from_tile`); blocks
+visually-correct shore water on the hex grid even with a per-slope
+water_ani bake.
+
+**Per-slope water_ani.** The `landscape/grounds/water_ani/` baker
+covers all 6 × 32 (depth, stage) cells but only at the flat slope.
+`get_water_tile`'s slope axis (`stage + water_animation_stages *
+doubleslope_to_imgnr[slope]`) is still collapsed to slope_idx = 0.
+Pick up after a design call on whether the hex pakset ships per-
+slope shoreline tiles in `Water` or pushes the wet/dry boundary
+into the alpha shore-transition family.
+
+**Water_ani art is procedural-placeholder.** The renderer is a
+top-K hash speckle that reads as uniform-random sparkle rather
+than the layered, clustered glints of pak128's palette art.  Two
+measurable gaps remain against the legacy: (a) motion energy/cycle
+412 vs 201 — the 31→0 stage wrap is a forced full re-hash since
+the slow-stage ratchet drops back to 0; cross-fading two hash sets
+phased on `cos(2π t/32)` / `sin(2π t/32)` would loop without a
+global jump.  (b) Per-frame stddev 13.8 vs 8.8 — single-tier glint
+amplitude too high; multi-tier brightness (e.g. 4% + 4% + 4% at
+staggered deltas) would lower contrast while keeping mean exact.
+Both deferred until the deliverable is in-game and the cartoon-vs-
+realistic balance can be judged against the rest of the hex
+tileset.
 
 **`bake_pakset` only iterates over slopes.** Today
 `hex_synth.bake_pakset` iterates `iter_valid_slopes() × halves`

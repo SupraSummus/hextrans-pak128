@@ -488,6 +488,57 @@ Engine consumption is the next blocker — `get_border_image` still
 packs `(slope&1) + ((slope>>1)&6)` into 8 square indices; needs
 the same hex-aware lookup as `get_ground_tile`.
 
+### Parametric pipeline: hex water_ani deliverable baked
+
+`landscape/grounds/water_ani/render.py` is the canonical renderer
+for animated open-water cells.  Unlike lightmap / borders / marker,
+water has no `synth_overlay::*` reference path on the engine side —
+the renderer itself is the source of truth, and the diff against
+the legacy square `water_ani.png` is qualitative (same kind of
+muted-blue surface, hex silhouette instead of diamond).  The 32-
+frame loop is two superposed sine waves with integer-wavelength
+counts inside the period so frame 31 reads back into frame 0
+seamlessly; the base colour is `(60, 95, 130)` muted navy/teal,
+modulated by ±9 RGB units of ripple.  Outside the hex silhouette is
+`alpha = 0` (matching borders / marker), not the
+`(231, 255, 255)` transparency-key colour the legacy square
+`water_ani.png` uses.
+
+`build_pakset.py` is standalone (doesn't go through
+`hex_synth.bake_pakset`) — that helper iterates valid slopes ×
+halves, but water_ani's atlas axes are `(depth, stage)` rather
+than slope-keyed.  The .dat emits all 6 × 32 = 192 cells under
+one `Obj=ground / Name=Water` block, matching the legacy row count
+exactly.  All `(depth, stage)` cells are required: the engine's
+wasser_t draw path (`grund.cc::display`) calls
+`sea->get_image(depth, stage)` with the running animation stage
+on every depth tier, so leaving stages 1..31 of a deep-water tier
+undeclared would flicker the sprite out for 31/32 of every cycle.
+The engine clamps depth at `water_depth_levels = count - 2` (= 4
+for our N_DEPTHS = 6); depth 5 is reserved / unreachable but kept
+to match the legacy row count and the `count - 2` formula.  Atlas
+is 16×12 cells (2048×1536 px), overwriting the legacy on this fork.
+
+Image[0][stage] is also consumed on a second engine path —
+`create_texture_from_tile` in `ground_desc.cc` uses it as a
+transparency-keyed overlay multiplied with the climate's water
+texture for shore tiles via `get_water_tile(slope, stage)`.  That
+path hardcodes square-dimetric tile-replication offsets (cell +
+copies at `±ref_w/2, ±ref_w/4`) so it doesn't currently produce
+correct output for hex-silhouette overlays — engine-side hex port
+issue, not fixable from the pakset side.
+
+The depth ramp matches the legacy per-row mean RGB within ~1 unit
+per channel ((79, 90, 117) at depth 0 → (62, 70, 91) at depth 5,
+~5% darker per channel per tier).
+
+This is still **flat-only on slope**.  `get_water_tile`'s second
+axis (`stage + water_animation_stages * doubleslope_to_imgnr[slope]`)
+collapses to slope_idx = 0 here pending engine-side hex water lookup
+and a design call on whether the hex pakset ships per-slope
+shoreline tiles in `Water` or pushes the wet/dry boundary entirely
+into the alpha shore-transition family.
+
 ### Parametric pipeline: hex marker deliverable baked
 
 `landscape/grounds/marker/render.py` is the canonical renderer
@@ -526,7 +577,10 @@ the other synth families.
   (`LightTexture`, `Borders`, `Marker`) instead of the square
   `climate_image[c] + doubleslope_to_imgnr[slope]` /
   `(slope&1) + ((slope>>1)&6)` / hang-formula paths. Without it,
-  the baked atlases sit on disk unused.
+  the baked atlases sit on disk unused.  Water_ani has the same
+  blocker on the engine side (`ground_desc.cc::get_water_tile`
+  still uses `doubleslope_to_imgnr`) plus a one-tier-vs-many-tiers
+  decision before the second axis is meaningful.
 - Renderer + atlas for the remaining synth families (alpha,
   back-wall). Should drop in cleanly via the
   `tools/3d/hex_synth.py` shared module — `bake_pakset` already
