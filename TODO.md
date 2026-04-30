@@ -75,18 +75,6 @@ dimetric exactly. Cross-check that the rasterizer reproduces the
 engine projection bit-for-bit, not just close enough — pick this
 up before scaling to many assets where rounding errors compound.
 
-**Re-bake CI check.** `landscape/grounds/texture-lightmap/texture-lightmap.{png,dat}`,
-`landscape/grounds/borders/borders.{png,dat}`,
-`landscape/grounds/marker/marker.{png,dat}`, and
-`landscape/grounds/water_ani/water_ani.{png,dat}` are committed alongside
-their generators.  Re-running `build_pakset.py` for each should
-produce a byte-identical diff (manually verified after the
-`hex_synth.bake_pakset` refactor).  Add a CI job that does the
-re-run and fails on diff so the committed deliverable can't
-drift from the source.  Same pattern will apply to the future
-synth families (alpha, back_wall) and to bespoke models once one
-graduates to producing packaged output.
-
 **`Image[<slope>][k]` second-axis semantics on the engine writer.**
 The marker baker emits `Image[<slope>][0]` (front) and
 `Image[<slope>][1]` (back) under one `Obj=ground / Name=Marker`

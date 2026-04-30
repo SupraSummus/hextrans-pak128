@@ -11,3 +11,19 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - run: ./check_changelog.sh pak128.prototype/doc/changelog.txt
+
+  rebake-constant:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - run: pip install numpy Pillow
+      - name: Re-run parametric bakers
+        run: |
+          for builder in landscape/grounds/*/build_pakset.py; do
+            python3 "$builder"
+          done
+      - name: Verify byte-identical output
+        run: git diff --exit-code -- landscape/grounds/
