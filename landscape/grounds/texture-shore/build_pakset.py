@@ -5,18 +5,15 @@ Thin caller of `hex_synth.bake_pakset` — see that helper for the
 shared atlas / .dat / argparse skeleton across synth-overlay
 families.  Shore is the first family to use the variable-axis
 `iter_entries` plumbing rather than `slope_keyed_entries`: cells
-live on a `(slope, water_mask)` grid where the second axis size
-depends on the slope (only subsets of zero-height corners can be
-water corners on real terrain), so the iterator yields one entry
-per realisable combination — 827 of them out of the
-141-slope × 63-mask product.
+live on a `(slope, water_mask)` grid where the realisable second-
+axis values depend on the slope (see HEADER_DOC below for the
+realisability rule).
 
 Run:
     python3 build_pakset.py [--w 128] [--cols 12] [--out-dir <dir>]
 
 Re-running this script should produce a byte-identical diff
-against the committed PNG/.dat (a future CI check will enforce
-that).
+against the committed PNG/.dat (CI's lint workflow enforces it).
 """
 
 from __future__ import annotations
@@ -29,9 +26,15 @@ from render import hex_synth
 
 HEADER_DOC = """\
 One Image[<slope_t>][<water_mask>] entry per (slope, water_corner_mask)
-combination realisable on real terrain — a water corner must sit at
-ch==0 (sea level), so the mask is enumerated over subsets of the
-slope's zero-height corners only.
+combination realisable on real terrain.  The engine's
+`grund.cc::display` builds `water_corners` by walking each hex corner
+and setting bit `ci` when one of the corner's three vertex-owners is
+the water climate AND the home-tile vertex height matches.  A water
+tile is flat at sea level with all corners at h==0, and per-vertex
+height is shared between neighbours, so a water neighbour can border
+us only across an edge whose *both* endpoints are at h==0.  A wet edge
+therefore sets a 2-bit corner pair in the mask; single-bit masks can't
+appear on real terrain and aren't emitted.
 
 The .dat indexes by raw `slope_t` (base-4 per corner: E=1, SE=4, SW=16,
 W=64, NW=256, NE=1024) and the 6-bit water mask (E=1, SE=2, SW=4, W=8,
@@ -39,10 +42,10 @@ NW=16, NE=32) so the engine's hex-aware shore lookup can call
 `transition_water_texture->get_image(slope, water_corners)` directly.
 
 The atlas stays packed (sequential cell positions); the index space is
-sparse — invalid `slope_t` values, masks containing lifted corners,
-and the empty mask never appear, and the engine reads them as
-IMG_EMPTY.  Those combinations can't appear on real terrain so the
-lookup never requests them.
+sparse — invalid `slope_t` values, the empty mask, masks with lifted
+corners, and masks with an isolated wet bit never appear, and the
+engine reads them as IMG_EMPTY.  Those combinations can't appear on
+real terrain so the lookup never requests them.
 
 Sparsity: {n_entries} populated entries out of {n_slots} declared image
 slots × 64 mask values.
@@ -60,24 +63,22 @@ corner water-flag tuple, both as (E SE SW W NW NE).
 
 def _shore_entries(geom):
     """Yield `(slope, water_mask, render_args, comment)` for every
-    realisable shore cell.
-
-    Outer loop: valid hex slopes in `iter_valid_slopes()` order.
-    Inner loop: nonempty subsets of that slope's zero-height
-    corners, ordered by raw water_mask value (1..63).  Masks
-    containing lifted corners are excluded — they can't appear on
-    real terrain because `grund.cc::display` only sets a
-    `water_corners` bit when the vertex sits at sea level.
+    realisable shore cell — see HEADER_DOC for the engine reasoning
+    behind the predicate.
     """
+    n = hex_synth.CORNER_COUNT
     for slope in hex_synth.iter_valid_slopes():
         ch = hex_synth.decode_corner_heights(slope)
-        zero_corners = [i for i in range(hex_synth.CORNER_COUNT) if ch[i] == 0]
-        for sub in range(1, 1 << len(zero_corners)):
-            water_mask = 0
-            for k, ci in enumerate(zero_corners):
-                if sub & (1 << k):
-                    water_mask |= 1 << ci
-            wets = [(water_mask >> i) & 1 for i in range(hex_synth.CORNER_COUNT)]
+        for water_mask in range(1, 1 << n):
+            wets = [(water_mask >> i) & 1 for i in range(n)]
+            # Each wet corner must sit at h=0 (water tile is flat at
+            # sea level) AND have a wet neighbour mod 6 (a wet edge
+            # sets both endpoints, never one alone).
+            if any(w and (ch[i] != 0
+                          or not (wets[(i - 1) % n] or wets[(i + 1) % n]))
+                   for i, w in enumerate(wets)):
+                continue
+
             comment = (
                 f"corners=(E={ch[hex_synth.E]} SE={ch[hex_synth.SE]} "
                 f"SW={ch[hex_synth.SW]} W={ch[hex_synth.W_C]} "
