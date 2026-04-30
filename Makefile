@@ -66,6 +66,7 @@ DIRS128 += landscape/grounds
 DIRS128 += landscape/grounds/borders
 DIRS128 += landscape/grounds/marker
 DIRS128 += landscape/grounds/texture-lightmap
+DIRS128 += landscape/grounds/texture-shore
 DIRS128 += landscape/grounds/water_ani
 DIRS128 += landscape/rivers
 DIRS128 += landscape/trees

@@ -47,4 +47,5 @@ if __name__ == "__main__":
         obj_name="Borders",
         header_doc=HEADER_DOC,
         render_cell=lambda slope, half, geom: render.render_border(slope, geom=geom),
+        iter_entries=hex_synth.slope_keyed_entries(halves=1),
     )

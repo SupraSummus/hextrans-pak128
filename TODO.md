@@ -108,9 +108,32 @@ water_ani bake.
 covers all 6 × 32 (depth, stage) cells but only at the flat slope.
 `get_water_tile`'s slope axis (`stage + water_animation_stages *
 doubleslope_to_imgnr[slope]`) is still collapsed to slope_idx = 0.
-Pick up after a design call on whether the hex pakset ships per-
-slope shoreline tiles in `Water` or pushes the wet/dry boundary
-into the alpha shore-transition family.
+The shore-side equivalent is now done — `landscape/grounds/texture-
+shore/` bakes one ALPHA_RED-keyed alpha cell per realisable
+`(slope, water_mask)`, and the wet/dry boundary lives there — so
+this is the last slope-axis collapse in the parametric ground
+family.
+
+**Shore atlas in-game look unverified.** `landscape/grounds/
+texture-shore/` produces a per-`(slope, water_mask)` atlas with a
+2-colour (red / blue) ALPHA_RED-keyed mask + hashed dither at the
+boundary.  The bake reproduces the legacy gritty-soft-edge feel on
+synthetic samples but hasn't been compared against pak128's actual
+in-game shore on a real map; first interactive run with the hex
+engine should sanity-check the dither width (`±0.4` jitter, ~6 px
+band at W=128) and the wetness threshold (`0.5`) against pak128's
+beach.  Drop this entry once that's done.
+
+**Shore renderer doesn't share the family's scanline fill.**
+`landscape/grounds/texture-shore/render.py` does its own
+vectorised barycentric per centre-fan triangle rather than going
+through `hex_synth.fill_polygon` — `fill_polygon` paints uniform
+colour per region, but shore needs per-pixel wetness for the
+dither.  If a future asset wants the same per-pixel-varying-colour
+pattern, lift the barycentric+dither core into `hex_synth.py`
+(call it `fill_polygon_varying(buf, xs, ys, colour_for(u, v, w))`
+or similar).  Until that second caller exists, the asset-local
+copy in `render.py` is fine.
 
 **Water_ani art is procedural-placeholder.** The renderer is a
 top-K hash speckle that reads as uniform-random sparkle rather

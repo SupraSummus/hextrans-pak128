@@ -37,8 +37,8 @@ atlas stays packed (sequential cell positions, fronts first then backs),
 but the index space is sparse: invalid slope_t values (per-edge delta
 > 1 or min(corner_heights) != 0) don't appear and the engine reads them
 as IMG_EMPTY — those encodings can't appear on real terrain so the
-lookup never requests them.  Sparsity: {n_entries} populated slopes
-× {halves} halves out of {n_slots} declared image slots × {halves} halves.
+lookup never requests them.  Sparsity: {n_entries} populated cells
+(front + back per valid slope) out of {n_slots} declared image slots × 2.
 
 Per-line comment carries the per-corner height tuple (E SE SW W NW NE).
 """
@@ -52,5 +52,5 @@ if __name__ == "__main__":
         header_doc=HEADER_DOC,
         render_cell=lambda slope, half, geom: render.render_marker(
             slope, background=(half == 1), geom=geom),
-        halves=2,
+        iter_entries=hex_synth.slope_keyed_entries(halves=2),
     )

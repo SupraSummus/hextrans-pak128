@@ -14,8 +14,8 @@
 # but the index space is sparse: invalid slope_t values (per-edge delta
 # > 1 or min(corner_heights) != 0) don't appear and the engine reads them
 # as IMG_EMPTY — those encodings can't appear on real terrain so the
-# lookup never requests them.  Sparsity: 141 populated slopes
-# × 2 halves out of 3655 declared image slots × 2 halves.
+# lookup never requests them.  Sparsity: 282 populated cells
+# (front + back per valid slope) out of 3655 declared image slots × 2.
 #
 # Per-line comment carries the per-corner height tuple (E SE SW W NW NE).
 #
