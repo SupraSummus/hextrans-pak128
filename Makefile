@@ -63,6 +63,10 @@ DIRS128 += infrastructure/tram_tracks
 DIRS128 += infrastructure/water_all
 DIRS128 += landscape/groundobj_static
 DIRS128 += landscape/grounds
+DIRS128 += landscape/grounds/borders
+DIRS128 += landscape/grounds/marker
+DIRS128 += landscape/grounds/texture-lightmap
+DIRS128 += landscape/grounds/water_ani
 DIRS128 += landscape/rivers
 DIRS128 += landscape/trees
 DIRS128 += special_buildings/city
@@ -169,9 +173,9 @@ $(OUTSIDE): copy
 	$(MAKEOBJ) quiet PAK128 $(PAKDIR)/ $@/ > /dev/null
 	@rm $@/outside.dat
 
-bake-hex-lightmap:
-	@echo "===> BAKE landscape/grounds/texture-hex-lightmap.{png,dat}"
-	@python3 landscape/grounds/texture-hex-lightmap/build_pakset.py
+bake-lightmap:
+	@echo "===> BAKE landscape/grounds/texture-lightmap/texture-lightmap.{png,dat}"
+	@python3 landscape/grounds/texture-lightmap/build_pakset.py
 
 merge:
 

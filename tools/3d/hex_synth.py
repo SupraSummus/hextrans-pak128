@@ -541,11 +541,12 @@ def bake_pakset(*, script_path: Path, asset_name: str, obj_name: str,
 
     Args:
         script_path: caller's `Path(__file__).resolve()`.  Used to
-            derive the default `--out-dir` (one level up — the parent
-            `landscape/grounds/` directory) and the relative path
-            shown in the stderr summary.
+            derive the default `--out-dir` (the script's own
+            directory — the deliverable lives co-located with the
+            renderer) and the relative path shown in the stderr
+            summary.
         asset_name: filename basename for the deliverable
-            (`borders`, `marker`, `texture-hex-lightmap`, …).  Doubles
+            (`borders`, `marker`, `texture-lightmap`, …).  Doubles
             as the source-dir name (`script_path.parent.name`); the
             two are required to match by the co-location convention.
         obj_name: pakset `Name=…` field
@@ -571,8 +572,8 @@ def bake_pakset(*, script_path: Path, asset_name: str, obj_name: str,
                    help=f"raster tile width (default {DEFAULT_W})")
     p.add_argument("--cols", type=int, default=default_cols,
                    help=f"atlas columns (default {default_cols})")
-    p.add_argument("--out-dir", type=Path, default=script_path.parent.parent,
-                   help="output directory (default <repo>/landscape/grounds/)")
+    p.add_argument("--out-dir", type=Path, default=script_path.parent,
+                   help="output directory (default: the script's own dir)")
     args = p.parse_args(argv)
 
     args.out_dir.mkdir(parents=True, exist_ok=True)

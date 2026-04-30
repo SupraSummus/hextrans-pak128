@@ -49,7 +49,7 @@ Per-line comment carries the per-corner height tuple (E SE SW W NW NE).
 if __name__ == "__main__":
     hex_synth.bake_pakset(
         script_path=Path(__file__).resolve(),
-        asset_name="texture-hex-lightmap",
+        asset_name="texture-lightmap",
         obj_name="LightTexture",
         header_doc=HEADER_DOC,
         render_cell=lambda slope, half, geom: render.render_lightmap(slope, geom=geom),

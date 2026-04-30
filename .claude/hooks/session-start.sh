@@ -1,7 +1,7 @@
 #!/bin/bash
 # Install dependencies for the 3D-modelling pipeline (parametric bakers
 # colocated with their pakset assets, e.g.
-# `landscape/grounds/texture-hex-lightmap/`, plus bespoke supervised
+# `landscape/grounds/texture-lightmap/`, plus bespoke supervised
 # models like `infrastructure/rail_bridges/rail_060_bridge/`). Tools
 # shared by both pipelines live in `tools/3d/`. Idempotent.
 set -euo pipefail
