@@ -109,7 +109,7 @@ class HexGeom:
         Y grows down; corner height lifts UP, so subtract `ch[i]*lift`.
         Single decode of `slope` into corner heights, vs. one decode per
         `vy(slope, corner)` call — the loop callers in
-        `synth_overlay.cc::rasterise_outline` and `_per_region_brightness`
+        `synth_overlay.cc::rasterise_outline` and `iter_region_polygons`
         both want the full vector, not one corner at a time.
         """
         ch = decode_corner_heights(slope)
@@ -439,6 +439,46 @@ def draw_line(buf: np.ndarray, x0: int, y0: int, x1: int, y1: int,
         if e2 <= dx:
             err += dx
             y0 += sy
+
+
+def iter_region_polygons(slope: int, geom: HexGeom):
+    """Yield `(region, xs, ys)` for each polygon in `find_min_partition(slope)`.
+
+    Single source of truth for "which polygons cover a slope's hex tile":
+    `silhouette_mask` paints them with a sentinel and reads the alpha
+    mask; the lightmap baker's `_per_region_brightness` paints them
+    with per-region Lambert shading.  Sharing the iterator means
+    silhouette_mask can't drift away from the lightmap's silhouette
+    by construction.
+
+    Skips degenerate `< 3`-vertex regions (the engine partitioner
+    occasionally emits them on collinear-corner slopes).
+    """
+    vy = geom.lifted_vy(slope)
+    for region in find_min_partition(slope):
+        if len(region) < 3:
+            continue
+        xs = [geom.vx[i] for i in region]
+        ys = [vy[i] for i in region]
+        yield region, xs, ys
+
+
+def silhouette_mask(slope: int, geom: HexGeom) -> np.ndarray:
+    """Boolean (H, W) mask of pixels inside the slope's hex silhouette.
+
+    Defined as the union of polygon fills over `find_min_partition(slope)`
+    regions — exactly the pixels the lightmap baker paints (both go
+    through `iter_region_polygons`).  Other bakers (shore, future
+    alpha) call this so their alpha channel is bit-identical to the
+    lightmap's, which keeps the engine's `draw_alpha` source/alpha
+    RLE walks in lockstep without a runtime normalisation cache.
+    """
+    buf = np.zeros((geom.h, geom.w, 4), dtype=np.uint8)
+    sentinel = (1, 1, 1)
+    for _region, xs, ys in iter_region_polygons(slope, geom):
+        fill_polygon(buf, xs, ys, sentinel)
+        seal_horizontal_edges(buf, xs, ys, sentinel)
+    return buf[..., 3] != 0
 
 
 def rasterise_outline(buf: np.ndarray, geom: HexGeom, slope: int,

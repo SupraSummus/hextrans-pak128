@@ -124,17 +124,6 @@ engine should sanity-check the dither width (`±0.4` jitter, ~6 px
 band at W=128) and the wetness threshold (`0.5`) against pak128's
 beach.  Drop this entry once that's done.
 
-**Shore renderer doesn't share the family's scanline fill.**
-`landscape/grounds/texture-shore/render.py` does its own
-vectorised barycentric per centre-fan triangle rather than going
-through `hex_synth.fill_polygon` — `fill_polygon` paints uniform
-colour per region, but shore needs per-pixel wetness for the
-dither.  If a future asset wants the same per-pixel-varying-colour
-pattern, lift the barycentric+dither core into `hex_synth.py`
-(call it `fill_polygon_varying(buf, xs, ys, colour_for(u, v, w))`
-or similar).  Until that second caller exists, the asset-local
-copy in `render.py` is fine.
-
 **Water_ani art is procedural-placeholder.** The renderer is a
 top-K hash speckle that reads as uniform-random sparkle rather
 than the layered, clustered glints of pak128's palette art.  Two

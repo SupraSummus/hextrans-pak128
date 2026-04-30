@@ -53,7 +53,7 @@ from hex_synth import (  # noqa: E402
     E, SE, SW, W_C, NW, NE,
     decode_corner_heights,
     fill_polygon,
-    find_min_partition,
+    iter_region_polygons,
     iter_valid_slopes,
     lambert_brightness,
     seal_horizontal_edges,
@@ -101,50 +101,34 @@ def _safe_face_rgb(gray8: int) -> tuple[int, int, int]:
     return (gray8, gray8, nudged)
 
 
-def _per_region_brightness(slope: int, geom: HexGeom, partition: list[list[int]]):
-    """Yield (region, xs, ys, brightness) for each region in the partition.
-
-    Pulled out so the lightmap path reuses the same per-region Lambert
-    math without recomputing.  Other synth-overlay families (border,
-    marker) don't need shading and use the geometry directly.
+def _region_brightness(region: list[int], slope: int, geom: HexGeom) -> int:
+    """Lambert brightness for one region from its first non-degenerate
+    triangle.  Returns 256 (= 1.0×) if the region is fully collinear.
     """
     ch = decode_corner_heights(slope)
     vy = geom.lifted_vy(slope)
-
-    for region in partition:
-        if len(region) < 3:
+    i0 = region[0]
+    for k in range(2, len(region)):
+        i1 = region[k - 1]
+        i2 = region[k]
+        ax = geom.vx[i1] - geom.vx[i0]
+        ay = vy[i1] - vy[i0]
+        az = (ch[i1] - ch[i0]) * geom.lift
+        bx = geom.vx[i2] - geom.vx[i0]
+        by = vy[i2] - vy[i0]
+        bz = (ch[i2] - ch[i0]) * geom.lift
+        nx = ay * bz - az * by
+        ny = az * bx - ax * bz
+        nz = ax * by - ay * bx
+        if nx == 0.0 and ny == 0.0 and nz == 0.0:
             continue
-        i0 = region[0]
-        nx_v = ny_v = nz_v = 0.0
-        have_normal = False
-        for k in range(2, len(region)):
-            i1 = region[k - 1]
-            i2 = region[k]
-            ax = geom.vx[i1] - geom.vx[i0]
-            ay = vy[i1] - vy[i0]
-            az = (ch[i1] - ch[i0]) * geom.lift
-            bx = geom.vx[i2] - geom.vx[i0]
-            by = vy[i2] - vy[i0]
-            bz = (ch[i2] - ch[i0]) * geom.lift
-            nx_v = ay * bz - az * by
-            ny_v = az * bx - ax * bz
-            nz_v = ax * by - ay * bx
-            if nx_v != 0.0 or ny_v != 0.0 or nz_v != 0.0:
-                have_normal = True
-                break
-        if not have_normal:
-            nx_v, ny_v, nz_v = 0.0, 0.0, 1.0
-        if nz_v < 0.0:
-            nx_v, ny_v, nz_v = -nx_v, -ny_v, -nz_v
-
-        brightness = lambert_brightness(nx_v, ny_v, nz_v)
-        xs = [geom.vx[i] for i in region]
-        ys = [vy[i] for i in region]
-        yield region, xs, ys, brightness
+        if nz < 0.0:
+            nx, ny, nz = -nx, -ny, -nz
+        return lambert_brightness(nx, ny, nz)
+    return lambert_brightness(0.0, 0.0, 1.0)
 
 
-def render_lightmap(slope: int, geom: HexGeom | None = None,
-                    partition: list[list[int]] | None = None) -> np.ndarray:
+def render_lightmap(slope: int, geom: HexGeom | None = None) -> np.ndarray:
     """Render one slope's lightmap cell.
 
     Per-region grayscale = `brightness/16` (5-bit), expanded to RGB8
@@ -156,18 +140,17 @@ def render_lightmap(slope: int, geom: HexGeom | None = None,
     Hex shape is carried in the alpha channel (255 inside, 0 outside).
     The engine's `create_textured_tile` walks the lightmap RLE, so the
     transparent border becomes the implicit hex mask in the final
-    composited tile.
+    composited tile.  Region iteration goes through
+    `hex_synth.iter_region_polygons` so `silhouette_mask` can't drift
+    away from this baker's silhouette by construction.
     """
     if geom is None:
         geom = HexGeom()
-    if partition is None:
-        partition = find_min_partition(slope)
 
     buf = np.zeros((geom.h, geom.w, 4), dtype=np.uint8)
-    for _region, xs, ys, brightness in _per_region_brightness(slope, geom, partition):
-        gray5 = brightness // 16
-        if gray5 > 31:
-            gray5 = 31
+    for region, xs, ys in iter_region_polygons(slope, geom):
+        brightness = _region_brightness(region, slope, geom)
+        gray5 = min(brightness // 16, 31)
         gray8 = (gray5 * 255 + 15) // 31
         face_rgb = _safe_face_rgb(gray8)
         fill_polygon(buf, xs, ys, face_rgb)
