@@ -8,7 +8,6 @@
 # to get fresh and ready to deploy .tbz2 and .zip archives
 
 MAKEOBJ ?= ./makeobj
-LIGHTMAP ?= ./lightmap
 
 PAKID ?= pak128 2.10.1 for 124.4
 
@@ -169,11 +168,6 @@ $(OUTSIDE): copy
 	@printf "Obj=ground\nName=Outside\ncopyright=$(PAKID) git r%s hash %s\nImage[0][0]=tile.1.1\n-" `git rev-list --count --first-parent HEAD` `git rev-parse --short HEAD` > $@/outside.dat
 	$(MAKEOBJ) quiet PAK128 $(PAKDIR)/ $@/ > /dev/null
 	@rm $@/outside.dat
-
-calclight:
-	@echo "===> MAKE lightmaps and borders (not recommended)"
-	@$(LIGHTMAP) -pak128 -marker16 -c#0xFF8000 landscape/grounds/marker.png
-	@$(LIGHTMAP) -pak128 -marker16 -c#0x202020 landscape/grounds/borders.png
 
 bake-hex-lightmap:
 	@echo "===> BAKE landscape/grounds/texture-hex-lightmap.{png,dat}"
