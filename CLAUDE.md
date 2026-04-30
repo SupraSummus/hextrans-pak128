@@ -45,8 +45,8 @@ The work splits cleanly:
 The two pipelines share a renderer (camera, lighting, projection,
 depth-clip slicing) but have different reference data and different
 deliverables. The first parametric deliverable —
-`landscape/grounds/texture-hex-lightmap.{png,dat}` baked from
-`landscape/grounds/texture-hex-lightmap/` — is pipeline (1).
+`landscape/grounds/texture-lightmap/texture-lightmap.{png,dat}` baked from
+`landscape/grounds/texture-lightmap/` — is pipeline (1).
 
 ## Engine facts (look up, don't fit)
 
@@ -308,20 +308,29 @@ tools/
     diff.py                              # reference-vs-candidate score + 4-panel PNG
     crop_ref.py                          # extract one tile from a pak sheet via .dat
 
-landscape/grounds/                       # parametric pipeline lives here
-  texture-hex-lightmap.png               # baked deliverable (committed; makeobj input)
-  texture-hex-lightmap.dat               # baked deliverable (committed; makeobj input)
-  texture-hex-lightmap/                  # source for the deliverable above
+landscape/grounds/                       # parametric pipeline lives here.
+                                         #   each baker dir is listed in
+                                         #   Makefile DIRS128 so makeobj picks
+                                         #   up the .dat from inside the dir.
+  texture-lightmap/
+    texture-lightmap.png             # baked deliverable (committed; makeobj input)
+    texture-lightmap.dat             # baked deliverable (committed; makeobj input)
     render.py                            # per-slope lightmap cell
     build_pakset.py                      # bake the full atlas + .dat
-  borders.png / borders.dat              # baked deliverable (committed)
-  borders/                               # source for the deliverable above
+  borders/
+    borders.png / borders.dat            # baked deliverable (committed; makeobj input)
     render.py                            # per-slope grid-line cell
     build_pakset.py                      # bake the full atlas + .dat
-  marker.png / marker.dat                # baked deliverable (committed)
-  marker/                                # source for the deliverable above
+  marker/
+    marker.png / marker.dat              # baked deliverable (committed; makeobj input)
     render.py                            # per-slope marker half cell
     build_pakset.py                      # bake the full atlas + .dat
+  water_ani/
+    water_ani.png / water_ani.dat        # baked deliverable (committed; makeobj input)
+    render.py                            # per-(depth,stage) animated water cell
+    build_pakset.py                      # bake the full atlas + .dat
+    legacy_reference.png                 # upstream pak128 art kept for compare.py
+    compare.py                           # qualitative side-by-side eval
   …                                      # (other ground/.dat families to follow:
                                          #  alpha/, back_wall/)
 
@@ -339,25 +348,30 @@ infrastructure/rail_bridges/             # bespoke pipeline lives next to source
 Conventions, in order:
 
 - **Co-location.** A model directory shares a name (without extension)
-  with the deliverable it produces, and sits next to it. Lightmap:
-  `texture-hex-lightmap/` next to `texture-hex-lightmap.{png,dat}`.
-  Bridge: `rail_060_bridge/` next to `rail_060_bridge.{png,dat}`.
-- **Hex-baked deliverables overwrite the legacy filename.** When a
-  parametric synth family (borders, marker, alpha, back_wall, …)
-  has an existing pak128 deliverable that the hex bake replaces
-  outright, the baked output keeps the legacy name
-  (`borders.{png,dat}`, `marker.{png,dat}`) rather than adding a
-  `texture-hex-` prefix. Lightmap is the one exception — it kept
-  the legacy `texture-` prefix and inserted `hex-` because the
-  square deliverable was packed differently (one cell per
-  `(climate × slope)` pair, not one per slope) and reusing the name
-  would have been misleading. Apply the overwrite rule to every
-  remaining synth family.
+  with the deliverable it produces. For parametric ground bakers the
+  baked `.png`/`.dat` lives **inside** the model dir
+  (`texture-lightmap/texture-lightmap.{png,dat}`,
+  `borders/borders.{png,dat}`, `marker/marker.{png,dat}`,
+  `water_ani/water_ani.{png,dat}`); each dir is listed in
+  Makefile `DIRS128` so makeobj scans it.  For bespoke supervised
+  assets the upstream pakset art still lives next to the model dir
+  (`rail_060_bridge.{png,dat}` next to `rail_060_bridge/`) — until
+  the model is shippable, the upstream art is the packaged
+  deliverable, not the model output.
+- **Hex-baked deliverables keep the legacy filename.** When a
+  parametric synth family (borders, marker, texture-lightmap,
+  water_ani, alpha, back_wall, …) has an existing pak128
+  deliverable that the hex bake replaces outright, the baked output
+  reuses the legacy name unchanged.  Even where the packing
+  differs — `texture-lightmap` is one cell per slope here vs. one
+  cell per `(climate × slope)` pair upstream — the filename stays
+  the same; the `.dat` documents the new layout.  Apply this to
+  every remaining synth family.
 - **Generated outputs are committed.** PNGs and .dats produced by a
-  baker live next to the model dir and are checked into git so
-  reviewers see the current state without rebuilding. Re-running the
-  baker should produce a byte-identical result; a future CI check will
-  enforce that.
+  baker are checked into git inside the model dir so reviewers see
+  the current state without rebuilding. Re-running the baker should
+  produce a byte-identical result; a future CI check will enforce
+  that.
 - **Source art for complex bespoke assets is kept** (e.g. the bridge
   PNG/dat) even after a model exists, both because models start out
   incomplete and because we want to keep them in sync with upstream
@@ -368,9 +382,10 @@ Conventions, in order:
   makeobj does not scan; the model-baked PNG/dat in the parent dir is
   what gets packaged.
 - **Old art that is fully superseded is deleted.** No `_old` suffixes,
-  no commented-out blocks. Git history is the changelog. The square
-  `texture-lightmap.{png,dat}` is gone for this reason — the hex
-  pipeline replaces it outright.
+  no commented-out blocks.  Git history is the changelog.  The
+  square `texture-lightmap.{png,dat}` is gone for this reason — the
+  hex bake under the same filename replaces it outright (and the
+  packing differs, so the cells aren't comparable in-place).
 - **No subdir-aware pakset compile.** Makeobj only scans the listed
   parent directory; model dirs (containing `.py`, `.sh`, `refs/`,
   `out_*.png`) are silently ignored. Adding a new model dir requires
@@ -405,7 +420,7 @@ side hex depth-clip plane spec).
 
 ### Parametric pipeline: hex ground deliverable baked
 
-`landscape/grounds/texture-hex-lightmap/render.py` is the canonical renderer for
+`landscape/grounds/texture-lightmap/render.py` is the canonical renderer for
 hex ground tiles. An earlier crash-fast probe validated bit-for-bit
 that it reproduces the engine's `synth_overlay::rasterise_ground`
 output for the flat tile across all 8 climates, so the documented
@@ -417,7 +432,7 @@ the engine's in-process synth path stays as a runtime fallback floor.**
 `build_pakset.py` runs the renderer for every valid hex slope and
 bakes a pak128-style deliverable into `landscape/grounds/`:
 
-- `texture-hex-lightmap.png` — atlas of 141 grayscale lightmap cells
+- `texture-lightmap.png` — atlas of 141 grayscale lightmap cells
   (12 × 12 × 128 px = 1536 × 1536 px). Each cell carries per-region
   Lambert shading as RGB8 grayscale (5-bit `brightness/16` expanded;
   identity = 132) and the hex silhouette as alpha. Per-region shading
@@ -425,8 +440,8 @@ bakes a pak128-style deliverable into `landscape/grounds/`:
   `synth_plane_partition.h::find_min_partition`, so multi-region
   slopes (saddles, wedges) get one Lambert face per coplanar region
   rather than a single averaged shade. Cell layout names follow
-  pakset convention (`texture-hex-lightmap.<row>.<col>`).
-- `texture-hex-lightmap.dat` — `Obj=ground`, `Name=LightTexture`,
+  pakset convention (`texture-lightmap.<row>.<col>`).
+- `texture-lightmap.dat` — `Obj=ground`, `Name=LightTexture`,
   one `Image[<slope_t>][0]` entry per normalised slope shape, indexed
   by the **raw `slope_t` value itself** (base-4 per corner: E=1,
   SE=4, SW=16, W=64, NW=256, NE=1024). The engine's hex-aware ground
@@ -481,7 +496,7 @@ in pak128 dark-grey (32, 32, 32) on a transparent background.
 Style matches the legacy `borders.png`, not the engine's debug
 yellow `OUTLINE_COLOR` (which is for the in-process synth path
 only).  `build_pakset.py` runs the renderer for every valid hex
-slope and bakes `landscape/grounds/borders.{png,dat}`, replacing
+slope and bakes `landscape/grounds/borders/borders.{png,dat}`, replacing
 the upstream 27-entry square deliverable on this fork.  The .dat
 indexes by raw `slope_t` (same convention as `LightTexture`).
 Engine consumption is the next blocker — `get_border_image` still
@@ -559,7 +574,7 @@ draw time
 cursor silhouette wraps around objects on the tile.
 
 `build_pakset.py` runs the renderer for every valid hex slope
-× both halves and bakes `landscape/grounds/marker.{png,dat}`,
+× both halves and bakes `landscape/grounds/marker/marker.{png,dat}`,
 overwriting the legacy 27-front-+-27-back square deliverable on
 this fork.  The atlas is 282 cells (141 fronts in
 `iter_valid_slopes()` order followed by 141 backs in the same
@@ -596,7 +611,7 @@ the other synth families.
    `LightTexture`'s `climate_image_hex[c]` block, parallel to
    the existing square `get_ground_tile`. Once it lands, flip
    `synth_overlay::prefer_over_pakset` to false on a pakset with
-   `texture-hex-lightmap` and verify in-game.
+   `texture-lightmap` and verify in-game.
 2. Repeat the bake-and-commit pattern for the remaining synth
    families. Borders and marker are done; alpha and back_wall are
    what's left.  Alpha is climate-keyed (one mask per climate

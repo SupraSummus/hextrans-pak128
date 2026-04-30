@@ -75,10 +75,10 @@ dimetric exactly. Cross-check that the rasterizer reproduces the
 engine projection bit-for-bit, not just close enough — pick this
 up before scaling to many assets where rounding errors compound.
 
-**Re-bake CI check.** `landscape/grounds/texture-hex-lightmap.{png,dat}`,
-`landscape/grounds/borders.{png,dat}`,
-`landscape/grounds/marker.{png,dat}`, and
-`landscape/grounds/water_ani.{png,dat}` are committed alongside
+**Re-bake CI check.** `landscape/grounds/texture-lightmap/texture-lightmap.{png,dat}`,
+`landscape/grounds/borders/borders.{png,dat}`,
+`landscape/grounds/marker/marker.{png,dat}`, and
+`landscape/grounds/water_ani/water_ani.{png,dat}` are committed alongside
 their generators.  Re-running `build_pakset.py` for each should
 produce a byte-identical diff (manually verified after the
 `hex_synth.bake_pakset` refactor).  Add a CI job that does the

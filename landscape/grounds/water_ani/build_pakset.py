@@ -44,8 +44,8 @@ def main():
     p.add_argument("--cols", type=int, default=16,
                    help="atlas columns (default 16 → 16x12 grid for 192 cells)")
     p.add_argument("--out-dir", type=Path,
-                   default=Path(__file__).resolve().parent.parent,
-                   help="output directory (default <repo>/landscape/grounds/)")
+                   default=Path(__file__).resolve().parent,
+                   help="output directory (default landscape/grounds/water_ani/)")
     args = p.parse_args()
 
     args.out_dir.mkdir(parents=True, exist_ok=True)

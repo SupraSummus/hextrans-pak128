@@ -26,7 +26,7 @@ from PIL import Image
 
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-NEW_PATH = REPO_ROOT / "landscape" / "grounds" / "water_ani.png"
+NEW_PATH = REPO_ROOT / "landscape" / "grounds" / "water_ani" / "water_ani.png"
 # The hex bake overwrites the upstream pak128 water_ani.png, so we keep a
 # copy of the upstream art alongside this script for the eval to compare
 # against.  Lives in the model dir (which makeobj does not scan), so it's

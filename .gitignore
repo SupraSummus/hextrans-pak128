@@ -16,6 +16,6 @@ base/special/outside.dat
 *.kdev4
 *.zip
 
-# 3D-modelling pipeline (tools/3d/, landscape/grounds/texture-hex-lightmap/,
+# 3D-modelling pipeline (tools/3d/, landscape/grounds/texture-lightmap/,
 # infrastructure/rail_bridges/rail_060_bridge/, ...).
 __pycache__/
