@@ -63,6 +63,7 @@ DIRS128 += infrastructure/tram_tracks
 DIRS128 += infrastructure/water_all
 DIRS128 += landscape/groundobj_static
 DIRS128 += landscape/grounds
+DIRS128 += landscape/grounds/back_wall
 DIRS128 += landscape/grounds/borders
 DIRS128 += landscape/grounds/marker
 DIRS128 += landscape/grounds/texture-lightmap

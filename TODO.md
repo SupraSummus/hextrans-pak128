@@ -154,16 +154,6 @@ keeping mean exact.  Both deferred until the deliverable is in-game
 and the cartoon-vs-realistic balance can be judged against the
 rest of the hex tileset.
 
-**`bake_pakset` only iterates over slopes.** Today
-`hex_synth.bake_pakset` iterates `iter_valid_slopes() × halves`
-and indexes the .dat by raw `slope_t`.  back_wall is keyed by
-`(wall, index)` rather than slope (cliff faces are not slope-
-keyed; see `synth_overlay.cc::build_back_wall`), so when that
-family lands the helper either grows an `iter_keys` parameter
-plus a `key → image-index` mapping, or back_wall gets a sibling
-helper.  Decide which when starting back_wall — at N=1 for the
-non-slope-keyed shape the right factoring isn't obvious yet.
-
 **Sheet-coordinate compass cross-check on the bridge.** I
 established N=upper-right / E=lower-right / S=lower-left /
 W=upper-left from `viewport.cc` + `koord.cc` for the NS bridge,
