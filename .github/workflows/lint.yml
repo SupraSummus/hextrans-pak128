@@ -20,10 +20,11 @@ jobs:
         with:
           python-version: '3.x'
       - run: pip install numpy Pillow
-      - name: Re-run parametric bakers
+      - name: Re-run parametric + bespoke bakers
         run: |
-          for builder in landscape/grounds/*/build_pakset.py; do
+          for builder in landscape/grounds/*/build_pakset.py \
+                         infrastructure/*/*/build_pakset.py; do
             python3 "$builder"
           done
       - name: Verify byte-identical output
-        run: git diff --exit-code -- landscape/grounds/
+        run: git diff --exit-code -- landscape/grounds/ infrastructure/

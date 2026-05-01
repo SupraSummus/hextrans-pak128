@@ -249,10 +249,93 @@ def build_between_edges(scene: Scene, edge_a: str, edge_b: str,
     _add_track_segment(scene, start, end, cap_a, cap_b, n_ties=n_ties)
 
 
+# Azimuth (radians, atan2 convention) of each hex edge's midpoint, measured
+# from the hex centre.  Edge midpoints lie on a circle of radius R·√3/2
+# (= 0.5·√3/2 ≈ 0.433) — the perpendicular bisector of each edge passes
+# through the centre, so the radius at the midpoint is normal to the edge
+# and the edge's tangent matches the circle's tangent at that point.
+_EDGE_AZIM = {name: math.atan2(_edge_midpoint(name)[1], _edge_midpoint(name)[0])
+              for name in HEX_EDGES}
+_ARC_R = math.hypot(*_edge_midpoint("N"))  # = R*sqrt(3)/2 by construction
+
+
+def _build_arc_curve(scene: Scene, edge_a: str, edge_b: str,
+                     n_segments: int = 6) -> None:
+    """Lay a curved track between two 60°-apart hex edges (sharing a corner).
+
+    The shared corner sits closer to the chord than the ballast half-width,
+    so the straight-with-mitred-caps model would clip into the corner.
+    Instead we lay an arc centred on the hex centre with radius = distance
+    from centre to edge midpoint.  That circle is tangent to each edge at
+    its midpoint (the edge's perpendicular bisector goes through the
+    centre), so the rail meets the tile boundary at the same angle and
+    position the adjacent tile's straight or curve would expect — the
+    flush-at-edge-midpoint property carries over.
+
+    The arc is discretised into `n_segments` short chord pieces with
+    radial-direction caps at every joint, so adjacent segments share an
+    endpoint cap and the boundary segments' caps reduce to the
+    perpendicular-bisector tangent at the two edge midpoints.
+    """
+    a_az = _EDGE_AZIM[edge_a]
+    b_az = _EDGE_AZIM[edge_b]
+    # Short direction: a 60°-apart pair has |Δaz| = 60°.  Normalise into (-π, π].
+    delta = (b_az - a_az + math.pi) % (2 * math.pi) - math.pi
+    ties_per_segment = max(1, N_TIES // n_segments)
+    for i in range(n_segments):
+        t0 = a_az + delta * (i / n_segments)
+        t1 = a_az + delta * ((i + 1) / n_segments)
+        p0 = (_ARC_R * math.cos(t0), _ARC_R * math.sin(t0))
+        p1 = (_ARC_R * math.cos(t1), _ARC_R * math.sin(t1))
+        cap0 = (-math.sin(t0), math.cos(t0))
+        cap1 = (-math.sin(t1), math.cos(t1))
+        _add_track_segment(scene, p0, p1, cap0, cap1, n_ties=ties_per_segment)
+
+
+def build_curve(scene: Scene, edge_a: str, edge_b: str) -> None:
+    """Lay a track between two hex edges, dispatching on their angular
+    distance: 60°-apart → arc through hex centre (`_build_arc_curve`);
+    120°/180° → chord with mitred / perpendicular caps
+    (`build_between_edges`).
+
+    Single entrypoint so callers (preview, bake) don't enumerate the
+    three families."""
+    delta = (_EDGE_AZIM[edge_b] - _EDGE_AZIM[edge_a] + math.pi) % (2 * math.pi) - math.pi
+    if abs(abs(delta) - math.pi / 3) < 1e-3:
+        _build_arc_curve(scene, edge_a, edge_b)
+    else:
+        build_between_edges(scene, edge_a, edge_b)
+
+
+# Hex pair-direction sprites the dat declares.  Ribi codes follow
+# `way_writer.cc::hex_ribi_code` (low-bit-first joined with `_`).  Single
+# source of truth for both the per-cell preview renders (`main()` here)
+# and the atlas bake (`build_pakset.py`).
+HEX_ENTRIES = [
+    # ribi    edge_a  edge_b
+    ("s_n",   "S",  "N"),
+    ("sw_ne", "SW", "NE"),
+    ("se_nw", "NW", "SE"),
+    ("se_sw", "SE", "SW"),
+    ("se_ne", "SE", "NE"),  # 60° corner curve, around E
+    ("sw_nw", "SW", "NW"),  # 60° corner curve, around W
+    ("nw_ne", "NW", "NE"),
+]
+
+
+def render_hex_cell(edge_a: str, edge_b: str):
+    """Build a fresh Scene with one hex pair sprite and render it through
+    the hex camera.  Returns the (h, w, 4) uint8 RGBA array; no file
+    written.  Atlas bake and per-cell preview share this entrypoint."""
+    s = Scene()
+    build_curve(s, edge_a, edge_b)
+    return s.render(out_path=None, projection="hex")
+
+
 def main() -> None:
-    # Square dimetric verification: world +y axis track and world +x axis
-    # track, matching pak128 cells 1.5 and 1.6 respectively.  Tracks ship
-    # no per-image (0, 32) shift, so we use Scene's default ground anchor.
+    # Square dimetric verification: world +y / +x axis tracks, matching
+    # pak128 cells 1.5 / 1.6.  Tracks ship no per-image (0, 32) shift, so
+    # we use Scene's default ground anchor.
     s_ns = Scene()
     build(s_ns, length_half=0.5, axis_yaw_deg=0.0)
     s_ns.render(str(HERE / "out_square_ns.png"))
@@ -261,29 +344,8 @@ def main() -> None:
     build(s_ew, length_half=0.5, axis_yaw_deg=90.0)
     s_ew.render(str(HERE / "out_square_ew.png"))
 
-    # Hex bake.  Goes through `build_between_edges` so the three opposite-
-    # edge axes (perpendicular caps) and the 120°-apart "curves" (mitred
-    # caps along the local edge direction) share one code path.
-    #
-    # 60°-apart edge pairs (e.g. SE↔NE or SW↔NW, the two `dat` entries
-    # `se_ne` and `sw_nw`) don't fit the straight-chord-with-mitred-caps
-    # model: their two edges share a corner, and a ballast wider than the
-    # mid-edge-to-corner distance (0.125 in unit-tile coords here) cannot
-    # be cut to fit between them.  Those need a real arc or a wedge
-    # geometry — TBD; left out of the bake until that lands.
-    hex_entries = [
-        # opposite-edge straights (perpendicular caps)
-        ("s_n",   "S",  "N"),
-        ("sw_ne", "SW", "NE"),
-        ("nw_se", "NW", "SE"),
-        # 120°-apart "curves" (mitred caps along the local edge)
-        ("se_sw", "SE", "SW"),
-        ("nw_ne", "NW", "NE"),
-    ]
-    for name, edge_a, edge_b in hex_entries:
-        s = Scene()
-        build_between_edges(s, edge_a, edge_b)
-        s.render(str(HERE / f"out_hex_{name}.png"), projection="hex")
+    # Per-cell hex previews are written by `build_pakset.main()` as a
+    # side-effect of the atlas bake — single source for the rgba.
 
 
 if __name__ == "__main__":
