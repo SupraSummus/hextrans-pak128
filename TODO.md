@@ -32,19 +32,24 @@ the matching hex direction by onscreen heading (pak `N` =
 upper-right = hex NE; pak `E` = lower-right = hex SE; pak `S` =
 lower-left = hex SW; pak `W` = upper-left = hex NW).  The third
 hex axis (N straight up / S straight down on screen) has no
-upstream cell — it borrows one of the diagonals as a placeholder
-until a track-sprite baker exists.
+upstream cell — `rail_060_tracks` synthesises it from its 3D
+model; other unmigrated ways will need to either borrow a
+diagonal as a placeholder or share the baker once it generalises.
 
-**Track-sprite baker.** Hex track .dats need 14+ slot entries
-covering 6 single edges, 3 axis-straights, 12 bends and the
-3-way / 4-way junction patterns.  Hand-repointing existing
-upstream cells (the `rail_060_tracks` migration above) covers
-~4 of 6 single edges, 2 of 3 axes and 4 of 12 bends, leaving the
-third hex axis and 2/3 of the bend / junction set as visible
-placeholders.  A baker that synthesises hex track strokes per
-slot (analogous to the parametric ground bakers under
-`landscape/grounds/`) is the next step once the minimum
-hand-repointed track is confirmed rendering in-game.
+**Track-sprite baker.** Hex track .dats need slot entries covering
+6 single edges, 3 axis-straights, 12 bends and the 3-way / 4-way
+junction patterns.  `rail_060_tracks` now bakes the 3 axis-straights
+and the 4 bends its dat declares (`se_sw`, `se_ne`, `sw_nw`, `nw_ne`)
+through `infrastructure/rail_tracks/rail_060_tracks/build_pakset.py`
+→ `rail_060_tracks_hex.png`; the 60°-apart corner curves use a
+hex-centred arc (radius = R·√3/2, tangent to each edge at its
+midpoint) rather than the straight-with-mitred-cap chord that
+opposite/120° pairs share.  Single-edge stubs, the no-track
+`Image[-]`, and `ImageUp` slope variants still borrow upstream
+square cells; the remaining 8 bend pair keys aren't declared in the
+dat at all yet.  Slope-up and the 8 missing bend declarations are
+the next chunks; junctions follow once the engine writer grows a
+slot for them.
 
 **X-bracing on rail_060_bridge.** The numpy z-buffer rasterizer
 in `tools/3d/render.py` only supports axis-aligned boxes via

@@ -246,9 +246,12 @@ class Scene:
             (b + 0, b + 4, b + 7, b + 3, color, layer, dither_keep),  # west  (-x)
         ])
 
-    def render(self, out_path: str, img_size=IMG_SIZE, layer_filter=None,
+    def render(self, out_path=None, img_size=IMG_SIZE, layer_filter=None,
                projection="square"):
-        """Render the scene to RGBA PNG.
+        """Render the scene to an RGBA buffer; if `out_path` is given,
+        also save it as a PNG.  Returns the (h, w, 4) uint8 array so
+        callers that want to compose multiple renders into one atlas
+        don't need a temp-file round-trip.
 
         `layer_filter`: if not None, only quads whose layer matches are
         drawn — used to emit one PNG per pak128 sheet entry (Back vs.
@@ -288,5 +291,6 @@ class Scene:
                                world_xy=world_xy[[i0, i1, i2]],
                                plan_clip=plan_clip)
 
-        Image.fromarray(rgba, mode="RGBA").save(out_path)
+        if out_path is not None:
+            Image.fromarray(rgba, mode="RGBA").save(out_path)
         return rgba
