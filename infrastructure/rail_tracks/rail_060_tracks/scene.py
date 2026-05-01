@@ -426,3 +426,4 @@ def bake_pakset() -> None:
 
 if __name__ == "__main__":
     main()
+    bake_pakset()
