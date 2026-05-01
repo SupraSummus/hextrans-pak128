@@ -683,6 +683,34 @@ bridge) can start in parallel once the parametric pipeline's renderer
 plumbing is sound — they share the camera/light/depth-clip
 infrastructure.
 
+## Commit message rules
+
+Default to short. The diff already shows *what* changed; the message
+captures only the *why* a reader can't recover from it. A one-line
+subject with no body is the right answer for mechanical fixes and
+obvious refactors.
+
+Subject: short, present-tense, scope-prefixed (`hex-port shore:`,
+`water_ani:`, `ci:`). Keep the prefix consistent across commits in
+the same area. ≤ 72 chars.
+
+Body: usually 1–2 short paragraphs, often none. Cover the
+load-bearing reason, a non-obvious trade-off, a shim's retirement
+trigger — anything that would surprise a reader who knows the
+codebase but not this commit. Don't:
+
+- Re-explain the surrounding subsystem; link to the file, symbol or
+  prior commit.
+- Enumerate every cell, slope or pixel-count delta the diff shows.
+- Narrate verification ("re-baked, byte-identical", "atlas
+  reproduces").
+- Recap the companion engine commit; name it and stop.
+- Inline durable design context. That belongs in `TODO.md` /
+  `CLAUDE.md`, where it stays current.
+
+If a body is getting long, prefer splitting the commit or moving the
+context into `TODO.md` / `CLAUDE.md`.
+
 ## Workflow rules
 
 - Stream branch name is set per session by the harness (currently
