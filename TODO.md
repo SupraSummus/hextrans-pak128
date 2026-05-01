@@ -81,13 +81,6 @@ of world z=0 isn't documented. Trace where the engine applies the
 offset (start in `obj/bruecke.cc::calc_image` and the way drawing
 path) and add an entry to Engine facts in CLAUDE.md.
 
-**Hex depth-clip plane spec missing on engine side.** The bespoke
-pipeline can't emit hex sheet entries until the engine specifies
-how the Back / Front layer split projects under the hex camera —
-analogous to `synth_geometry.h` for the camera and light. Blocks
-all bespoke hex deliverables. Lives on the engine side
-(`SupraSummus/hextrans`), not here.
-
 **Aggregate scoring across slices not designed.** Multi-view
 supervision gives one score per slice; there's no rolled-up
 per-asset or per-pakset score. For tracking progress across many
@@ -117,21 +110,6 @@ offset encoding (`Image[<slope>][0]` front, `Image[<slope>+4096][0]`
 back) or a separate `Obj=ground / Name=MarkerBack` block.  Pin
 this when wiring the engine-side hex marker lookup, before any
 in-game test depends on the current shape.
-
-**Hex-aware texture composition for shore water.** The engine's
-`get_water_tile(slope, stage)` path produces shore-water sprites by
-calling `create_texture_from_tile(sea->get_image_ptr(0, stage),
-boden_texture[water_climate])` — the water_ani[0][stage] cell is
-treated as a transparency-keyed overlay multiplied with the
-climate's water texture from `texture-climate.png`.  The function
-hardcodes square-dimetric tile-replication offsets (`±ref_w/2,
-±ref_w/4`) to splat the cell into a tileable square texture.  Those
-offsets don't tile a hex silhouette correctly, so any shore tile
-rendered through this path will produce wrong pixels under hex.
-Lives engine-side (`SupraSummus/hextrans`,
-`descriptor/ground_desc.cc::create_texture_from_tile`); blocks
-visually-correct shore water on the hex grid even with a per-slope
-water_ani bake.
 
 **Per-slope water_ani.** The `landscape/grounds/water_ani/` baker
 covers all 6 × 32 (depth, stage) cells but only at the flat slope.
