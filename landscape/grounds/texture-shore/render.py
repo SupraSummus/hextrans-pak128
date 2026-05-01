@@ -81,17 +81,11 @@ def _wetness_field(slope: int, water_mask: int,
     """Per-pixel wetness ∈ [0, 1] over the full geom rectangle.
 
     Wetness is barycentric over each of the 6 centre-fan triangles
-    `(corner_i, corner_(i+1), centre)`.  The overlay is only ever
-    drawn on land tiles (`grund.cc::display`'s `if(get_typ()!=wasser)`
-    branch), so the wetness field has to be land-biased: water
-    encroaches from water corners, but the tile centre stays dry
-    unless every corner is water.  Picking `centre = mean(corners)`
-    instead would symmetrise red/blue around popcount = 3 and flood
-    the tile with water for popcount ≥ 4 (e.g. a thin land
-    peninsula with 5 water corners would lose its land bite).
-    Pixels outside every centre-fan triangle (rare edge slivers
-    near the silhouette boundary) default to the centroid wetness —
-    only `silhouette_mask` decides whether they get painted at all.
+    `(corner_i, corner_(i+1), centre)` with centre wetness pinned
+    to 0.  The overlay is only ever drawn on land tiles
+    (`grund.cc::display`'s `if(get_typ()!=wasser)` branch), so a
+    dry centre keeps a land bite even when all 6 corners border
+    water — a 1×1 island still reads as land with a water rim.
     """
     vx = np.array(geom.vx, dtype=np.float32)
     vy = np.array(geom.lifted_vy(slope), dtype=np.float32)
@@ -100,21 +94,18 @@ def _wetness_field(slope: int, water_mask: int,
 
     cx = float(vx.mean())
     cy = float(vy.mean())
-    cw = float(wet.min())
 
-    # Pixel-centre coordinates over the full geom rectangle.
     xs = np.arange(geom.w, dtype=np.float32) + 0.5
     ys = np.arange(geom.h, dtype=np.float32) + 0.5
-    px, py = np.meshgrid(xs, ys)  # both (H, W)
+    px, py = np.meshgrid(xs, ys)
 
-    wetness = np.full((geom.h, geom.w), cw, dtype=np.float32)
+    wetness = np.zeros((geom.h, geom.w), dtype=np.float32)
     assigned = np.zeros((geom.h, geom.w), dtype=bool)
 
     for i in range(hex_synth.CORNER_COUNT):
         j = (i + 1) % hex_synth.CORNER_COUNT
         ax, ay, aw = vx[i], vy[i], wet[i]
         bx, by, bw = vx[j], vy[j], wet[j]
-        # Standard 2D barycentric for triangle (a, b, centre).
         denom = (by - cy) * (ax - cx) + (cx - bx) * (ay - cy)
         if denom == 0.0:
             continue
@@ -122,7 +113,7 @@ def _wetness_field(slope: int, water_mask: int,
         v = ((cy - ay) * (px - cx) + (ax - cx) * (py - cy)) / denom
         w = 1.0 - u - v
         in_tri = (u >= 0) & (v >= 0) & (w >= 0) & ~assigned
-        wetness[in_tri] = (u[in_tri] * aw + v[in_tri] * bw + w[in_tri] * cw)
+        wetness[in_tri] = u[in_tri] * aw + v[in_tri] * bw
         assigned |= in_tri
 
     return wetness
