@@ -17,6 +17,35 @@ enough that someone else can pick it up cold.
 
 ## Open
 
+**Way .dat migration to hex ribi keys.** The engine's `way_writer`
+now reads a 64-slot flat-image table keyed by hex ribi names
+(`Image[se]`, `Image[se_nw]`, …; `_` separator).  Only
+`infrastructure/rail_tracks/rail_060_tracks.dat` has been migrated
+as a worked example.  Every other way .dat — rail_080..rail_400,
+roads, trams, runways, kanals, narrowgauge, monorails, maglevs,
+plus all elevated / catenary variants — still carries the legacy
+`Image[N]` / `Image[NSE]` / `Image[NSE1]` keys.  These compile
+without fatal but every connectivity except `Image[-]` resolves to
+`IMG_EMPTY` at runtime, so those ways will be invisible on the
+map.  Migrate per family, repointing existing pak128 cells onto
+the matching hex direction by onscreen heading (pak `N` =
+upper-right = hex NE; pak `E` = lower-right = hex SE; pak `S` =
+lower-left = hex SW; pak `W` = upper-left = hex NW).  The third
+hex axis (N straight up / S straight down on screen) has no
+upstream cell — it borrows one of the diagonals as a placeholder
+until a track-sprite baker exists.
+
+**Track-sprite baker.** Hex track .dats need 14+ slot entries
+covering 6 single edges, 3 axis-straights, 12 bends and the
+3-way / 4-way junction patterns.  Hand-repointing existing
+upstream cells (the `rail_060_tracks` migration above) covers
+~4 of 6 single edges, 2 of 3 axes and 4 of 12 bends, leaving the
+third hex axis and 2/3 of the bend / junction set as visible
+placeholders.  A baker that synthesises hex track strokes per
+slot (analogous to the parametric ground bakers under
+`landscape/grounds/`) is the next step once the minimum
+hand-repointed track is confirmed rendering in-game.
+
 **X-bracing on rail_060_bridge.** The numpy z-buffer rasterizer
 in `tools/3d/render.py` only supports axis-aligned boxes via
 `add_box`, so the diagonal X-bracing between trestle posts can't
