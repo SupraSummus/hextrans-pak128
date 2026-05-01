@@ -335,8 +335,12 @@ landscape/grounds/                       # parametric pipeline lives here.
     texture-shore.png / texture-shore.dat # baked deliverable (committed; makeobj input)
     render.py                            # per-(slope, water_mask) ALPHA_RED beach mask
     build_pakset.py                      # bake the full atlas + .dat
+  texture-slope/
+    texture-slope.png / texture-slope.dat # baked deliverable (committed; makeobj input)
+    render.py                            # per-(slope, corner_mask) ALPHA_GREEN|ALPHA_BLUE climate / snowline mask
+    build_pakset.py                      # bake the full atlas + .dat
   …                                      # (other ground/.dat families to follow:
-                                         #  alpha/, back_wall/)
+                                         #  back_wall/)
 
 infrastructure/rail_bridges/             # bespoke pipeline lives next to source art
   rail_060_bridge.png                    # upstream pakset art (kept; supervisory ref)
@@ -590,6 +594,55 @@ square hang-formula (`hang%27` / `(hang%3) + ((hang-(hang%9))/3)`)
 into 27-entry compact ranges; needs the same hex-aware lookup as
 the other synth families.
 
+### Parametric pipeline: hex slope-transition deliverable baked
+
+`landscape/grounds/texture-slope/render.py` is the canonical
+renderer for the hex SlopeTrans alpha — the cell read by
+`grund.cc::display` for **climate-corner mixing**
+(`get_alpha_tile(slope, corners)` with `ALPHA_GREEN | ALPHA_BLUE`)
+and **snowline transitions** (`get_alpha_tile(slope)` with
+`ALPHA_GREEN | ALPHA_BLUE` for case 1, `ALPHA_BLUE` alone for the
+mid-slope case 2).  Cells use `hex_synth.silhouette_mask` so each
+`(slope, corner_mask)` cell is bit-identical in alpha shape to the
+matching `LightTexture[slope]` cell, and the engine's `draw_alpha`
+walks source and alpha streams in lockstep without a runtime
+normalisation cache.
+
+The cell's interior is a 3-band quantisation of a barycentric
+centre-fan strength field (the same shape function `texture-shore`
+uses for wetness, just on a corner-mask 0/1 weight) with a
+position-deterministic hashed dither at the band boundaries:
+
+  RED   — alpha=0 under both alpha keys; base climate stays.
+  GREEN — opaque under `ALPHA_GREEN | ALPHA_BLUE`; transparent
+          under `ALPHA_BLUE` alone.
+  BLUE  — opaque under both keys (the inner / highest mask region).
+
+One bake serves both readers: climate transitions pass the
+`climate_corners` mask; the snowline path passes
+`high_corners_of(slope)` (corners with `corner_height > 0`).
+
+`build_pakset.py` runs the renderer for every valid hex slope ×
+every nonempty 6-bit corner mask and bakes
+`landscape/grounds/texture-slope/texture-slope.{png,dat}`,
+overwriting the legacy 15-cell square deliverable on this fork.
+The atlas is **8883 cells** (141 slopes × 63 masks); the .dat
+emits one `Image[<slope_t>][<corner_mask>]` line per cell indexed
+by raw `slope_t` and 6-bit corner mask (same convention as
+`ShoreTrans`).  Climate transitions don't have shore's "must be
+sea level" constraint, so the mask axis stays full at 63 — the
+atlas is ~10× shore's at ~16 MB on disk, ~115 MB compiled into
+the pak.  Heavy but accepted for now; deduplication via hex
+dihedral symmetry (each orbit cuts ~12×) is the obvious followup
+if the size ever bites.
+
+Engine consumption is wired: `ground_desc_t::init_ground_textures`
+dropped the per-slope rotation case-table + `create_alpha_tile`
+diamond-unwarp projection (the legacy 15-cell square pipeline);
+`get_alpha_tile(slope, corners)` and `get_alpha_tile(slope)` are
+now direct `transition_slope_texture->get_image(...)` lookups.
+Init-time silhouette tripwire mirrors the shore one.
+
 ### What's missing
 
 - Engine-side hex lookup that indexes the raw-`slope_t` blocks
@@ -599,13 +652,13 @@ the other synth families.
   the baked atlases sit on disk unused.  Water_ani has the same
   blocker on the engine side (`ground_desc.cc::get_water_tile`
   still uses `doubleslope_to_imgnr`) plus a one-tier-vs-many-tiers
-  decision before the second axis is meaningful.
-- Renderer + atlas for the remaining synth families (alpha,
-  back-wall). Should drop in cleanly via the
-  `tools/3d/hex_synth.py` shared module — `bake_pakset` already
-  handles the boilerplate, so each new family needs only a
-  `render.py` and a ~50-line `build_pakset.py` shaped like the
-  borders/marker callers.
+  decision before the second axis is meaningful.  SlopeTrans is
+  done — `get_alpha_tile` reads the (slope, mask) bake directly.
+- Renderer + atlas for `back_wall` (cliff faces).  Doesn't fit
+  `bake_pakset`'s slope-keyed iteration model (it's per-(wall ×
+  index)) — needs either an `iter_keys` parameter or a sibling
+  helper.  `fill_polygon` already lives in
+  `tools/3d/hex_synth.py` for lightmap's per-region fills.
 
 ### Recommended next iteration
 
@@ -617,12 +670,11 @@ the other synth families.
    `synth_overlay::prefer_over_pakset` to false on a pakset with
    `texture-lightmap` and verify in-game.
 2. Repeat the bake-and-commit pattern for the remaining synth
-   families. Borders and marker are done; alpha and back_wall are
-   what's left.  Alpha is climate-keyed (one mask per climate
-   transition) but otherwise close to borders in structure;
-   back_wall is per-(wall × index) rather than per-slope, which
-   `bake_pakset`'s slope-keyed iteration doesn't model — it'll
-   need either an `iter_keys` parameter or a sibling helper.
+   families. Borders, marker, shore and slope-trans are done;
+   back_wall is what's left.  Back_wall is per-(wall × index)
+   rather than per-slope, which `bake_pakset`'s slope-keyed
+   iteration doesn't model — it'll need either an `iter_keys`
+   parameter or a sibling helper.
    `fill_polygon` already lives in `tools/3d/hex_synth.py` for
    lightmap's per-region fills.
 
