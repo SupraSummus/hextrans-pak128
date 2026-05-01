@@ -35,11 +35,14 @@ import math
 import sys
 from pathlib import Path
 
+import numpy as np
+from PIL import Image
+
 HERE = Path(__file__).resolve().parent
 REPO_ROOT = HERE.parents[2]
 sys.path.insert(0, str(REPO_ROOT / "tools" / "3d"))
 
-from render import Scene  # noqa: E402
+from render import IMG_SIZE, Scene  # noqa: E402
 
 # --- Material colors ---------------------------------------------------------
 BALLAST_DARK = (95, 80, 65)
@@ -309,8 +312,8 @@ def build_curve(scene: Scene, edge_a: str, edge_b: str) -> None:
 
 # Hex pair-direction sprites the dat declares.  Ribi codes follow
 # `way_writer.cc::hex_ribi_code` (low-bit-first joined with `_`).  Single
-# source of truth for both the per-cell preview renders (`main()` here)
-# and the atlas bake (`build_pakset.py`).
+# source of truth for both the per-cell preview renders (`main()`) and
+# the atlas bake (`bake_pakset()`).
 HEX_ENTRIES = [
     # ribi    edge_a  edge_b
     ("s_n",   "S",  "N"),
@@ -344,8 +347,28 @@ def main() -> None:
     build(s_ew, length_half=0.5, axis_yaw_deg=90.0)
     s_ew.render(str(HERE / "out_square_ew.png"))
 
-    # Per-cell hex previews are written by `build_pakset.main()` as a
+    # Per-cell hex previews are written by `bake_pakset()` as a
     # side-effect of the atlas bake — single source for the rgba.
+
+
+# Atlas bake of the hex pair sprites in HEX_ENTRIES; re-runs must be
+# byte-identical.  See TODO.md "Track-sprite baker" for the dat-side
+# coverage status.
+
+def bake_pakset() -> None:
+    n = len(HEX_ENTRIES)
+    atlas = np.zeros((IMG_SIZE, IMG_SIZE * n, 4), dtype=np.uint8)
+    for col, (ribi, edge_a, edge_b) in enumerate(HEX_ENTRIES):
+        rgba = render_hex_cell(edge_a, edge_b)
+        atlas[:, col * IMG_SIZE:(col + 1) * IMG_SIZE] = rgba
+        Image.fromarray(rgba, mode="RGBA").save(HERE / f"out_hex_{ribi}.png")
+
+    out_png = HERE.parent / "rail_060_tracks_hex.png"
+    Image.fromarray(atlas, mode="RGBA").save(out_png)
+    print(f"wrote {out_png.relative_to(REPO_ROOT)} "
+          f"({atlas.shape[1]}x{atlas.shape[0]} px, {n} cells)")
+    for col, (ribi, *_e) in enumerate(HEX_ENTRIES):
+        print(f"  col {col}: {ribi}")
 
 
 if __name__ == "__main__":

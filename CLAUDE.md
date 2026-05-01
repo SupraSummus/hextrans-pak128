@@ -450,6 +450,17 @@ Conventions, in order:
   parent directory; model dirs (containing `.py`, `.sh`, `refs/`,
   `out_*.png`) are silently ignored. Adding a new model dir requires
   no Makefile change.
+- **One file per baker.**  Default shape is a single file with the
+  `render_cell()` function plus an `if __name__ == "__main__":
+  hex_synth.bake_pakset(...)` block; same for bespoke single-layer
+  assets (`rail_060_tracks/scene.py` is the worked example, with
+  `bake_pakset()` next to the 3D parts and `HEX_ENTRIES`).  Four of
+  the six parametric ground bakers still have a `render.py` /
+  `build_pakset.py` split where the build file is ~50 lines of thin
+  wrapper around `hex_synth.bake_pakset` — folding them is zero-content
+  churn, leave them.  Verification harnesses (`rail_060_bridge/build.sh`,
+  `rail_060_tracks/build.py`) stay separate from the bake — that role
+  is genuinely different (crop refs, run renders, diff against pak128).
 
 ## Current state
 
@@ -483,8 +494,8 @@ side hex depth-clip plane spec — bridges are multi-layer
 
 First single-layer bespoke asset (ballast + ties + rails, no
 Front / Back split), and the worked example for shipping hex
-output today: one shared `scene.py` + `build_pakset.py` that
-emit both square pak128 dimetric (verified against cells 1.5 and
+output today: one `scene.py` (3D parts + `bake_pakset()`) that
+emits both square pak128 dimetric (verified against cells 1.5 and
 1.6) and the 7 hex pair sprites the .dat names — 3 axis-straights
 plus 4 bends, where 120°-apart pairs use a straight-with-mitred-
 cap chord and 60°-apart pairs use a hex-centred arc (the chord

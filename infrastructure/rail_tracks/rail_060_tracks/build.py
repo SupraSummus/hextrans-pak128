@@ -8,7 +8,7 @@ Pak128 layout (from rail_060_tracks.dat):
   Image[se_nw][0]                  = rail_060_tracks.1.6
                       (square: track along world +x axis)
 
-Hex per-cell PNGs are emitted by `build_pakset.main()` as a side-effect
+Hex per-cell PNGs are emitted by `scene.bake_pakset()` as a side-effect
 of the atlas bake; this script bbox-checks them but doesn't diff (no
 hex reference art yet).
 """
@@ -25,7 +25,6 @@ HERE = Path(__file__).resolve().parent
 REPO_ROOT = HERE.parents[2]
 sys.path.insert(0, str(REPO_ROOT / "tools" / "3d"))
 
-import build_pakset  # noqa: E402  # adjacent file (hex bake)
 import crop_ref  # noqa: E402
 import diff as diff_mod  # noqa: E402
 import scene as scene_mod  # noqa: E402  # adjacent file
@@ -64,8 +63,8 @@ def main() -> None:
     for row, col, ref_name, _cand, _label in SQUARE_REFS:
         crop_sheet_cell(row, col, refs_dir / ref_name)
 
-    scene_mod.main()      # square verification renders next to scene.py
-    build_pakset.main()   # hex atlas + per-cell out_hex_*.png
+    scene_mod.main()           # square verification renders next to scene.py
+    scene_mod.bake_pakset()    # hex atlas + per-cell out_hex_*.png
 
     print()
     for row, col, ref_name, cand_name, label in SQUARE_REFS:
