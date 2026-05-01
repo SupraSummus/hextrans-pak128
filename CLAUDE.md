@@ -496,13 +496,17 @@ First single-layer bespoke asset (ballast + ties + rails, no
 Front / Back split), and the worked example for shipping hex
 output today: one `scene.py` (3D parts + `bake_pakset()`) that
 emits both square pak128 dimetric (verified against cells 1.5 and
-1.6) and the 7 hex pair sprites the .dat names — 3 axis-straights
-plus 4 bends, where 120°-apart pairs use a straight-with-mitred-
-cap chord and 60°-apart pairs use a hex-centred arc (the chord
-construct degenerates when the shared corner sits closer than
-the ballast half-width). Reuses `HexGeom` and `hash_noise01`
-from `tools/3d/hex_synth.py` so square and hex output share
-dither grain and silhouette anchor; `render.py` grew a
+1.6) and the full 21-cell hex atlas the .dat names — 6 single-
+edge stubs (ribi 1/2/4/8/16/32), 3 axis-straights, and all 12
+bends — keyed by raw hex ribi.  120°-apart and opposite (180°)
+edge pairs use a straight chord with mitred caps; 60°-apart pairs
+use a hex-centred arc (the chord construct degenerates when the
+shared corner sits closer than the ballast half-width); stubs are
+a half-tile chord from the hex centre to the edge midpoint with a
+clean perpendicular cut at the centre (no buffer-stop yet, the
+rails just end).  Reuses `HexGeom` and `hash_noise01` from
+`tools/3d/hex_synth.py` so square and hex output share dither
+grain and silhouette anchor; `render.py` grew a
 `projection="hex"` path with per-pixel hex plan-view clip
 alongside.
 

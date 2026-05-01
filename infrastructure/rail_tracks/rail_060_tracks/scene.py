@@ -23,9 +23,11 @@ viewer-side railing).
 Coordinate system matches `render.py` and `rail_060_bridge/scene.py`:
 world +x = east (lower-right onscreen in square dimetric, screen-right
 in hex), world +y = north (upper-right in square, screen-up in hex),
-world +z = up.  The "default" track runs along the world +y axis; for
-hex output we render it three times rotated by 0°, 60°, -60° to cover
-the three hex straight axes (s_n, sw_ne, se_nw).
+world +z = up.  The "default" track runs along the world +y axis (used
+by `build()` for the two square verification renders).  Hex output
+goes through `build_curve()` / `build_stub()` instead, which lay each
+sprite directly between the relevant hex edge midpoints — no
+rotate-and-clip pass.
 
 Tracks have no per-image sheet offset in the dat (unlike bridges which
 ship `,0,32`), so we render with world z=0 at the default ground
@@ -310,28 +312,69 @@ def build_curve(scene: Scene, edge_a: str, edge_b: str) -> None:
         build_between_edges(scene, edge_a, edge_b)
 
 
-# Hex pair-direction sprites the dat declares.  Ribi codes follow
-# `way_writer.cc::hex_ribi_code` (low-bit-first joined with `_`).  Single
-# source of truth for both the per-cell preview renders (`main()`) and
-# the atlas bake (`bake_pakset()`).
+def build_stub(scene: Scene, edge: str, n_ties: int = N_TIES // 2) -> None:
+    """Lay a half-tile track from the hex centre to one edge midpoint.
+
+    The edge end is mitred along the local edge direction (so it meets
+    an adjacent tile's track flush at the shared edge midpoint, same
+    convention as `build_between_edges`); the centre end gets a clean
+    perpendicular cut — no buffer-stop geometry yet, the rails just
+    end.  `n_ties` is half the through-tile count by default since the
+    chord is half as long.
+    """
+    start = (0.0, 0.0)
+    end = _edge_midpoint(edge)
+    cap_edge = _edge_unit_dir(edge)
+    cdx, cdy = end[0] - start[0], end[1] - start[1]
+    n = math.hypot(cdx, cdy)
+    cap_centre = (-cdy / n, cdx / n)
+    _add_track_segment(scene, start, end, cap_centre, cap_edge, n_ties=n_ties)
+
+
+# Hex sprites the dat declares.  Ribi codes follow
+# `way_writer.cc::hex_ribi_code` (low-bit-first joined with `_`,
+# bit positions SE=1, S=2, SW=4, NW=8, N=16, NE=32).  Listed in
+# ascending ribi-value order — 6 single-edge stubs first (ribi 1,
+# 2, 4, 8, 16, 32 → cols 0..5), then 15 edge pairs (ribi 3, 5, 6,
+# 9, 10, 12, … → cols 6..20).  Single source of truth for both
+# the per-cell preview renders and the atlas bake.
 HEX_ENTRIES = [
-    # ribi    edge_a  edge_b
-    ("s_n",   "S",  "N"),
-    ("sw_ne", "SW", "NE"),
-    ("se_nw", "NW", "SE"),
-    ("se_sw", "SE", "SW"),
-    ("se_ne", "SE", "NE"),  # 60° corner curve, around E
-    ("sw_nw", "SW", "NW"),  # 60° corner curve, around W
-    ("nw_ne", "NW", "NE"),
+    # ribi    edges (1 entry → stub, 2 entries → straight or curve)
+    ("se",    ("SE",)),
+    ("s",     ("S",)),
+    ("sw",    ("SW",)),
+    ("nw",    ("NW",)),
+    ("n",     ("N",)),
+    ("ne",    ("NE",)),
+    ("se_s",  ("SE", "S")),
+    ("se_sw", ("SE", "SW")),
+    ("s_sw",  ("S",  "SW")),
+    ("se_nw", ("SE", "NW")),  # axis straight
+    ("s_nw",  ("S",  "NW")),
+    ("sw_nw", ("SW", "NW")),
+    ("se_n",  ("SE", "N")),
+    ("s_n",   ("S",  "N")),   # axis straight
+    ("sw_n",  ("SW", "N")),
+    ("nw_n",  ("NW", "N")),
+    ("se_ne", ("SE", "NE")),
+    ("s_ne",  ("S",  "NE")),
+    ("sw_ne", ("SW", "NE")),  # axis straight
+    ("nw_ne", ("NW", "NE")),
+    ("n_ne",  ("N",  "NE")),
 ]
 
 
-def render_hex_cell(edge_a: str, edge_b: str):
-    """Build a fresh Scene with one hex pair sprite and render it through
-    the hex camera.  Returns the (h, w, 4) uint8 RGBA array; no file
-    written.  Atlas bake and per-cell preview share this entrypoint."""
+def render_hex_cell(edges):
+    """Build a fresh Scene with one hex sprite and render it through
+    the hex camera.  Single edge → stub; two edges → straight or
+    curve (dispatched by `build_curve`).  Returns the (h, w, 4) uint8
+    RGBA array; no file written.  Atlas bake and per-cell preview
+    share this entrypoint."""
     s = Scene()
-    build_curve(s, edge_a, edge_b)
+    if len(edges) == 1:
+        build_stub(s, edges[0])
+    else:
+        build_curve(s, edges[0], edges[1])
     return s.render(out_path=None, projection="hex")
 
 
@@ -351,24 +394,34 @@ def main() -> None:
     # side-effect of the atlas bake — single source for the rgba.
 
 
-# Atlas bake of the hex pair sprites in HEX_ENTRIES; re-runs must be
+# Atlas bake of the hex sprites in HEX_ENTRIES; re-runs must be
 # byte-identical.  See TODO.md "Track-sprite baker" for the dat-side
 # coverage status.
 
 def bake_pakset() -> None:
     n = len(HEX_ENTRIES)
     atlas = np.zeros((IMG_SIZE, IMG_SIZE * n, 4), dtype=np.uint8)
-    for col, (ribi, edge_a, edge_b) in enumerate(HEX_ENTRIES):
-        rgba = render_hex_cell(edge_a, edge_b)
+    bboxes = []
+    for col, (ribi, edges) in enumerate(HEX_ENTRIES):
+        rgba = render_hex_cell(edges)
         atlas[:, col * IMG_SIZE:(col + 1) * IMG_SIZE] = rgba
-        Image.fromarray(rgba, mode="RGBA").save(HERE / f"out_hex_{ribi}.png")
+        m = rgba[..., 3] > 0
+        if m.any():
+            ys, xs = np.where(m)
+            bboxes.append((ribi, int(xs.min()), int(ys.min()),
+                           int(xs.max()), int(ys.max()), int(m.sum())))
+        else:
+            bboxes.append((ribi, None, None, None, None, 0))
 
     out_png = HERE.parent / "rail_060_tracks_hex.png"
     Image.fromarray(atlas, mode="RGBA").save(out_png)
     print(f"wrote {out_png.relative_to(REPO_ROOT)} "
           f"({atlas.shape[1]}x{atlas.shape[0]} px, {n} cells)")
-    for col, (ribi, *_e) in enumerate(HEX_ENTRIES):
-        print(f"  col {col}: {ribi}")
+    for col, (ribi, x0, y0, x1, y1, px) in enumerate(bboxes):
+        if px == 0:
+            print(f"  col {col:2d}: {ribi:7s} EMPTY")
+        else:
+            print(f"  col {col:2d}: {ribi:7s} bbox=({x0},{y0})-({x1},{y1}) px={px}")
 
 
 if __name__ == "__main__":
