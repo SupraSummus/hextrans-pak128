@@ -8,9 +8,8 @@ Pak128 layout (from rail_060_tracks.dat):
   Image[se_nw][0]                  = rail_060_tracks.1.6
                       (square: track along world +x axis)
 
-Hex per-cell PNGs are emitted by `scene.bake_pakset()` as a side-effect
-of the atlas bake; this script bbox-checks them but doesn't diff (no
-hex reference art yet).
+Hex per-cell bbox is reported by `scene.bake_pakset()` itself (no
+reference art yet, so no diff).
 """
 from __future__ import annotations
 
@@ -18,7 +17,6 @@ import json
 import sys
 from pathlib import Path
 
-import numpy as np
 from PIL import Image
 
 HERE = Path(__file__).resolve().parent
@@ -49,22 +47,13 @@ def crop_sheet_cell(row: int, col: int, out: Path) -> None:
     tile.save(out)
 
 
-def bbox_of(path: Path) -> tuple[int, int, int, int, int] | None:
-    im = np.array(Image.open(path).convert("RGBA"))
-    m = im[..., 3] > 0
-    if not m.any():
-        return None
-    ys, xs = np.where(m)
-    return int(xs.min()), int(ys.min()), int(xs.max()), int(ys.max()), int(m.sum())
-
-
 def main() -> None:
     refs_dir = HERE / "refs"
     for row, col, ref_name, _cand, _label in SQUARE_REFS:
         crop_sheet_cell(row, col, refs_dir / ref_name)
 
     scene_mod.main()           # square verification renders next to scene.py
-    scene_mod.bake_pakset()    # hex atlas + per-cell out_hex_*.png
+    scene_mod.bake_pakset()    # hex atlas + per-cell bbox summary
 
     print()
     for row, col, ref_name, cand_name, label in SQUARE_REFS:
@@ -76,16 +65,6 @@ def main() -> None:
         print(f"=== {label} ===")
         json.dump(metrics, sys.stdout, indent=2)
         sys.stdout.write("\n")
-
-    print("\n=== hex renders (bbox only; no reference yet) ===")
-    for path in sorted(HERE.glob("out_hex_*.png")):
-        name = path.stem.removeprefix("out_hex_")
-        bb = bbox_of(path)
-        if bb is None:
-            print(f"  {name:7s} EMPTY")
-        else:
-            x0, y0, x1, y1, n = bb
-            print(f"  {name:7s} bbox=({x0},{y0})-({x1},{y1}) px={n}")
 
 
 if __name__ == "__main__":

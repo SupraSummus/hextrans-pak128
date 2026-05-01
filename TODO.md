@@ -38,18 +38,22 @@ diagonal as a placeholder or share the baker once it generalises.
 
 **Track-sprite baker.** Hex track .dats need slot entries covering
 6 single edges, 3 axis-straights, 12 bends and the 3-way / 4-way
-junction patterns.  `rail_060_tracks` now bakes the 3 axis-straights
-and the 4 bends its dat declares (`se_sw`, `se_ne`, `sw_nw`, `nw_ne`)
+junction patterns.  `rail_060_tracks` now bakes 6 stubs + 3
+axis-straights + all 12 bends (21 cells in ribi-value order)
 through `infrastructure/rail_tracks/rail_060_tracks/scene.py::bake_pakset()`
-→ `rail_060_tracks_hex.png`; the 60°-apart corner curves use a
+→ `rail_060_tracks_hex.png`.  60°-apart corner curves use a
 hex-centred arc (radius = R·√3/2, tangent to each edge at its
 midpoint) rather than the straight-with-mitred-cap chord that
-opposite/120° pairs share.  Single-edge stubs, the no-track
-`Image[-]`, and `ImageUp` slope variants still borrow upstream
-square cells; the remaining 8 bend pair keys aren't declared in the
-dat at all yet.  Slope-up and the 8 missing bend declarations are
-the next chunks; junctions follow once the engine writer grows a
-slot for them.
+opposite/120° pairs share; stubs are a half-tile chord from the
+hex centre to one edge midpoint, mitred at the edge end and cut
+flat at the centre — no buffer-stop geometry yet, the rails just
+end.  The no-track `Image[-]` placeholder and `ImageUp` slope
+variants still borrow upstream square cells.  Slope-up is the
+next chunk; junctions follow once the engine writer grows a slot
+for them.  Stub buffer-stop geometry (a short transverse beam at
+the centre end) is also worth a pass — the current clean cut
+reads as "track that ends mid-air" rather than a buffered
+terminus.
 
 **X-bracing on rail_060_bridge.** The numpy z-buffer rasterizer
 in `tools/3d/render.py` only supports axis-aligned boxes via
