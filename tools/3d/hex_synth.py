@@ -65,6 +65,46 @@ def hex_height_raster_scale_y(height_steps: int, w: int) -> int:
 E, SE, SW, W_C, NW, NE = 0, 1, 2, 3, 4, 5
 CORNER_COUNT = 6
 
+
+# ---- Hex way axes (matching `hex_way_axis_t::type` in display/hex_proj.h) --
+
+NS, NE_SW, NW_SE = 0, 1, 2
+
+
+# Depth-clip plane normals (Front-side, in world coords).
+#
+# Per the engine spec in `display/hex_proj.h` ("Depth-clip plane spec"):
+# multi-layer way assets split at the vertical world plane containing
+# the way axis line through the tile centre.  Way / bridge pixels with
+# `n·p > 0` go to Front; the rest (deck, axis line) go to Back so
+# vehicles draw on top of the deck.  Front = south half of the axis
+# line; N-S degenerate, tie-broken to +x to match pak128's NS bridge
+# convention.
+#
+# World coords match `tools/3d/render.py`: +x east, +y north, +z up;
+# hex tile centred at origin, corners at radius 0.5.  See
+# `front_back_split` below.
+
+_SQRT3 = math.sqrt(3.0)
+
+HEX_DEPTH_CLIP_NORMAL = {
+    NS:    ( 1.0,           0.0          ),
+    NE_SW: ( 0.5,          -_SQRT3 / 2.0 ),
+    NW_SE: (-0.5,          -_SQRT3 / 2.0 ),
+}
+
+
+def front_back_split(world_x, world_y, axis: int):
+    """True for the Front layer, False for Back.  Vectorises over numpy.
+
+    Per `display/hex_proj.h`: Front = `n·p > 0`, Back = `≤ 0`.  Caller
+    converts to whatever layer label its baker uses (`"back"` /
+    `"front"` strings for `Scene.add_box(layer=...)`, an enum, etc.).
+    """
+    nx, ny = HEX_DEPTH_CLIP_NORMAL[axis]
+    return nx * np.asarray(world_x) + ny * np.asarray(world_y) > 0.0
+
+
 # Raw slope_t per-corner weights.  `slope = sum(ch[i] * CORNER_WEIGHTS[i])`.
 CORNER_WEIGHTS = (1, 4, 16, 64, 256, 1024)
 

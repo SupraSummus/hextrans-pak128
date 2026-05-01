@@ -55,6 +55,17 @@ the centre end) is also worth a pass — the current clean cut
 reads as "track that ends mid-air" rather than a buffered
 terminus.
 
+**Depth-clip plane spec sits unused.** `tools/3d/hex_synth.py` carries
+`HEX_DEPTH_CLIP_NORMAL` + `front_back_split` mirroring the engine's
+`display/hex_proj.h::hex_way_axis_t` spec.  No baker uses them today
+— single-layer assets (`rail_060_tracks`) don't need a Front / Back
+split, and `rail_060_bridge` hasn't attempted hex output yet.  Wire
+into `Scene.render` as auto-tagging (or drop the helper and keep
+per-quad hardcoded layers) when the first multi-layer hex bake
+actually emits.  Stress-test the south-is-Front rule + the N-S
+tie-break against a real bridge bake at that point — the rule was
+sketched against pak128's NS bridge convention only.
+
 **X-bracing on rail_060_bridge.** The numpy z-buffer rasterizer
 in `tools/3d/render.py` only supports axis-aligned boxes via
 `add_box`, so the diagonal X-bracing between trestle posts can't

@@ -86,6 +86,13 @@ or `simutrans` for hex synth):
   light `L = (-1, 1, 2)` calibrated so flat = 1.0×.  The earlier
   engine-side `synth_overlay::*` runtime ground truth has been baked
   into the pakset and removed; the bakers are the source of truth.
+- **Hex Back/Front depth-clip plane**: `display/hex_proj.h::hex_way_axis_t`
+  + `hex_depth_clip_axial_normal` define the per-axis spec; mirror in
+  `tools/3d/hex_synth.py::HEX_DEPTH_CLIP_NORMAL` /
+  `front_back_split` for sub-tile classification in 3D bakers.  Front
+  is the south half of the way axis line through the tile centre;
+  N-S degenerate, tie-broken to +x to match pak128's NS bridge
+  convention.
 - **Pak128 art conventions** (`devdocs/128painting.txt`): 2:1
   dimetric, sun from south at ~60° above horizon, 1 tile ≈ 20×20 m,
   12 px ≈ 2 m, building story ≈ 14 px. These are pak128's
@@ -793,18 +800,6 @@ context into `TODO.md` / `CLAUDE.md`.
 
 ## Open questions / TBD
 
-- **Hex depth-clip planes for bespoke output.** Only relevant for
-  assets that use a Front / Back layer split (bridges, vehicles,
-  multi-storey buildings) — those re-render 3D scenes through the
-  hex camera with hex depth planes to produce per-layer hex sheet
-  entries, and the hex equivalents of pak128's depth planes need
-  an explicit spec on the engine side, anchored against the same
-  hex camera the bakers already use (`tools/3d/hex_synth.py::HexGeom`).
-  Single-layer assets —
-  tracks, roads, trees, simple buildings — render through one hex
-  camera with no depth slicing and are unblocked today;
-  `rail_060_tracks` is the worked example. Doesn't block
-  parametric pipeline work.
 - **Optimization loop.** Manual edit + diff for now. Camera-parameter
   auto-fit (scipy over tilt/offset/scale) is a clear next step once
   shape is roughly right. True geometry optimization is much harder
