@@ -52,51 +52,15 @@ up before tweaking. Fitting them by trial against a single reference
 gives a result that's right by accident and breaks when you swap to
 the next sheet entry.
 
-Reference card (paths are in the simutrans engine repo,
-`SupraSummus/hextrans` branch `simutrans` for square / `claude/...`
-or `simutrans` for hex synth):
-
-- **Tile-to-screen mapping** (square dimetric):
-  `display/viewport.cc::get_screen_coord` — `screen_x = (tile_x -
-  tile_y)*(W/2)`, `screen_y = (tile_x + tile_y)*(W/4)`.
-- **Compass** (square): `dataobj/koord.cc` — `north=(0,-1)`,
-  `east=(1,0)`, `south=(0,1)`, `west=(-1,0)`. Combined with the
-  tile-to-screen mapping: **N=upper-right, E=lower-right,
-  S=lower-left, W=upper-left**. A NS bridge runs along the world
-  y-axis; its east-facing (+x) side is closer to the viewer (the
-  `FrontImage` layer).
-- **Bridge image enum** (engine side):
-  `descriptor/bridge_desc.h::img_t`. Image lookup helpers:
-  `get_background()` / `get_foreground()` in the same file.
-  Compositing call site: `obj/bruecke.cc::calc_image()` and
-  `get_front_image()` — Back drawn with the way (behind vehicles),
-  Front drawn after vehicles.
-- **Bridge .dat keys** (pakset side):
-  `descriptor/writer/bridge_writer.cc` parses
-  `BackImage[NS|EW]`, `FrontImage[NS|EW]`, `BackRamp/FrontRamp[N|S|E|W]`,
-  `BackStart/FrontStart[N|S|E|W]`, `BackStart2/FrontStart2[N|S|E|W]`
-  (double-height), `backPillar[S|W]`. Pillar only `S` and `W` —
-  the other two are mirrors.
-- **Slope encoding**: `dataobj/ribi.h::slope_t` — base-3 per corner
-  (`southwest=1, southeast=3, northeast=9, northwest=27`),
-  `max_number = 80`, 81 raw indices.
-- **Hex camera + lighting**: `tools/3d/hex_synth.py::HexGeom` is the
-  canonical pakset-side camera (vertex layout, per-step lift derived
-  from `display/hex_proj.h::hex_height_raster_scale_y`); directional
-  light `L = (-1, 1, 2)` calibrated so flat = 1.0×.  The earlier
-  engine-side `synth_overlay::*` runtime ground truth has been baked
-  into the pakset and removed; the bakers are the source of truth.
-- **Hex Back/Front depth-clip plane**: `display/hex_proj.h::hex_way_axis_t`
-  + `hex_depth_clip_axial_normal` define the per-axis spec; mirror in
-  `tools/3d/hex_synth.py::HEX_DEPTH_CLIP_NORMAL` /
-  `front_back_split` for sub-tile classification in 3D bakers.  Front
-  is the south half of the way axis line through the tile centre;
-  N-S degenerate, tie-broken to +x to match pak128's NS bridge
-  convention.
-- **Pak128 art conventions** (`devdocs/128painting.txt`): 2:1
-  dimetric, sun from south at ~60° above horizon, 1 tile ≈ 20×20 m,
-  12 px ≈ 2 m, building story ≈ 14 px. These are pak128's
-  art-side conventions, not engine constants.
+Recurring lookup categories: tile-to-screen mapping
+(`display/viewport.cc`), compass directions (`dataobj/koord.cc`),
+slope encoding (`dataobj/ribi.h`), hex camera + lighting
+(`tools/3d/hex_synth.py::HexGeom`, mirroring `display/hex_proj.h`),
+per-asset-class .dat keys (the matching
+`descriptor/writer/*_writer.cc`), and pak128 art conventions
+(`devdocs/128painting.txt`). Engine repo is `SupraSummus/hextrans`;
+a worktree of its `simutrans` branch is typically kept parallel to
+the pakset checkout for these lookups.
 
 When something doesn't match the reference, before tweaking a
 parameter, ask "is this an engine fact I haven't looked up yet?".
@@ -146,9 +110,10 @@ Working order:
    opening `scene.py`** — the .dat alone doesn't tell you which
    cells are stubs vs. full-tile vs. slope variants, nor what art
    conventions apply (ballast dither, taper bands, mitred caps).
-2. **Look up engine facts and existing helpers.** Pull from the
-   reference card above anything you'll need — compass, image
-   enum, .dat key meaning, sheet offset semantics. Then skim
+2. **Look up engine facts and existing helpers.** Grep the
+   engine repo for whatever you need (compass, image enum, .dat
+   key meaning, sheet offset semantics — see "Engine facts"
+   above for the recurring lookup categories). Then skim
    `tools/3d/hex_synth.py` and `tools/3d/render.py` for engine-
    mirror helpers (`HexGeom`, `hash_noise01`, `silhouette_mask`,
    `iter_valid_slopes`, projection support); reuse beats
@@ -171,9 +136,9 @@ A few concrete habits:
 
 - **First render verifies placement, not shape.** Run a
   solid-colour pass at the right bbox before adding any pattern
-  (dither, taper, texture). Cheap, and a 30 px placement bug in a
-  textured render reads as a shape bug — burning iterations on
-  shape while placement is off is the classic trap.
+  (dither, taper, texture). A placement bug in a textured render
+  reads as a shape bug — burning iterations on shape while
+  placement is off is the classic trap.
 - **Bbox-check every iteration.** Print x/y range and pixel count
   for each reference and candidate. The eye misses silent shifts;
   bboxes catch them in two seconds.
@@ -195,10 +160,10 @@ A few concrete habits:
   *track-family* parameters that should stay consistent across
   rail_060 / rail_080 / road / tram (gauge, tie spacing, ballast
   bands) belong in a shared module, not duplicated per scene.
-- **Back-solve from reference geometry.** If the reference's front
-  strip is 41 px tall and your projection has 90 px / world unit at
-  the relevant axis, the railing's z extent is `41 / 90 ≈ 0.13`. Do
-  this calculation before tweaking the constant.
+- **Back-solve from reference geometry.** Measure a reference
+  feature in pixels, divide by the projection's px-per-world-unit
+  at the relevant axis, get the world-space extent. Do this
+  before tweaking the constant.
 - **Use TodoWrite for multi-step iteration.** Per-slice fixes,
   orientation lookups, geometry tunes — easy to lose track without
   it.
@@ -360,63 +325,28 @@ in a separate `models/` tree. Shared rendering/diff tooling lives at
 `tools/3d/`. The two pipelines look like:
 
 ```
-tools/
-  3d/                                    # shared by both pipelines
-    render.py                            # numpy z-buffer rasterizer (layer-tagged)
-    diff.py                              # reference-vs-candidate score + 4-panel PNG
-    crop_ref.py                          # extract one tile from a pak sheet via .dat
+tools/3d/                                # shared rendering, diff, cropping
+                                         # (z-buffer rasterizer, hex camera,
+                                         # bake_pakset helper)
 
-landscape/grounds/                       # parametric pipeline lives here.
-                                         #   each baker dir is listed in
-                                         #   Makefile DIRS128 so makeobj picks
-                                         #   up the .dat from inside the dir.
-  texture-lightmap/
-    texture-lightmap.png             # baked deliverable (committed; makeobj input)
-    texture-lightmap.dat             # baked deliverable (committed; makeobj input)
-    render.py                            # per-slope lightmap cell
-    build_pakset.py                      # bake the full atlas + .dat
-  borders/
-    borders.png / borders.dat            # baked deliverable (committed; makeobj input)
-    render.py                            # per-slope grid-line cell
-    build_pakset.py                      # bake the full atlas + .dat
-  marker/
-    marker.png / marker.dat              # baked deliverable (committed; makeobj input)
-    render.py                            # per-slope marker half cell
-    build_pakset.py                      # bake the full atlas + .dat
-  water_ani/
-    water_ani.png / water_ani.dat        # baked deliverable (committed; makeobj input)
-    render.py                            # per-(depth,stage) animated water cell
-    build_pakset.py                      # bake the full atlas + .dat
-    legacy_reference.png                 # upstream pak128 art kept for compare.py
-    compare.py                           # qualitative side-by-side eval
-  texture-shore/
-    texture-shore.png / texture-shore.dat # baked deliverable (committed; makeobj input)
-    render.py                            # per-(slope, water_mask) ALPHA_RED beach mask
-    build_pakset.py                      # bake the full atlas + .dat
-  texture-slope/
-    texture-slope.png / texture-slope.dat # baked deliverable (committed; makeobj input)
-    render.py                            # per-(slope, corner_mask) ALPHA_GREEN|ALPHA_BLUE climate / snowline mask
-    build_pakset.py                      # bake the full atlas + .dat
-  back_wall/
-    slopes.png / slopes.dat              # natural cliffs (Name=Slopes; committed; makeobj input)
-    basement.png / basement.dat          # man-made cliffs (Name=Basement; committed; makeobj input)
-    render.py                            # per-(wall, index, flavor) cliff-face cell
-    build_pakset.py                      # bake both atlases + both .dats
-    src/                                 # legacy Fabio Gonella rock-photo art kept
-                                         #   for future texture-supervision input;
-                                         #   not in DIRS128, not packaged
-      slope.png / slope.dat              #   upstream pak128 Name=Slopes (rock photos)
-      basement.png / basement.dat        #   upstream pak128 Name=Basement (rock photos)
+landscape/grounds/<name>/                # parametric pipeline.
+  <name>.png, <name>.dat                 # baked deliverable (committed)
+  render.py                              # per-cell renderer
+  build_pakset.py                        # bakes the atlas + .dat
+  src/                                   # (optional) legacy art retained as
+                                         # texture-supervision input; not in
+                                         # DIRS128, not packaged
+                                         #
+                                         # current bakers: texture-lightmap,
+                                         # borders, marker, water_ani,
+                                         # texture-shore, texture-slope,
+                                         # back_wall. each dir listed in
+                                         # Makefile DIRS128.
 
-infrastructure/rail_bridges/             # bespoke pipeline lives next to source art
-  rail_060_bridge.png                    # upstream pakset art (kept; supervisory ref)
-  rail_060_bridge.dat                    # upstream pakset descriptor (kept; packaged)
-  rail_060_bridge/                       # 3D model + supervision artefacts
-    scene.py                             # 3D parts (deck, pillar, ramp, …)
-    build.sh                             # crop refs, render slices, diff each
-    refs/                                # cropped pak128 sheet entries (cache)
-    out_back.png, out_front.png          # rendered slices
-    diff_debug_*.png                     # per-slice debug images
+infrastructure/<class>/<name>/           # bespoke pipeline. upstream
+  scene.py                               # <name>.{png,dat} stays alongside
+  build.sh or build.py                   # the model dir until the model
+  refs/, out_*.png, diff_debug_*.png     # ships.
 ```
 
 Conventions, in order:
@@ -476,287 +406,26 @@ Conventions, in order:
   `rail_060_tracks/build.py`) stay separate from the bake — that role
   is genuinely different (crop refs, run renders, diff against pak128).
 
-## Current state
+## Worked examples
 
-### Bespoke pipeline: `rail_060_bridge`
+For the parametric pipeline, `landscape/grounds/texture-lightmap/`
+is the canonical reference: per-slope `render_cell()` plus a
+`build_pakset.py` that calls `hex_synth.bake_pakset`. The other
+ground bakers (borders, marker, water_ani, texture-shore,
+texture-slope, back_wall) are variations on the same shape and
+each is worth a glance for the part you're working on (atlas
+axis, alpha key, .dat header).
 
-Worked example for the bespoke pipeline. Multi-view supervision is
-wired (one diff per pak128 sheet entry, no composite); orientation
-was looked up in `viewport.cc::get_screen_coord` + `koord.cc`
-rather than fitted; geometry tuned via structural recognition
-against per-slice debug images. Score progression on the two
-slices currently rendered (lower = better):
+For the bespoke pipeline, `infrastructure/rail_tracks/rail_060_tracks/`
+is the worked example for shipping hex output today (single-layer,
+one `scene.py` emitting both square + hex via `bake_pakset()`).
+`infrastructure/rail_bridges/rail_060_bridge/` is the worked example
+for multi-view supervision against pak128 sheet entries (multi-layer
+square, no hex output yet — the hex multi-layer split waits on a
+real bridge bake to stress-test the depth-clip spec).
 
-|                   | Back  | Front |
-|-------------------|-------|-------|
-| Composite (orig.) | 0.80  | n/a   |
-| + multi-view      | 0.81  | 1.15  |
-| + orientation     | 0.58  | 1.15  |
-| + geometry tune   | 0.49  | 0.84  |
-
-Outstanding work on this asset: X-bracing on the trestle (the
-axis-aligned numpy rasterizer doesn't model diagonals well —
-needs `add_quad` with explicit diagonal corners or a Blender
-backend); fine-tune railing top height (Back XOR shows the
-candidate is still ~6 px taller than the reference); the other
-~28 sheet entries on this bridge (ramps, starts, pillars, EW
-segments, winter variants); hex output (blocked on the engine-
-side hex depth-clip plane spec — bridges are multi-layer
-(Back / Front), so the depth-clip blocker bites here).
-
-### Bespoke pipeline: `rail_060_tracks`
-
-First single-layer bespoke asset (ballast + ties + rails, no
-Front / Back split), and the worked example for shipping hex
-output today: one `scene.py` (3D parts + `bake_pakset()`) that
-emits both square pak128 dimetric (verified against cells 1.5 and
-1.6) and the full 21-cell hex atlas the .dat names — 6 single-
-edge stubs (ribi 1/2/4/8/16/32), 3 axis-straights, and all 12
-bends — keyed by raw hex ribi.  120°-apart and opposite (180°)
-edge pairs use a straight chord with mitred caps; 60°-apart pairs
-arc around the shared corner with radius R/2 (the chord construct
-degenerates when the shared corner sits closer than the ballast
-half-width); stubs are
-a half-tile chord from the hex centre to the edge midpoint with a
-clean perpendicular cut at the centre (no buffer-stop yet, the
-rails just end).  Reuses `HexGeom` and `hash_noise01` from
-`tools/3d/hex_synth.py` so square and hex output share dither
-grain and silhouette anchor; `render.py` grew a
-`projection="hex"` path with per-pixel hex plan-view clip
-alongside.
-
-### Parametric pipeline: hex ground deliverable baked
-
-`landscape/grounds/texture-lightmap/render.py` is the canonical
-renderer for hex ground tiles, and the source of truth for the hex
-ground deliverable.  Camera, lift, light direction, shade math and
-fill convention live in `tools/3d/hex_synth.py::HexGeom` plus its
-companion helpers; an earlier crash-fast probe validated bit-for-bit
-parity with the now-retired engine-side synth path; see
-`hextrans/TODO.md` for the historical context.
-
-`build_pakset.py` runs the renderer for every valid hex slope and
-bakes a pak128-style deliverable into `landscape/grounds/`:
-
-- `texture-lightmap.png` — atlas of 141 grayscale lightmap cells
-  (12 × 12 × 128 px = 1536 × 1536 px). Each cell carries per-region
-  Lambert shading as RGB8 grayscale (5-bit `brightness/16` expanded;
-  identity = 132) and the hex silhouette as alpha. Per-region shading
-  comes from a Python port of
-  `synth_plane_partition.h::find_min_partition`, so multi-region
-  slopes (saddles, wedges) get one Lambert face per coplanar region
-  rather than a single averaged shade. Cell layout names follow
-  pakset convention (`texture-lightmap.<row>.<col>`).
-- `texture-lightmap.dat` — `Obj=ground`, `Name=LightTexture`,
-  one `Image[<slope_t>][0]` entry per normalised slope shape, indexed
-  by the **raw `slope_t` value itself** (base-4 per corner: E=1,
-  SE=4, SW=16, W=64, NW=256, NE=1024). The engine's hex-aware ground
-  lookup calls `get_image_ptr(slope - hgt_shift)` directly without a
-  compact-index translation table. The index space is sparse — only
-  the 141 normalised shapes (per-edge delta ≤ 1, min(corner_heights)
-  == 0, since base elevation lives in the tile's `hgt` field, not in
-  the slope encoding) appear out of 3655 declared slots. Invalid
-  encodings read as IMG_EMPTY and are never requested at runtime
-  because they can't appear on real terrain.
-
-The climate texture is **not** regenerated: pak128's existing
-`landscape/grounds/texture-climate.png` is real biome art (grass,
-sand, …) with no tile geometry baked in, so we reuse it unchanged.
-The runtime path is `create_textured_tile(hex_lightmap[slope],
-texture-climate[c])`, mirroring the square pakset's
-`(texture-lightmap × ClimateTexture)` model.
-
-**Engine consumption is the next blocker.** The engine's
-`get_ground_tile` still indexes via `climate_image[c] +
-doubleslope_to_imgnr[slope]` (square projection, 81 slopes); a
-hex-aware lookup that consumes the 340-slope `LightTexture` block
-is engine-side work.  Until that lands, the baked PNG sits unused
-on disk.
-
-### What's reusable across both pipelines
-
-- `tools/3d/crop_ref.py` — pak128 sheet cropping (bespoke).
-- `tools/3d/diff.py` — shape + luminance score + 4-panel
-  debug PNG.
-- `tools/3d/render.py` — numpy z-buffer rasterizer with
-  layer tagging (now used by `rail_060_bridge`).
-- `tools/3d/hex_synth.py` — shared utilities for the parametric
-  pipeline: `HexGeom` (per-slope vertex layout), raw-`slope_t`
-  decoding, `iter_valid_slopes()`, `find_min_partition` (Python
-  port of the engine's old plane-partition helper), Lambert
-  lighting, polygon fill, Bresenham `draw_line`, and `bake_pakset`
-  (per-asset bakers pass a `render_cell` callback, per-asset doc
-  paragraph, and an `iter_entries` callback; the helper handles
-  argparse, atlas, .dat header, per-line comment, and stderr
-  summary).  Keeps the lightmap, borders, marker and back_wall
-  bakers in lockstep; each per-asset `build_pakset.py` is now
-  ~50 lines, mostly the per-asset doc paragraph.
-
-### Parametric pipeline: hex grid-border deliverable baked
-
-`landscape/grounds/borders/render.py` is the canonical renderer
-for hex grid-line cells: the 3 north-side edges of the hex outline
-at the slope's lifted vertices (open polyline E → NE → NW → W),
-drawn in pak128 dark-grey (32, 32, 32) on a transparent background.
-Single-side per tile mirrors square pak128's borders convention
-(the south neighbour's back edges cover this tile's south side).
-`build_pakset.py` runs the renderer for every valid hex slope and
-bakes `landscape/grounds/borders/borders.{png,dat}`, replacing the
-upstream 27-entry square deliverable on this fork.  The .dat
-indexes by raw `slope_t` (same convention as `LightTexture`).
-Engine consumption is the next blocker — `get_border_image` still
-packs `(slope&1) + ((slope>>1)&6)` into 8 square indices; needs
-the same hex-aware lookup as `get_ground_tile`.
-
-### Parametric pipeline: hex water_ani deliverable baked
-
-`landscape/grounds/water_ani/render.py` is the canonical renderer
-for animated open-water cells.  The renderer is the source of truth
-and validation against the legacy square `water_ani.png` is
-qualitative (same kind of muted-blue surface, hex silhouette
-instead of diamond).  The 32-
-frame loop is two superposed sine waves with integer-wavelength
-counts inside the period so frame 31 reads back into frame 0
-seamlessly; the base colour is `(60, 95, 130)` muted navy/teal,
-modulated by ±9 RGB units of ripple.  Outside the hex silhouette is
-`alpha = 0` (matching borders / marker), not the
-`(231, 255, 255)` transparency-key colour the legacy square
-`water_ani.png` uses.
-
-`build_pakset.py` is standalone (doesn't go through
-`hex_synth.bake_pakset`) — that helper iterates valid slopes ×
-halves, but water_ani's atlas axes are `(depth, stage)` rather
-than slope-keyed.  The .dat emits all 6 × 32 = 192 cells under
-one `Obj=ground / Name=Water` block, matching the legacy row count
-exactly.  All `(depth, stage)` cells are required: the engine's
-wasser_t draw path (`grund.cc::display`) calls
-`sea->get_image(depth, stage)` with the running animation stage
-on every depth tier, so leaving stages 1..31 of a deep-water tier
-undeclared would flicker the sprite out for 31/32 of every cycle.
-The engine clamps depth at `water_depth_levels = count - 2` (= 4
-for our N_DEPTHS = 6); depth 5 is reserved / unreachable but kept
-to match the legacy row count and the `count - 2` formula.  Atlas
-is 16×12 cells (2048×1536 px), overwriting the legacy on this fork.
-
-Image[0][stage] is also consumed on a second engine path —
-`create_texture_from_tile` in `ground_desc.cc` uses it as a
-transparency-keyed overlay multiplied with the climate's water
-texture for shore tiles via `get_water_tile(slope, stage)`.  That
-path hardcodes square-dimetric tile-replication offsets (cell +
-copies at `±ref_w/2, ±ref_w/4`) so it doesn't currently produce
-correct output for hex-silhouette overlays — engine-side hex port
-issue, not fixable from the pakset side.
-
-The depth ramp matches the legacy per-row mean RGB within ~1 unit
-per channel ((79, 90, 117) at depth 0 → (62, 70, 91) at depth 5,
-~5% darker per channel per tier).
-
-This is still **flat-only on slope**.  `get_water_tile`'s second
-axis (`stage + water_animation_stages * doubleslope_to_imgnr[slope]`)
-collapses to slope_idx = 0 here pending engine-side hex water lookup
-and a design call on whether the hex pakset ships per-slope
-shoreline tiles in `Water` or pushes the wet/dry boundary entirely
-into the alpha shore-transition family.
-
-### Parametric pipeline: hex marker deliverable baked
-
-`landscape/grounds/marker/render.py` is the canonical renderer
-for hex marker (cursor) cells: an open polyline at the slope's
-lifted vertices — `E → SE → SW → W` for the front half (3
-south-side edges) or `E → NE → NW → W` for the back half (3
-north-side edges) — drawn in bright orange `(255, 128, 0)` on a
-transparent background.  Colour matches the only non-background
-pixel value in the upstream pak128 `marker.png` this fork
-overwrites.  The two halves bracket tile content at draw time
-(back drawn before vehicles/buildings, front drawn after) so the
-cursor silhouette wraps around objects on the tile.
-
-`build_pakset.py` runs the renderer for every valid hex slope
-× both halves and bakes `landscape/grounds/marker/marker.{png,dat}`,
-overwriting the legacy 27-front-+-27-back square deliverable on
-this fork.  The atlas is 282 cells (141 fronts in
-`iter_valid_slopes()` order followed by 141 backs in the same
-order); the .dat emits two `Image[<slope_t>][k]` entries per
-slope (`k=0` front, `k=1` back) indexed by raw `slope_t` (same
-convention as `LightTexture` / `Borders`).  Engine consumption
-is the next blocker — `get_marker_image` still uses the legacy
-square hang-formula (`hang%27` / `(hang%3) + ((hang-(hang%9))/3)`)
-into 27-entry compact ranges; needs the same hex-aware lookup as
-the other synth families.
-
-### Parametric pipeline: hex slope-transition deliverable baked
-
-`landscape/grounds/texture-slope/render.py` is the canonical
-renderer for the hex SlopeTrans alpha — the cell read by
-`grund.cc::display` for **climate-corner mixing**
-(`get_alpha_tile(slope, corners)` with `ALPHA_GREEN | ALPHA_BLUE`)
-and **snowline transitions** (`get_alpha_tile(slope)` with
-`ALPHA_GREEN | ALPHA_BLUE` for case 1, `ALPHA_BLUE` alone for the
-mid-slope case 2).  Cells use `hex_synth.silhouette_mask` so each
-`(slope, corner_mask)` cell is bit-identical in alpha shape to the
-matching `LightTexture[slope]` cell, and the engine's `draw_alpha`
-walks source and alpha streams in lockstep without a runtime
-normalisation cache.
-
-The cell's interior is a 3-band quantisation of a barycentric
-centre-fan strength field (the same shape function `texture-shore`
-uses for wetness, just on a corner-mask 0/1 weight) with a
-position-deterministic hashed dither at the band boundaries:
-
-  RED   — alpha=0 under both alpha keys; base climate stays.
-  GREEN — opaque under `ALPHA_GREEN | ALPHA_BLUE`; transparent
-          under `ALPHA_BLUE` alone.
-  BLUE  — opaque under both keys (the inner / highest mask region).
-
-One bake serves both readers: climate transitions pass the
-`climate_corners` mask; the snowline path passes
-`high_corners_of(slope)` (corners with `corner_height > 0`).
-
-`build_pakset.py` runs the renderer for every valid hex slope ×
-every nonempty 6-bit corner mask and bakes
-`landscape/grounds/texture-slope/texture-slope.{png,dat}`,
-overwriting the legacy 15-cell square deliverable on this fork.
-The atlas is **8883 cells** (141 slopes × 63 masks); the .dat
-emits one `Image[<slope_t>][<corner_mask>]` line per cell indexed
-by raw `slope_t` and 6-bit corner mask (same convention as
-`ShoreTrans`).  Climate transitions don't have shore's "must be
-sea level" constraint, so the mask axis stays full at 63 — the
-atlas is ~10× shore's at ~16 MB on disk, ~115 MB compiled into
-the pak.  Heavy but accepted for now; deduplication via hex
-dihedral symmetry (each orbit cuts ~12×) is the obvious followup
-if the size ever bites.
-
-Engine consumption is wired: `ground_desc_t::init_ground_textures`
-dropped the per-slope rotation case-table + `create_alpha_tile`
-diamond-unwarp projection (the legacy 15-cell square pipeline);
-`get_alpha_tile(slope, corners)` and `get_alpha_tile(slope)` are
-now direct `transition_slope_texture->get_image(...)` lookups.
-Init-time silhouette tripwire mirrors the shore one.
-
-### What's missing
-
-- Engine-side hex lookup that indexes the raw-`slope_t` blocks
-  (`LightTexture`, `Borders`, `Marker`) instead of the square
-  `climate_image[c] + doubleslope_to_imgnr[slope]` /
-  `(slope&1) + ((slope>>1)&6)` / hang-formula paths. Without it,
-  the baked atlases sit on disk unused.  Water_ani has the same
-  blocker on the engine side (`ground_desc.cc::get_water_tile`
-  still uses `doubleslope_to_imgnr`) plus a one-tier-vs-many-tiers
-  decision before the second axis is meaningful.  SlopeTrans is
-  done — `get_alpha_tile` reads the (slope, mask) bake directly.
-### Recommended next iteration
-
-1. Engine work to consume the new pakset block. On the hex branch
-   of `SupraSummus/hextrans`, add a `get_hex_ground_tile(slope, c)`
-   path that looks up the 0..339 compact slope index against
-   `LightTexture`'s `climate_image_hex[c]` block, parallel to
-   the existing square `get_ground_tile`. Once it lands, verify
-   in-game on a pakset with `texture-lightmap`.
-
-The first asset for the bespoke pipeline (vehicles or a simple
-bridge) can start in parallel once the parametric pipeline's renderer
-plumbing is sound — they share the camera/light/depth-clip
-infrastructure.
+Per-asset state — what's done, what's blocked, what's coming next —
+lives in `git log` and `TODO.md`, not here.
 
 ## Commit message rules
 
@@ -797,6 +466,8 @@ context into `TODO.md` / `CLAUDE.md`.
   to the `claude/...` branch.  The session-start hook can set this
   up; in this session it's at `/home/user/hextrans-simutrans/`.
 - Commit small, push often; no PRs unless the user asks.
+- Session checkouts are typically shallow. If you need older
+  history, `git fetch --unshallow` first.
 
 ## Open questions / TBD
 
