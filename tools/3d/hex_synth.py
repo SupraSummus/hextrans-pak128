@@ -441,6 +441,72 @@ def draw_line(buf: np.ndarray, x0: int, y0: int, x1: int, y1: int,
             y0 += sy
 
 
+# ---- Per-pixel barycentric helpers (shared by alpha-bake renderers) -------
+
+def hash_noise01(x: np.ndarray, y: np.ndarray) -> np.ndarray:
+    """Vectorised position-deterministic noise in `[0.0, 1.0)`.
+
+    Pure function of `(x, y)` so dithered bakes stay byte-stable
+    across runs and across parametric families (shore + slope-trans
+    align grain when overlaid on the same tile).
+    """
+    h = ((x.astype(np.uint32) * np.uint32(73856093))
+         ^ (y.astype(np.uint32) * np.uint32(19349663)))
+    h ^= h >> np.uint32(13)
+    h *= np.uint32(1274126177)
+    h ^= h >> np.uint32(16)
+    return ((h & np.uint32(0xFFFF)).astype(np.float32)
+            / np.float32(65536.0))
+
+
+def centre_fan_field(slope: int, corner_values, centre_value: float,
+                     geom: HexGeom) -> np.ndarray:
+    """Per-pixel barycentric mix over the slope's 6 centre-fan triangles.
+
+    Each triangle `(corner_i, corner_(i+1), centre)` gets a 2D
+    barycentric interpolation of `(corner_values[i],
+    corner_values[i+1], centre_value)`.  Pixels outside every
+    centre-fan triangle (rare slivers near the silhouette boundary)
+    default to `centre_value` — only `silhouette_mask` decides
+    whether they get painted at all.
+
+    `centre_value` is the caller's choice: `mean(corner_values)` for
+    a symmetric field, `min(corner_values)` for a corner-biased one
+    (shore picks min so a thin land peninsula keeps its land bite
+    rather than flooding to water at popcount ≥ 4).
+    """
+    vx = np.array(geom.vx, dtype=np.float32)
+    vy = np.array(geom.lifted_vy(slope), dtype=np.float32)
+    weight = np.asarray(corner_values, dtype=np.float32)
+
+    cx = float(vx.mean())
+    cy = float(vy.mean())
+    cw = float(centre_value)
+
+    xs = np.arange(geom.w, dtype=np.float32) + 0.5
+    ys = np.arange(geom.h, dtype=np.float32) + 0.5
+    px, py = np.meshgrid(xs, ys)
+
+    field = np.full((geom.h, geom.w), cw, dtype=np.float32)
+    assigned = np.zeros((geom.h, geom.w), dtype=bool)
+
+    for i in range(CORNER_COUNT):
+        j = (i + 1) % CORNER_COUNT
+        ax, ay, aw = vx[i], vy[i], weight[i]
+        bx, by, bw = vx[j], vy[j], weight[j]
+        denom = (by - cy) * (ax - cx) + (cx - bx) * (ay - cy)
+        if denom == 0.0:
+            continue
+        u = ((by - cy) * (px - cx) + (cx - bx) * (py - cy)) / denom
+        v = ((cy - ay) * (px - cx) + (ax - cx) * (py - cy)) / denom
+        w = 1.0 - u - v
+        in_tri = (u >= 0) & (v >= 0) & (w >= 0) & ~assigned
+        field[in_tri] = (u[in_tri] * aw + v[in_tri] * bw + w[in_tri] * cw)
+        assigned |= in_tri
+
+    return field
+
+
 def iter_region_polygons(slope: int, geom: HexGeom):
     """Yield `(region, xs, ys)` for each polygon in `find_min_partition(slope)`.
 

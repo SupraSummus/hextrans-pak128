@@ -59,66 +59,6 @@ SHORE_RED  = np.array([255, 0,   0,   255], dtype=np.uint8)
 SHORE_BLUE = np.array([0,   0,   255, 255], dtype=np.uint8)
 
 
-def _hash_noise01(x: np.ndarray, y: np.ndarray) -> np.ndarray:
-    """Vectorised position-deterministic noise in `[0.0, 1.0)`.
-
-    Pure function of `(x, y)` so the bake stays byte-stable across
-    runs.  All ops run on `uint32` arrays — bit-for-bit identical to
-    the previous scalar version of this hash, just looped by numpy
-    instead of Python.
-    """
-    h = ((x.astype(np.uint32) * np.uint32(73856093))
-         ^ (y.astype(np.uint32) * np.uint32(19349663)))
-    h ^= h >> np.uint32(13)
-    h *= np.uint32(1274126177)
-    h ^= h >> np.uint32(16)
-    return ((h & np.uint32(0xFFFF)).astype(np.float32)
-            / np.float32(65536.0))
-
-
-def _wetness_field(slope: int, water_mask: int,
-                   geom: hex_synth.HexGeom) -> np.ndarray:
-    """Per-pixel wetness ∈ [0, 1] over the full geom rectangle.
-
-    Wetness is barycentric over each of the 6 centre-fan triangles
-    `(corner_i, corner_(i+1), centre)` with centre wetness pinned
-    to 0.  The overlay is only ever drawn on land tiles
-    (`grund.cc::display`'s `if(get_typ()!=wasser)` branch), so a
-    dry centre keeps a land bite even when all 6 corners border
-    water — a 1×1 island still reads as land with a water rim.
-    """
-    vx = np.array(geom.vx, dtype=np.float32)
-    vy = np.array(geom.lifted_vy(slope), dtype=np.float32)
-    wet = np.array([(water_mask >> i) & 1 for i in range(hex_synth.CORNER_COUNT)],
-                   dtype=np.float32)
-
-    cx = float(vx.mean())
-    cy = float(vy.mean())
-
-    xs = np.arange(geom.w, dtype=np.float32) + 0.5
-    ys = np.arange(geom.h, dtype=np.float32) + 0.5
-    px, py = np.meshgrid(xs, ys)
-
-    wetness = np.zeros((geom.h, geom.w), dtype=np.float32)
-    assigned = np.zeros((geom.h, geom.w), dtype=bool)
-
-    for i in range(hex_synth.CORNER_COUNT):
-        j = (i + 1) % hex_synth.CORNER_COUNT
-        ax, ay, aw = vx[i], vy[i], wet[i]
-        bx, by, bw = vx[j], vy[j], wet[j]
-        denom = (by - cy) * (ax - cx) + (cx - bx) * (ay - cy)
-        if denom == 0.0:
-            continue
-        u = ((by - cy) * (px - cx) + (cx - bx) * (py - cy)) / denom
-        v = ((cy - ay) * (px - cx) + (ax - cx) * (py - cy)) / denom
-        w = 1.0 - u - v
-        in_tri = (u >= 0) & (v >= 0) & (w >= 0) & ~assigned
-        wetness[in_tri] = u[in_tri] * aw + v[in_tri] * bw
-        assigned |= in_tri
-
-    return wetness
-
-
 def render_shore(slope: int, water_mask: int,
                  geom: hex_synth.HexGeom | None = None) -> np.ndarray:
     """Render one `(slope, water_mask)` shore-transition cell.
@@ -128,12 +68,20 @@ def render_shore(slope: int, water_mask: int,
     `draw_alpha` walks source and alpha streams in lockstep without
     a runtime normalisation cache.  Inside pixels carry `RED` or
     `BLUE` chosen by dithered wetness; outside pixels stay alpha=0.
+
+    Wetness is `hex_synth.centre_fan_field` with `centre = 0.0` —
+    pinning the centre dry keeps a land bite even when all 6 corners
+    border water (a 1×1 island still reads as land with a water
+    rim).  The overlay is only ever drawn on land tiles
+    (`grund.cc::display`'s `if(get_typ()!=wasser)` branch), so a
+    centre that grew with corner wetness would defeat the point.
     """
     if geom is None:
         geom = hex_synth.HexGeom()
 
     silhouette = hex_synth.silhouette_mask(slope, geom)
-    wetness = _wetness_field(slope, water_mask, geom)
+    wet = [(water_mask >> i) & 1 for i in range(hex_synth.CORNER_COUNT)]
+    wetness = hex_synth.centre_fan_field(slope, wet, 0.0, geom)
 
     xs = np.arange(geom.w, dtype=np.uint32)
     ys = np.arange(geom.h, dtype=np.uint32)
@@ -142,7 +90,7 @@ def render_shore(slope: int, water_mask: int,
     # without smearing the wet/dry boundary.  Threshold 0.65 biases
     # the cut further toward land so the bake reads as "land tile
     # with a water bite", not "half-and-half blend".
-    jitter = (_hash_noise01(gx, gy) - 0.5) * 0.4
+    jitter = (hex_synth.hash_noise01(gx, gy) - 0.5) * 0.4
 
     is_wet = silhouette & ((wetness + jitter) >= 0.65)
     is_dry = silhouette & ~is_wet
