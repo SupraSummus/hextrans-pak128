@@ -103,7 +103,13 @@ Common reflexes:
   over a tile, **not** a shift baked into the cell. The cropped
   cell is in raw cell coordinates; if your render's z=0 is at the
   wrong screen-y, calibrate empirically against a reference y_max
-  rather than guessing from the offset.
+  rather than guessing from the offset. The offset is per-asset:
+  each .dat declares its own and each scene calibrates its own
+  `screen_center_y`. Don't copy a sibling asset's anchor constant
+  just because it was the most recent example — `rail_060_bridge`
+  empirically needed a non-default value; `rail_060_tracks`
+  doesn't, and re-using the bridge constant ships the renderer
+  off by ~30 px.
 - **Structural anchors that are NOT free.** World z=0 is ground;
   a tile spans x,y in [-0.5, +0.5] (in unit-tile world coords);
   trestle / pillar bases sit at z=0 by convention. Use these as
@@ -127,18 +133,29 @@ Working order:
 
 0. **Glance at `TODO.md`** for any open debt that touches this
    asset or its tooling.
-1. **Read the .dat.** Enumerate every sheet entry the asset
-   contributes. For bridges, that's BackImage / FrontImage / BackRamp
-   / FrontRamp / BackStart / FrontStart / BackStart2 / FrontStart2 ×
-   directions, plus pillars. Note seasons and the per-entry sheet
-   offset.
-2. **Look up engine facts.** Pull from the reference card above
-   anything you'll need — compass, image enum, .dat key meaning,
-   sheet offset semantics. Do this before opening the scene file.
+1. **Read the .dat and crop a contact sheet.** Enumerate every
+   sheet entry the asset contributes — for bridges, that's
+   BackImage / FrontImage / BackRamp / FrontRamp / BackStart /
+   FrontStart / BackStart2 / FrontStart2 × directions, plus
+   pillars. Note seasons and the per-entry sheet offset. Then run
+   `tools/3d/crop_ref.py` over every referenced cell **before
+   opening `scene.py`** — the .dat alone doesn't tell you which
+   cells are stubs vs. full-tile vs. slope variants, nor what art
+   conventions apply (ballast dither, taper bands, mitred caps).
+2. **Look up engine facts and existing helpers.** Pull from the
+   reference card above anything you'll need — compass, image
+   enum, .dat key meaning, sheet offset semantics. Then skim
+   `tools/3d/hex_synth.py` and `tools/3d/render.py` for engine-
+   mirror helpers (`HexGeom`, `hash_noise01`, `silhouette_mask`,
+   `iter_valid_slopes`, projection support); reuse beats
+   reinvention and keeps square / hex output coherent. Do all
+   this before opening the scene file.
 3. **Map sheet entries to model layers.** Each entry is a 2D view of
    the asset under a specific (camera, depth-clip). Decide which 3D
    sub-parts go in which layer. Skip the composite-only first pass
    from earlier drafts of this doc — it hides per-slice errors.
+   One scene, multiple projections — never two parallel scene
+   files for square vs. hex.
 4. **Stand up the build.** `build.sh` crops every reference, runs the
    scene, and diffs each candidate against its reference.
    Per-slice scores in the output.
@@ -148,9 +165,32 @@ Working order:
 
 A few concrete habits:
 
+- **First render verifies placement, not shape.** Run a
+  solid-colour pass at the right bbox before adding any pattern
+  (dither, taper, texture). Cheap, and a 30 px placement bug in a
+  textured render reads as a shape bug — burning iterations on
+  shape while placement is off is the classic trap.
 - **Bbox-check every iteration.** Print x/y range and pixel count
   for each reference and candidate. The eye misses silent shifts;
   bboxes catch them in two seconds.
+- **Verify geometry formulas at corner points.** For any
+  half-plane, clip, or projection inequality, evaluate it at the
+  6 hex corners (or 4 square corners) and any other known
+  interior / exterior point before relying on it. Two minutes
+  saves an iteration on a silently-wrong formula.
+- **Check existing pak128 conventions before inventing geometry.**
+  The dat's "curve" cells may be short straight-with-mitred-caps
+  rather than arcs; the contact sheet from step 1 answers this
+  in a minute. When generalising a geometry helper, write down
+  the case where it breaks (e.g. "this construct only works while
+  the cap fits inside the available corner clearance") before
+  shipping the renders — keeps later you from learning by bbox.
+- **Per-asset constants stay per-asset.** Sheet offset, anchor Y,
+  gauge, tie cadence — declared in the asset's own
+  `scene.py` / .dat. Don't copy them from a sibling. Conversely,
+  *track-family* parameters that should stay consistent across
+  rail_060 / rail_080 / road / tram (gauge, tie spacing, ballast
+  bands) belong in a shared module, not duplicated per scene.
 - **Back-solve from reference geometry.** If the reference's front
   strip is 41 px tall and your projection has 90 px / world unit at
   the relevant axis, the railing's z extent is `41 / 90 ≈ 0.13`. Do
@@ -198,6 +238,12 @@ the right direction across iterations), and surfacing
 discrepancies the eye misses (silent shifts, sub-pixel mismatches).
 Treat low diff as necessary but not sufficient.
 
+When you add a new pak128 art convention (dither, ballast taper,
+gritty edge), expect IoU to drop — the convention matches
+pak128's looser visual contract at the cost of pixel-exactness
+against any one cell. Document the reason in the commit; don't
+tweak parameters back to fight the score.
+
 ### Structural correctness as anchors
 
 Some structural facts are fixed and you should back-solve other
@@ -240,7 +286,8 @@ Three orthogonal axes that are easy to tangle:
 3. **Output slicing = renderer parameter.** `render(scene, camera,
    depth_clip) → PNG`. Emit pak128 sheets via square dimetric +
    pak128's depth planes; emit hex sheets via `synth_hex_geometry_t`
-   + the hex depth-plane spec (engine-side, currently TBD — open
+   (single-layer assets work today — see `rail_060_tracks`;
+   multi-layer assets wait on the hex depth-plane spec, open
    question below).
 
 ### Renderer choice
@@ -280,7 +327,12 @@ game looks up.
   `Image[1][0]=foo.1.0` meaning "row 1, col 0 of foo.png" in
   tile-sized cells). `crop_ref.py` parses these and crops one tile.
   Diff against each pak128 sheet entry independently; do not score
-  against the whole sheet.
+  against the whole sheet. Square verification only applies to
+  hex entries whose direction maps to a square direction (the 4
+  hex axes that align with N/E/S/W). For hex-only entries — 120°
+  curves, third-axis straights — the .dat may repoint to a
+  less-faithful square sprite or to `IMG_EMPTY`; skip the square
+  diff there and rely on visual inspection + bbox.
 - **Parametric pipeline.** The reference is one PNG per parameter
   combination (one slope × climate, one marker × slope, etc.), captured
   from the engine's `synth_overlay::*` output and stored under
@@ -424,7 +476,24 @@ backend); fine-tune railing top height (Back XOR shows the
 candidate is still ~6 px taller than the reference); the other
 ~28 sheet entries on this bridge (ramps, starts, pillars, EW
 segments, winter variants); hex output (blocked on the engine-
-side hex depth-clip plane spec).
+side hex depth-clip plane spec — bridges are multi-layer
+(Back / Front), so the depth-clip blocker bites here).
+
+### Bespoke pipeline: `rail_060_tracks`
+
+First single-layer bespoke asset (ballast + ties + rails, no
+Front / Back split), and the worked example for shipping hex
+output today: one shared `scene.py` + `build_pakset.py` that
+emit both square pak128 dimetric (verified against cells 1.5 and
+1.6) and the 7 hex pair sprites the .dat names — 3 axis-straights
+plus 4 bends, where 120°-apart pairs use a straight-with-mitred-
+cap chord and 60°-apart pairs use a hex-centred arc (the chord
+construct degenerates when the shared corner sits closer than
+the ballast half-width). Reuses `HexGeom` and `hash_noise01`
+from `tools/3d/hex_synth.py` so square and hex output share
+dither grain and silhouette anchor; `render.py` grew a
+`projection="hex"` path with per-pixel hex plan-view clip
+alongside.
 
 ### Parametric pipeline: hex ground deliverable baked
 
@@ -726,12 +795,17 @@ context into `TODO.md` / `CLAUDE.md`.
 
 ## Open questions / TBD
 
-- **Hex depth-clip planes for bespoke output.** The bespoke pipeline
-  re-renders 3D assets through the hex camera with hex depth planes
-  to produce hex sheet entries. The square pakset's depth planes are
-  pak128 art convention; the hex equivalents need an explicit spec
-  on the engine side (analogous to how `synth_geometry.h` defines
-  the camera). Doesn't block parametric pipeline work.
+- **Hex depth-clip planes for bespoke output.** Only relevant for
+  assets that use a Front / Back layer split (bridges, vehicles,
+  multi-storey buildings) — those re-render 3D scenes through the
+  hex camera with hex depth planes to produce per-layer hex sheet
+  entries, and the hex equivalents of pak128's depth planes need
+  an explicit spec on the engine side (analogous to how
+  `synth_geometry.h` defines the camera). Single-layer assets —
+  tracks, roads, trees, simple buildings — render through one hex
+  camera with no depth slicing and are unblocked today;
+  `rail_060_tracks` is the worked example. Doesn't block
+  parametric pipeline work.
 - **Optimization loop.** Manual edit + diff for now. Camera-parameter
   auto-fit (scipy over tilt/offset/scale) is a clear next step once
   shape is roughly right. True geometry optimization is much harder
