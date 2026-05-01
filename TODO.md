@@ -40,7 +40,7 @@ diagonal as a placeholder or share the baker once it generalises.
 6 single edges, 3 axis-straights, 12 bends and the 3-way / 4-way
 junction patterns.  `rail_060_tracks` now bakes the 3 axis-straights
 and the 4 bends its dat declares (`se_sw`, `se_ne`, `sw_nw`, `nw_ne`)
-through `infrastructure/rail_tracks/rail_060_tracks/build_pakset.py`
+through `infrastructure/rail_tracks/rail_060_tracks/scene.py::bake_pakset()`
 → `rail_060_tracks_hex.png`; the 60°-apart corner curves use a
 hex-centred arc (radius = R·√3/2, tangent to each edge at its
 midpoint) rather than the straight-with-mitred-cap chord that
