@@ -41,9 +41,9 @@ diagonal as a placeholder or share the baker once it generalises.
 junction patterns.  `rail_060_tracks` now bakes 6 stubs + 3
 axis-straights + all 12 bends (21 cells in ribi-value order)
 through `infrastructure/rail_tracks/rail_060_tracks/scene.py::bake_pakset()`
-→ `rail_060_tracks_hex.png`.  60°-apart corner curves use a
-hex-centred arc (radius = R·√3/2, tangent to each edge at its
-midpoint) rather than the straight-with-mitred-cap chord that
+→ `rail_060_tracks_hex.png`.  60°-apart corner curves arc around
+the shared corner (radius = R/2, perpendicular to each edge at
+its midpoint) rather than the straight-with-mitred-cap chord that
 opposite/120° pairs share; stubs are a half-tile chord from the
 hex centre to one edge midpoint, mitred at the edge end and cut
 flat at the centre — no buffer-stop geometry yet, the rails just

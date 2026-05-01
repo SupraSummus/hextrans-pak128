@@ -164,14 +164,19 @@ def _add_track_segment(scene, start_mid, end_mid,
 
     # 2. Cross-ties.  Tie thickness in chord direction is fixed in world
     #    units; convert to the s-parameter.  Ties span the chord from a
-    #    margin in (so the angled caps don't clip them off-tile).
-    tie_half_along_s = 0.025 / chord_len
-    margin_s = 1.5 * tie_half_along_s
-    for i in range(n_ties):
-        s_centre = margin_s + (i + 0.5) / n_ties * (1.0 - 2 * margin_s)
-        add_slab(s_centre - tie_half_along_s, s_centre + tie_half_along_s,
-                 -TIE_HALF_W, +TIE_HALF_W,
-                 BALLAST_TOP_Z, TIE_TOP_Z, TIE_BROWN, dither_keep=0.75)
+    #    margin in (so the angled caps don't clip them off-tile).  Skipped
+    #    when n_ties == 0 — arc curves lay their ballast + rails as short
+    #    chord pieces but place ties separately along the arc with
+    #    `_add_radial_tie`, since the per-segment chord is shorter than a
+    #    single tie's world-space thickness.
+    if n_ties > 0:
+        tie_half_along_s = 0.025 / chord_len
+        margin_s = 1.5 * tie_half_along_s
+        for i in range(n_ties):
+            s_centre = margin_s + (i + 0.5) / n_ties * (1.0 - 2 * margin_s)
+            add_slab(s_centre - tie_half_along_s, s_centre + tie_half_along_s,
+                     -TIE_HALF_W, +TIE_HALF_W,
+                     BALLAST_TOP_Z, TIE_TOP_Z, TIE_BROWN, dither_keep=0.75)
 
     # 3. Twin rails on top of the ties.
     for x in (-RAIL_GAUGE_HALF, +RAIL_GAUGE_HALF):
@@ -254,59 +259,130 @@ def build_between_edges(scene: Scene, edge_a: str, edge_b: str,
     _add_track_segment(scene, start, end, cap_a, cap_b, n_ties=n_ties)
 
 
-# Azimuth (radians, atan2 convention) of each hex edge's midpoint, measured
-# from the hex centre.  Edge midpoints lie on a circle of radius R·√3/2
-# (= 0.5·√3/2 ≈ 0.433) — the perpendicular bisector of each edge passes
-# through the centre, so the radius at the midpoint is normal to the edge
-# and the edge's tangent matches the circle's tangent at that point.
-_EDGE_AZIM = {name: math.atan2(_edge_midpoint(name)[1], _edge_midpoint(name)[0])
-              for name in HEX_EDGES}
-_ARC_R = math.hypot(*_edge_midpoint("N"))  # = R*sqrt(3)/2 by construction
+# Hex straight tracks span between opposite edge midpoints, distance
+# 2·R·√3/2 = R·√3 ≈ 0.866.  Used to scale arc tie counts so density
+# matches the straight ties.
+_STRAIGHT_CHORD = 2.0 * math.hypot(*_edge_midpoint("N"))
+
+
+def _shared_corner(edge_a: str, edge_b: str) -> str:
+    """The corner shared by two 60°-apart hex edges; the centre of the
+    corner-radius arc that connects their midpoints."""
+    shared = set(HEX_EDGES[edge_a]) & set(HEX_EDGES[edge_b])
+    assert len(shared) == 1, (
+        f"edges {edge_a}/{edge_b} don't share exactly one corner")
+    return next(iter(shared))
+
+
+def _add_radial_tie(scene: Scene, arc_cx: float, arc_cy: float,
+                    radius: float, angle: float) -> None:
+    """Lay one cross-tie at `radius` and `angle` around arc centre
+    `(arc_cx, arc_cy)`.
+
+    The tie is a small radial slab: short along the local arc tangent
+    (its "thickness", same 0.05 world units the straight ties use) and
+    wide across the rails (`±TIE_HALF_W` along the radial direction).
+    Built as 5 outward-facing quads.  Local axes are picked so
+    `tangent × radial = +ẑ` (right-handed, matching `Scene.add_box`'s
+    x×y=z convention) — using +tangent = (-sin t, cos t) (the CCW arc
+    direction) as `u` and +radial = (cos t, sin t) as `v` gives
+    u×v = +ẑ, so the same quad enumeration as `add_box` produces
+    outward-facing normals.
+    """
+    cos_t, sin_t = math.cos(angle), math.sin(angle)
+    ux, uy = -sin_t, cos_t          # +tangent (along rails)
+    vx, vy = cos_t, sin_t           # +radial  (across rails)
+    cx, cy = arc_cx + radius * cos_t, arc_cy + radius * sin_t
+
+    U = 0.025                       # half-thickness along tangent
+    V = TIE_HALF_W                  # half-width along radial
+    z0, z1 = BALLAST_TOP_Z, TIE_TOP_Z
+
+    def c(su, sv, z):
+        return (cx + su * U * ux + sv * V * vx,
+                cy + su * U * uy + sv * V * vy,
+                z)
+
+    # 8 corners ordered like Scene.add_box's (x,y,z) lattice with
+    # (su, sv) playing the role of (sx, sy):
+    #   0:(-,-,z0) 1:(+,-,z0) 2:(+,+,z0) 3:(-,+,z0)
+    #   4:(-,-,z1) 5:(+,-,z1) 6:(+,+,z1) 7:(-,+,z1)
+    pts = [c(-1, -1, z0), c(+1, -1, z0), c(+1, +1, z0), c(-1, +1, z0),
+           c(-1, -1, z1), c(+1, -1, z1), c(+1, +1, z1), c(-1, +1, z1)]
+
+    kw = {"layer": "back", "dither_keep": 0.75}
+    scene.add_quad([pts[4], pts[5], pts[6], pts[7]], TIE_BROWN, **kw)  # top
+    scene.add_quad([pts[0], pts[1], pts[5], pts[4]], TIE_BROWN, **kw)  # -v side
+    scene.add_quad([pts[2], pts[3], pts[7], pts[6]], TIE_BROWN, **kw)  # +v side
+    scene.add_quad([pts[1], pts[2], pts[6], pts[5]], TIE_BROWN, **kw)  # +u side
+    scene.add_quad([pts[0], pts[4], pts[7], pts[3]], TIE_BROWN, **kw)  # -u side
 
 
 def _build_arc_curve(scene: Scene, edge_a: str, edge_b: str,
-                     n_segments: int = 6) -> None:
+                     n_segments: int = 12) -> None:
     """Lay a curved track between two 60°-apart hex edges (sharing a corner).
 
-    The shared corner sits closer to the chord than the ballast half-width,
-    so the straight-with-mitred-caps model would clip into the corner.
-    Instead we lay an arc centred on the hex centre with radius = distance
-    from centre to edge midpoint.  That circle is tangent to each edge at
-    its midpoint (the edge's perpendicular bisector goes through the
-    centre), so the rail meets the tile boundary at the same angle and
-    position the adjacent tile's straight or curve would expect — the
-    flush-at-edge-midpoint property carries over.
+    The arc is centred on the shared corner, with radius = R/2 = distance
+    from corner to either adjacent edge midpoint.  At each midpoint the
+    arc's radial direction is parallel to the edge (the corner-to-midpoint
+    vector runs along the edge's bisector), so the arc crosses each edge
+    perpendicular to it and meets it at the midpoint — flush with whatever
+    a neighbouring tile lays through that same midpoint.  The arc bulges
+    away from the shared corner, toward the hex centre, which is the
+    natural railway turn (centre of curvature on the inside of the bend).
 
-    The arc is discretised into `n_segments` short chord pieces with
+    Ballast and rails are laid as `n_segments` short chord pieces with
     radial-direction caps at every joint, so adjacent segments share an
-    endpoint cap and the boundary segments' caps reduce to the
-    perpendicular-bisector tangent at the two edge midpoints.
+    endpoint cap and the boundary segments' caps reduce to the edge
+    direction at the two edge midpoints.
+
+    Cross-ties are placed separately as discrete radial slabs at evenly
+    spaced angles along the arc — one tie's chord-direction thickness
+    (0.05) is larger than a single arc segment's chord, so the per-
+    segment tie placement in `_add_track_segment` would clump every tie
+    at s ≈ 0.5 of its segment.  The tie count is scaled by arc length
+    vs. the straight through-tile chord so density matches the straight
+    ties.
     """
-    a_az = _EDGE_AZIM[edge_a]
-    b_az = _EDGE_AZIM[edge_b]
-    # Short direction: a 60°-apart pair has |Δaz| = 60°.  Normalise into (-π, π].
+    corner = _shared_corner(edge_a, edge_b)
+    arc_cx, arc_cy = HEX_CORNERS[corner]
+    a_mid = _edge_midpoint(edge_a)
+    b_mid = _edge_midpoint(edge_b)
+    radius = math.hypot(a_mid[0] - arc_cx, a_mid[1] - arc_cy)
+    a_az = math.atan2(a_mid[1] - arc_cy, a_mid[0] - arc_cx)
+    b_az = math.atan2(b_mid[1] - arc_cy, b_mid[0] - arc_cx)
+    # Short signed sweep from a→b around the corner; |Δaz| = 2π/3.
     delta = (b_az - a_az + math.pi) % (2 * math.pi) - math.pi
-    ties_per_segment = max(1, N_TIES // n_segments)
     for i in range(n_segments):
         t0 = a_az + delta * (i / n_segments)
         t1 = a_az + delta * ((i + 1) / n_segments)
-        p0 = (_ARC_R * math.cos(t0), _ARC_R * math.sin(t0))
-        p1 = (_ARC_R * math.cos(t1), _ARC_R * math.sin(t1))
-        cap0 = (-math.sin(t0), math.cos(t0))
-        cap1 = (-math.sin(t1), math.cos(t1))
-        _add_track_segment(scene, p0, p1, cap0, cap1, n_ties=ties_per_segment)
+        p0 = (arc_cx + radius * math.cos(t0),
+              arc_cy + radius * math.sin(t0))
+        p1 = (arc_cx + radius * math.cos(t1),
+              arc_cy + radius * math.sin(t1))
+        # Cap = radial direction at the joint (perpendicular to the
+        # local chord).  At the two boundary midpoints this lines up
+        # with the edge direction, so adjacent tiles meet flush.
+        cap0 = (math.cos(t0), math.sin(t0))
+        cap1 = (math.cos(t1), math.sin(t1))
+        _add_track_segment(scene, p0, p1, cap0, cap1, n_ties=0)
+
+    arc_len = abs(delta) * radius
+    n_ties_arc = max(1, round(N_TIES * arc_len / _STRAIGHT_CHORD))
+    for i in range(n_ties_arc):
+        s = (i + 0.5) / n_ties_arc
+        _add_radial_tie(scene, arc_cx, arc_cy, radius, a_az + delta * s)
 
 
 def build_curve(scene: Scene, edge_a: str, edge_b: str) -> None:
-    """Lay a track between two hex edges, dispatching on their angular
-    distance: 60°-apart → arc through hex centre (`_build_arc_curve`);
-    120°/180° → chord with mitred / perpendicular caps
-    (`build_between_edges`).
+    """Lay a track between two hex edges, dispatching on whether they
+    share a corner: 60°-apart pairs do (→ corner-centred arc,
+    `_build_arc_curve`); 120° / 180° pairs don't (→ chord with mitred /
+    perpendicular caps, `build_between_edges`).
 
     Single entrypoint so callers (preview, bake) don't enumerate the
     three families."""
-    delta = (_EDGE_AZIM[edge_b] - _EDGE_AZIM[edge_a] + math.pi) % (2 * math.pi) - math.pi
-    if abs(abs(delta) - math.pi / 3) < 1e-3:
+    if set(HEX_EDGES[edge_a]) & set(HEX_EDGES[edge_b]):
         _build_arc_curve(scene, edge_a, edge_b)
     else:
         build_between_edges(scene, edge_a, edge_b)

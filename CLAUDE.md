@@ -507,8 +507,9 @@ emits both square pak128 dimetric (verified against cells 1.5 and
 edge stubs (ribi 1/2/4/8/16/32), 3 axis-straights, and all 12
 bends — keyed by raw hex ribi.  120°-apart and opposite (180°)
 edge pairs use a straight chord with mitred caps; 60°-apart pairs
-use a hex-centred arc (the chord construct degenerates when the
-shared corner sits closer than the ballast half-width); stubs are
+arc around the shared corner with radius R/2 (the chord construct
+degenerates when the shared corner sits closer than the ballast
+half-width); stubs are
 a half-tile chord from the hex centre to the edge midpoint with a
 clean perpendicular cut at the centre (no buffer-stop yet, the
 rails just end).  Reuses `HexGeom` and `hash_noise01` from
