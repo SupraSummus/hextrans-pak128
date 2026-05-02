@@ -14,13 +14,18 @@ retire_year=1970
 retire_month=1
 icon=> rail_060_tracks.0.6
 cursor=rail_060_tracks.0.7,0,-16
-# Hex sprites — 6 single-edge stubs, 3 axis straights, 12 bend
-# pairs — come from the bespoke-pipeline bake at
-# rail_060_tracks/scene.py::bake_pakset() → rail_060_tracks_hex.png.
-# Atlas column = HEX_ENTRIES position (ribi-value order, see
-# scene.py).  Winter aliases the same cells until a hex winter
-# palette lands.  The no-track Image[-] placeholder still borrows an
-# upstream pak128 cell in both seasons (no hex model for the
+# Hex sprites — one per non-empty hex ribi (63 cells) — come from
+# the bespoke-pipeline bake at rail_060_tracks/scene.py::
+# bake_pakset() → rail_060_tracks_hex.png.  Atlas is an 8×8 grid
+# (last slot empty), filled in HEX_ENTRIES order: 6 single-edge
+# stubs, 15 edge pairs (straights + bends), 20 three-way, 15
+# four-way, 6 five-way, and the all-six-edge sprite — popcount-
+# then-ribi order, so cell index `i` lands at row `i//8`, col
+# `i%8`.  3+ way cells are placeholder geometry: one stub per
+# active edge meeting at the tile centre, no real switch
+# frog/points.  Winter aliases the same cells until a hex winter
+# palette lands.  The no-track Image[-] placeholder still borrows
+# an upstream pak128 cell in both seasons (no hex model for the
 # "no track laid" frame yet).
 #
 # Slope sprites (ImageUp[…]):  12 way-buildable hex slopes — 6
@@ -40,19 +45,61 @@ Image[n][0]=rail_060_tracks_hex.0.4
 Image[ne][0]=rail_060_tracks_hex.0.5
 Image[se_s][0]=rail_060_tracks_hex.0.6
 Image[se_sw][0]=rail_060_tracks_hex.0.7
-Image[s_sw][0]=rail_060_tracks_hex.0.8
-Image[se_nw][0]=rail_060_tracks_hex.0.9
-Image[s_nw][0]=rail_060_tracks_hex.0.10
-Image[sw_nw][0]=rail_060_tracks_hex.0.11
-Image[se_n][0]=rail_060_tracks_hex.0.12
-Image[s_n][0]=rail_060_tracks_hex.0.13
-Image[sw_n][0]=rail_060_tracks_hex.0.14
-Image[nw_n][0]=rail_060_tracks_hex.0.15
-Image[se_ne][0]=rail_060_tracks_hex.0.16
-Image[s_ne][0]=rail_060_tracks_hex.0.17
-Image[sw_ne][0]=rail_060_tracks_hex.0.18
-Image[nw_ne][0]=rail_060_tracks_hex.0.19
-Image[n_ne][0]=rail_060_tracks_hex.0.20
+Image[s_sw][0]=rail_060_tracks_hex.1.0
+Image[se_nw][0]=rail_060_tracks_hex.1.1
+Image[s_nw][0]=rail_060_tracks_hex.1.2
+Image[sw_nw][0]=rail_060_tracks_hex.1.3
+Image[se_n][0]=rail_060_tracks_hex.1.4
+Image[s_n][0]=rail_060_tracks_hex.1.5
+Image[sw_n][0]=rail_060_tracks_hex.1.6
+Image[nw_n][0]=rail_060_tracks_hex.1.7
+Image[se_ne][0]=rail_060_tracks_hex.2.0
+Image[s_ne][0]=rail_060_tracks_hex.2.1
+Image[sw_ne][0]=rail_060_tracks_hex.2.2
+Image[nw_ne][0]=rail_060_tracks_hex.2.3
+Image[n_ne][0]=rail_060_tracks_hex.2.4
+Image[se_s_sw][0]=rail_060_tracks_hex.2.5
+Image[se_s_nw][0]=rail_060_tracks_hex.2.6
+Image[se_sw_nw][0]=rail_060_tracks_hex.2.7
+Image[s_sw_nw][0]=rail_060_tracks_hex.3.0
+Image[se_s_n][0]=rail_060_tracks_hex.3.1
+Image[se_sw_n][0]=rail_060_tracks_hex.3.2
+Image[s_sw_n][0]=rail_060_tracks_hex.3.3
+Image[se_nw_n][0]=rail_060_tracks_hex.3.4
+Image[s_nw_n][0]=rail_060_tracks_hex.3.5
+Image[sw_nw_n][0]=rail_060_tracks_hex.3.6
+Image[se_s_ne][0]=rail_060_tracks_hex.3.7
+Image[se_sw_ne][0]=rail_060_tracks_hex.4.0
+Image[s_sw_ne][0]=rail_060_tracks_hex.4.1
+Image[se_nw_ne][0]=rail_060_tracks_hex.4.2
+Image[s_nw_ne][0]=rail_060_tracks_hex.4.3
+Image[sw_nw_ne][0]=rail_060_tracks_hex.4.4
+Image[se_n_ne][0]=rail_060_tracks_hex.4.5
+Image[s_n_ne][0]=rail_060_tracks_hex.4.6
+Image[sw_n_ne][0]=rail_060_tracks_hex.4.7
+Image[nw_n_ne][0]=rail_060_tracks_hex.5.0
+Image[se_s_sw_nw][0]=rail_060_tracks_hex.5.1
+Image[se_s_sw_n][0]=rail_060_tracks_hex.5.2
+Image[se_s_nw_n][0]=rail_060_tracks_hex.5.3
+Image[se_sw_nw_n][0]=rail_060_tracks_hex.5.4
+Image[s_sw_nw_n][0]=rail_060_tracks_hex.5.5
+Image[se_s_sw_ne][0]=rail_060_tracks_hex.5.6
+Image[se_s_nw_ne][0]=rail_060_tracks_hex.5.7
+Image[se_sw_nw_ne][0]=rail_060_tracks_hex.6.0
+Image[s_sw_nw_ne][0]=rail_060_tracks_hex.6.1
+Image[se_s_n_ne][0]=rail_060_tracks_hex.6.2
+Image[se_sw_n_ne][0]=rail_060_tracks_hex.6.3
+Image[s_sw_n_ne][0]=rail_060_tracks_hex.6.4
+Image[se_nw_n_ne][0]=rail_060_tracks_hex.6.5
+Image[s_nw_n_ne][0]=rail_060_tracks_hex.6.6
+Image[sw_nw_n_ne][0]=rail_060_tracks_hex.6.7
+Image[se_s_sw_nw_n][0]=rail_060_tracks_hex.7.0
+Image[se_s_sw_nw_ne][0]=rail_060_tracks_hex.7.1
+Image[se_s_sw_n_ne][0]=rail_060_tracks_hex.7.2
+Image[se_s_nw_n_ne][0]=rail_060_tracks_hex.7.3
+Image[se_sw_nw_n_ne][0]=rail_060_tracks_hex.7.4
+Image[s_sw_nw_n_ne][0]=rail_060_tracks_hex.7.5
+Image[se_s_sw_nw_n_ne][0]=rail_060_tracks_hex.7.6
 ImageUp[n][0]=rail_060_tracks_hex_slope.0.0
 ImageUp[ne][0]=rail_060_tracks_hex_slope.0.1
 ImageUp[se][0]=rail_060_tracks_hex_slope.0.2
@@ -75,19 +122,61 @@ Image[n][1]=rail_060_tracks_hex.0.4
 Image[ne][1]=rail_060_tracks_hex.0.5
 Image[se_s][1]=rail_060_tracks_hex.0.6
 Image[se_sw][1]=rail_060_tracks_hex.0.7
-Image[s_sw][1]=rail_060_tracks_hex.0.8
-Image[se_nw][1]=rail_060_tracks_hex.0.9
-Image[s_nw][1]=rail_060_tracks_hex.0.10
-Image[sw_nw][1]=rail_060_tracks_hex.0.11
-Image[se_n][1]=rail_060_tracks_hex.0.12
-Image[s_n][1]=rail_060_tracks_hex.0.13
-Image[sw_n][1]=rail_060_tracks_hex.0.14
-Image[nw_n][1]=rail_060_tracks_hex.0.15
-Image[se_ne][1]=rail_060_tracks_hex.0.16
-Image[s_ne][1]=rail_060_tracks_hex.0.17
-Image[sw_ne][1]=rail_060_tracks_hex.0.18
-Image[nw_ne][1]=rail_060_tracks_hex.0.19
-Image[n_ne][1]=rail_060_tracks_hex.0.20
+Image[s_sw][1]=rail_060_tracks_hex.1.0
+Image[se_nw][1]=rail_060_tracks_hex.1.1
+Image[s_nw][1]=rail_060_tracks_hex.1.2
+Image[sw_nw][1]=rail_060_tracks_hex.1.3
+Image[se_n][1]=rail_060_tracks_hex.1.4
+Image[s_n][1]=rail_060_tracks_hex.1.5
+Image[sw_n][1]=rail_060_tracks_hex.1.6
+Image[nw_n][1]=rail_060_tracks_hex.1.7
+Image[se_ne][1]=rail_060_tracks_hex.2.0
+Image[s_ne][1]=rail_060_tracks_hex.2.1
+Image[sw_ne][1]=rail_060_tracks_hex.2.2
+Image[nw_ne][1]=rail_060_tracks_hex.2.3
+Image[n_ne][1]=rail_060_tracks_hex.2.4
+Image[se_s_sw][1]=rail_060_tracks_hex.2.5
+Image[se_s_nw][1]=rail_060_tracks_hex.2.6
+Image[se_sw_nw][1]=rail_060_tracks_hex.2.7
+Image[s_sw_nw][1]=rail_060_tracks_hex.3.0
+Image[se_s_n][1]=rail_060_tracks_hex.3.1
+Image[se_sw_n][1]=rail_060_tracks_hex.3.2
+Image[s_sw_n][1]=rail_060_tracks_hex.3.3
+Image[se_nw_n][1]=rail_060_tracks_hex.3.4
+Image[s_nw_n][1]=rail_060_tracks_hex.3.5
+Image[sw_nw_n][1]=rail_060_tracks_hex.3.6
+Image[se_s_ne][1]=rail_060_tracks_hex.3.7
+Image[se_sw_ne][1]=rail_060_tracks_hex.4.0
+Image[s_sw_ne][1]=rail_060_tracks_hex.4.1
+Image[se_nw_ne][1]=rail_060_tracks_hex.4.2
+Image[s_nw_ne][1]=rail_060_tracks_hex.4.3
+Image[sw_nw_ne][1]=rail_060_tracks_hex.4.4
+Image[se_n_ne][1]=rail_060_tracks_hex.4.5
+Image[s_n_ne][1]=rail_060_tracks_hex.4.6
+Image[sw_n_ne][1]=rail_060_tracks_hex.4.7
+Image[nw_n_ne][1]=rail_060_tracks_hex.5.0
+Image[se_s_sw_nw][1]=rail_060_tracks_hex.5.1
+Image[se_s_sw_n][1]=rail_060_tracks_hex.5.2
+Image[se_s_nw_n][1]=rail_060_tracks_hex.5.3
+Image[se_sw_nw_n][1]=rail_060_tracks_hex.5.4
+Image[s_sw_nw_n][1]=rail_060_tracks_hex.5.5
+Image[se_s_sw_ne][1]=rail_060_tracks_hex.5.6
+Image[se_s_nw_ne][1]=rail_060_tracks_hex.5.7
+Image[se_sw_nw_ne][1]=rail_060_tracks_hex.6.0
+Image[s_sw_nw_ne][1]=rail_060_tracks_hex.6.1
+Image[se_s_n_ne][1]=rail_060_tracks_hex.6.2
+Image[se_sw_n_ne][1]=rail_060_tracks_hex.6.3
+Image[s_sw_n_ne][1]=rail_060_tracks_hex.6.4
+Image[se_nw_n_ne][1]=rail_060_tracks_hex.6.5
+Image[s_nw_n_ne][1]=rail_060_tracks_hex.6.6
+Image[sw_nw_n_ne][1]=rail_060_tracks_hex.6.7
+Image[se_s_sw_nw_n][1]=rail_060_tracks_hex.7.0
+Image[se_s_sw_nw_ne][1]=rail_060_tracks_hex.7.1
+Image[se_s_sw_n_ne][1]=rail_060_tracks_hex.7.2
+Image[se_s_nw_n_ne][1]=rail_060_tracks_hex.7.3
+Image[se_sw_nw_n_ne][1]=rail_060_tracks_hex.7.4
+Image[s_sw_nw_n_ne][1]=rail_060_tracks_hex.7.5
+Image[se_s_sw_nw_n_ne][1]=rail_060_tracks_hex.7.6
 ImageUp[n][1]=rail_060_tracks_hex_slope.0.0
 ImageUp[ne][1]=rail_060_tracks_hex_slope.0.1
 ImageUp[se][1]=rail_060_tracks_hex_slope.0.2

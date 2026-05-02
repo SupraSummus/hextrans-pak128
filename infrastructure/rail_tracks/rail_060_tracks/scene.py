@@ -437,36 +437,49 @@ def build_stub(scene: Scene, edge: str, n_ties: int = N_TIES // 2) -> None:
     _add_track_segment(scene, start, end, cap_centre, cap_edge, n_ties=n_ties)
 
 
+def build_junction(scene: Scene, edges: tuple[str, ...]) -> None:
+    """Lay a 3+ way junction as one stub per active edge.
+
+    Placeholder geometry: every edge gets the same centre→edge stub
+    `build_stub` lays for the 1-edge case, so each rail meets the
+    edge midpoint flush with whatever a neighbouring tile lays
+    through that midpoint.  Stubs share the (0, 0) centre and their
+    ballast/ties/rails overlap there as a "frog blob" — correct
+    silhouette, no real switch geometry.  A future pass can promote
+    a 60°-apart pair inside the junction to an arc (through-route)
+    and leave the remaining edges as branching stubs.
+    """
+    for edge in edges:
+        build_stub(scene, edge)
+
+
 # Hex sprites the dat declares.  Ribi codes follow
 # `way_writer.cc::hex_ribi_code` (low-bit-first joined with `_`,
 # bit positions SE=1, S=2, SW=4, NW=8, N=16, NE=32).  Listed in
-# ascending ribi-value order — 6 single-edge stubs first (ribi 1,
-# 2, 4, 8, 16, 32 → cols 0..5), then 15 edge pairs (ribi 3, 5, 6,
-# 9, 10, 12, … → cols 6..20).  Single source of truth for both
-# the per-cell preview renders and the atlas bake.
+# popcount-then-ribi order — 6 single-edge stubs first, then 15
+# edge pairs, 20 three-way, 15 four-way, 6 five-way, and the
+# all-six-edge sprite.  Atlas is an 8×8 grid (last slot empty,
+# `cols_per_row=8` to bake_atlas), so HEX_ENTRIES index `i` maps
+# to atlas row `i//8`, col `i%8`.  Single source of truth for
+# both the per-cell preview renders and the atlas bake.
+_RIBI_BIT_NAMES = ("SE", "S", "SW", "NW", "N", "NE")
+
+
+def _ribi_edges(r: int) -> tuple[str, ...]:
+    return tuple(name for b, name in enumerate(_RIBI_BIT_NAMES) if r & (1 << b))
+
+
+def _ribi_label(r: int) -> str:
+    # `way_writer.cc::hex_ribi_code` joins lower-case bit names
+    # low-to-high with underscores; r=0 is keyed `-` but never
+    # baked (the engine's IMG_EMPTY default covers that slot).
+    return "_".join(name.lower() for name in _ribi_edges(r))
+
+
 HEX_ENTRIES = [
-    # ribi    edges (1 entry → stub, 2 entries → straight or curve)
-    ("se",    ("SE",)),
-    ("s",     ("S",)),
-    ("sw",    ("SW",)),
-    ("nw",    ("NW",)),
-    ("n",     ("N",)),
-    ("ne",    ("NE",)),
-    ("se_s",  ("SE", "S")),
-    ("se_sw", ("SE", "SW")),
-    ("s_sw",  ("S",  "SW")),
-    ("se_nw", ("SE", "NW")),  # axis straight
-    ("s_nw",  ("S",  "NW")),
-    ("sw_nw", ("SW", "NW")),
-    ("se_n",  ("SE", "N")),
-    ("s_n",   ("S",  "N")),   # axis straight
-    ("sw_n",  ("SW", "N")),
-    ("nw_n",  ("NW", "N")),
-    ("se_ne", ("SE", "NE")),
-    ("s_ne",  ("S",  "NE")),
-    ("sw_ne", ("SW", "NE")),  # axis straight
-    ("nw_ne", ("NW", "NE")),
-    ("n_ne",  ("N",  "NE")),
+    (_ribi_label(r), _ribi_edges(r))
+    for r in sorted(range(1, 64),
+                    key=lambda r: (bin(r).count("1"), r))
 ]
 
 # Slope sprites — one per hex axis low edge.  Direction matters
@@ -489,14 +502,17 @@ SLOPE_HEX_ENTRIES = [
 def render_hex_cell(edges):
     """Build a fresh Scene with one hex sprite and render it through
     the hex camera.  Single edge → stub; two edges → straight or
-    curve (dispatched by `build_curve`).  Returns the (h, w, 4) uint8
-    RGBA array; no file written.  Atlas bake and per-cell preview
-    share this entrypoint."""
+    curve (dispatched by `build_curve`); 3+ edges → junction (one
+    stub per edge, see `build_junction`).  Returns the (h, w, 4)
+    uint8 RGBA array; no file written.  Atlas bake and per-cell
+    preview share this entrypoint."""
     s = Scene()
     if len(edges) == 1:
         build_stub(s, edges[0])
-    else:
+    elif len(edges) == 2:
         build_curve(s, edges[0], edges[1])
+    else:
+        build_junction(s, edges)
     return s.render(out_path=None, projection="hex")
 
 
@@ -535,11 +551,15 @@ def bake_pakset() -> None:
                  for label, edge in SLOPE_HEX_ENTRIES],
         repo_root=REPO_ROOT,
     )
+    # 8×8 grid (63 cells, last slot empty) — a single 63-wide row is
+    # ~8000 px wide and unhelpful to scroll.  Per-row mapping: i//8 →
+    # row, i%8 → col, in HEX_ENTRIES order.
     bake_atlas(
         out_png=HERE.parent / "rail_060_tracks_hex.png",
         entries=[(ribi, lambda edges=edges: render_hex_cell(edges))
                  for ribi, edges in HEX_ENTRIES],
         repo_root=REPO_ROOT,
+        cols_per_row=8,
     )
 
 

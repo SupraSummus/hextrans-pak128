@@ -36,24 +36,26 @@ upstream cell — `rail_060_tracks` synthesises it from its 3D
 model; other unmigrated ways will need to either borrow a
 diagonal as a placeholder or share the baker once it generalises.
 
-**Track-sprite baker.** Hex track .dats need slot entries covering
-6 single edges, 3 axis-straights, 12 bends and the 3-way / 4-way
-junction patterns.  `rail_060_tracks` now bakes 6 stubs + 3
-axis-straights + all 12 bends (21 cells in ribi-value order)
-through `infrastructure/rail_tracks/rail_060_tracks/scene.py::bake_pakset()`
-→ `rail_060_tracks_hex.png`.  60°-apart corner curves arc around
-the shared corner (radius = R/2, perpendicular to each edge at
-its midpoint) rather than the straight-with-mitred-cap chord that
-opposite/120° pairs share; stubs are a half-tile chord from the
-hex centre to one edge midpoint, mitred at the edge end and cut
-flat at the centre — no buffer-stop geometry yet, the rails just
-end.  The no-track `Image[-]` placeholder and `ImageUp` slope
-variants still borrow upstream square cells.  Slope-up is the
-next chunk; junctions follow once the engine writer grows a slot
-for them.  Stub buffer-stop geometry (a short transverse beam at
-the centre end) is also worth a pass — the current clean cut
-reads as "track that ends mid-air" rather than a buffered
-terminus.
+**Track-sprite baker.** `rail_060_tracks` now bakes one cell per
+non-empty hex ribi (63 cells, popcount-then-ribi order) through
+`infrastructure/rail_tracks/rail_060_tracks/scene.py::bake_pakset()`
+→ `rail_060_tracks_hex.png`: 6 stubs, 3 axis-straights, 12 bends,
+20 three-way junctions, 15 four-way, 6 five-way, and the all-six
+sprite.  60°-apart corner curves arc around the shared corner
+(radius = R/2, perpendicular to each edge at its midpoint);
+opposite/120° pairs use a straight-with-mitred-cap chord; stubs
+are a half-tile chord from the hex centre to one edge midpoint,
+mitred at the edge end and cut flat at the centre.  3+ way
+junctions are placeholder geometry: one stub per active edge
+sharing the (0, 0) centre, ballast/ties/rails overlapping there
+as a "frog blob" — correct silhouette, no real switch frog or
+points.  A pass that promotes a 60°-apart pair inside the
+junction to an arc (through-route) and leaves the remaining
+edges as branching stubs is the natural next refinement.  The
+no-track `Image[-]` placeholder still borrows an upstream square
+cell.  Stub buffer-stop geometry (a short transverse beam at the
+centre end) is also worth a pass — the current clean cut reads
+as "track that ends mid-air" rather than a buffered terminus.
 
 **X-bracing on rail_060_bridge.** The numpy z-buffer rasterizer
 in `tools/3d/render.py` only supports axis-aligned boxes via
