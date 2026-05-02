@@ -55,18 +55,6 @@ the centre end) is also worth a pass — the current clean cut
 reads as "track that ends mid-air" rather than a buffered
 terminus.
 
-**Depth-clip plane spec partially used.** `rail_060_bridge`'s hex
-bake (`scene.py::bake_pakset` → `rail_060_bridge_hex.png`) emits
-multi-layer hex output via the per-quad hardcoded-layers route.
-The NS axis matches `front_back_split`'s `n=(1,0)` rule exactly
-(manual `front`=+x ↔ spec `front`=+x>0); EW matches `n=(0,-1)`
-(manual `front`=-y ↔ spec `front`=-y>0).  Both implicit; the
-`HEX_DEPTH_CLIP_NORMAL` / `front_back_split` symbols in
-`tools/3d/hex_synth.py` are still unreferenced from any baker.
-When NE_SW or NW_SE axes are modelled they'll need either
-auto-tagging at render time or a per-axis re-tag — the manual
-NS / EW tags will not pass through to a 60°-rotated bridge.
-
 **X-bracing on rail_060_bridge.** The numpy z-buffer rasterizer
 in `tools/3d/render.py` only supports axis-aligned boxes via
 `add_box`, so the diagonal X-bracing between trestle posts can't
@@ -90,18 +78,33 @@ Winter variants of every entry remain entirely deferred — should
 plug in as a colour/material variant on the same parts once the
 summer set reads right.
 
-**rail_060_bridge_hex covers 2 of 3 hex axes; ramps / starts /
-double-height entries still missing.**  Engine `bridge_desc_t::img_t`
-is now the hex layout — 3 way axes for segments / pillars (`ns`,
-`ne_sw`, `nw_se`) and 6 hex edges for starts / ramps (`n`, `s`,
-`ne`, `se`, `sw`, `nw`); the writer reads keys at those names
-(`bridge_writer.cc`).  The hex deliverable currently models 6 cells
-(NS and NW-SE back+front, NS and NW-SE pillars).  The third axis
-(`ne_sw`) has no asset and `scene.py::HEX_ENTRIES` lacks an
-NE-SW segment render.  All ramps, starts and `*2` (double-height)
-entries are absent — makeobj emits "No frontramp[…] specified"
-warnings for each, which is the expected partial-coverage signal.
-Wire those in as the bridge model gains the matching 3D parts.
+**rail_060_bridge_hex ramps / starts / double-height entries still
+missing.**  Engine `bridge_desc_t::img_t` is the hex layout — 3 way
+axes for segments / pillars (`ns`, `ne_sw`, `nw_se`) and 6 hex edges
+for starts / ramps (`n`, `s`, `ne`, `se`, `sw`, `nw`); the writer
+reads keys at those names (`bridge_writer.cc`).  All three way axes
+are covered for segments + pillars (9 cells) via `build_segment` /
+`build_pillar` keyed on an `Orient(rot_deg, front_normal)` value —
+`ORIENT_NS` (rot=0°), `ORIENT_NE_SW` (rot=-60°), `ORIENT_NW_SE`
+(rot=-120°), with `front_normal` for the hex axes pulled from
+`HEX_DEPTH_CLIP_NORMAL`; per-quad layer tagging is `n · centroid >
+0`.  All ramps, starts and `*2` (double-height) entries are still
+absent — makeobj emits "No frontramp[…] specified" warnings for
+each, which is the expected partial-coverage signal.  Wire those
+in as the bridge model gains the matching 3D parts.
+
+**rail_060_bridge_hex pillar clips at the image bottom.**
+`PILLAR_BOTTOM_Z = -0.55` projects to screen-y ≈ 145 under the hex
+camera (`mid_y=96 + 0.55 × HEX_Z_SCALE`), but the hex output is 128
+tall, so all three pillar cells land y_max=127 (clipped at the
+image boundary instead of fading into the gap).  The square bake
+doesn't hit it because `screen_center_y=68` lifts world z=0 30 px
+higher up the cell.  Either shorten `PILLAR_BOTTOM_Z` for the hex
+bake (an axis-by-axis check whether the engine actually composites
+the full max-depth shape would say if that's safe — pak128's square
+cells ship the full depth and the engine clips at composite time;
+hex may want the same contract), or extend the hex output buffer
+vertically.  Tracks don't hit this because they sit at z ≥ 0.
 
 **Asymmetric-pillar corner pair for the NE-SW axis is a guess.**
 `pillar_t::calc_image` (engine `obj/pillar.cc`) hides an
