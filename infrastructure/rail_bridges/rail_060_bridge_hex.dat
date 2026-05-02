@@ -1,0 +1,25 @@
+#BRIDGE
+# Hex deliverable for rail_060_bridge.  Only `BackImage[NS][0]` and
+# `FrontImage[NS][0]` are modeled (baked from
+# `rail_060_bridge/scene.py::bake_pakset` → `rail_060_bridge_hex.png`).
+# Other slots intentionally absent — see TODO.md
+# "rail_060_bridge_hex.dat is a chimera" / "remaining sheet entries".
+obj=bridge
+name=Rail_060_Bridge_Hex
+copyright=Fabio Gonella + hextrans
+waytype=track
+cost=44000
+maintenance=1100
+topspeed=60
+max_lenght=6
+intro_year=1810
+intro_month=1
+retire_year=1940
+retire_month=1
+pillar_distance=1
+pillar_asymmetric=1
+icon=> rail_060_bridge.0.6
+cursor=rail_060_bridge.0.7,0,-16
+#SUMMER
+BackImage[NS][0]=rail_060_bridge_hex.0.0
+FrontImage[NS][0]=rail_060_bridge_hex.0.1

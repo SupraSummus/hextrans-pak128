@@ -421,8 +421,9 @@ is the worked example for shipping hex output today (single-layer,
 one `scene.py` emitting both square + hex via `bake_pakset()`).
 `infrastructure/rail_bridges/rail_060_bridge/` is the worked example
 for multi-view supervision against pak128 sheet entries (multi-layer
-square, no hex output yet — the hex multi-layer split waits on a
-real bridge bake to stress-test the depth-clip spec).
+square; hex bake of NS Back/Front via `bake_pakset()` →
+`rail_060_bridge_hex.{png,dat}` — partial coverage of the bridge
+sheet, see `TODO.md`).
 
 Per-asset state — what's done, what's blocked, what's coming next —
 lives in `git log` and `TODO.md`, not here.

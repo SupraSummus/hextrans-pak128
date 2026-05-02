@@ -55,16 +55,18 @@ the centre end) is also worth a pass — the current clean cut
 reads as "track that ends mid-air" rather than a buffered
 terminus.
 
-**Depth-clip plane spec sits unused.** `tools/3d/hex_synth.py` carries
-`HEX_DEPTH_CLIP_NORMAL` + `front_back_split` mirroring the engine's
-`display/hex_proj.h::hex_way_axis_t` spec.  No baker uses them today
-— single-layer assets (`rail_060_tracks`) don't need a Front / Back
-split, and `rail_060_bridge` hasn't attempted hex output yet.  Wire
-into `Scene.render` as auto-tagging (or drop the helper and keep
-per-quad hardcoded layers) when the first multi-layer hex bake
-actually emits.  Stress-test the south-is-Front rule + the N-S
-tie-break against a real bridge bake at that point — the rule was
-sketched against pak128's NS bridge convention only.
+**Depth-clip plane spec partially used.** `rail_060_bridge`'s hex
+bake (`scene.py::bake_pakset` → `rail_060_bridge_hex.png`) emits
+multi-layer hex output via the per-quad hardcoded-layers route —
+the NS axis happens to match `front_back_split`'s `n=(1,0)` rule
+exactly (manual `front`=+x ↔ spec `front`=+x>0), so the spec is
+implicitly stress-tested for NS only.  `HEX_DEPTH_CLIP_NORMAL` /
+`front_back_split` in `tools/3d/hex_synth.py` themselves are still
+unreferenced from any baker.  When the NE_SW or NW_SE axes are
+modeled they'll need either auto-tagging at render time or a
+per-axis re-tag in the scene; the manual tags will not pass
+through.  The N-S tie-break (Front=+x for the degenerate case)
+remains untested against a non-NS asset.
 
 **X-bracing on rail_060_bridge.** The numpy z-buffer rasterizer
 in `tools/3d/render.py` only supports axis-aligned boxes via
@@ -75,12 +77,6 @@ rendered double-sided), or switch this asset class to Blender.
 Defer until other rail bridge variants are in flight so the fix
 applies once across the family.
 
-**rail_060_bridge Back-layer height off by ~6 px.** The Back
-debug XOR shows the candidate is taller than the reference at the
-railing top. Likely `RAILING_TOP_Z` (currently 0.24) is slightly
-too high. Back-solve from the reference's top y_min when picking
-this up.
-
 **rail_060_bridge remaining sheet entries.** ~28 entries still
 un-modelled: BackImage/FrontImage[EW] (perpendicular orientation),
 BackRamp/FrontRamp × {N,S,E,W}, BackStart/FrontStart × 4,
@@ -89,6 +85,42 @@ winter variants of all of the above. The scene composes from 3D
 parts (deck, pillar, ramp), so most should drop in once the core
 NS segment is right; the exception is the EW orientation which
 exercises the perpendicular layer split.
+
+**`rail_060_bridge_hex.dat` is a chimera.** The hex deliverable
+ships hex-projected cells only for `BackImage[NS]` /
+`FrontImage[NS]`; every other slot (EW, ramps, starts, pillars)
+references upstream pak128 square-dimetric art with the legacy
+`,0,32` sheet offset — geometrically wrong on a hex tile.
+Acceptable as a pipeline-demo artifact, not as a shippable
+hex bridge.  Drop the upstream-art placeholder lines (let the
+engine read `IMG_EMPTY`) once the engine's hex-bridge handling
+is forgiving of missing slots, or fill them in once the model
+covers ramps/starts/pillars.  Also: `bridge_desc_t::img_t`
+(`descriptor/bridge_desc.h`) still has only the legacy 2-axis
+enum (NS_Segment / OW_Segment / N/S/O/W_Start /…), so there
+is no engine-side "hex bridge path" yet — the new .dat is just
+another 2-axis bridge in the table.  The header comment in
+`rail_060_bridge_hex.dat` overpromises this; trim it once the
+engine actually grows hex bridge support.
+
+**rail_060_bridge silhouette y mismatch — don't chase it via
+RAILING_TOP_Z alone.** Back y_min=27 vs ref 33 (cand 6 px too
+tall at the railing top); front y_max=80 vs ref 86 (cand 6 px
+too short at the kick-rail bottom).  An earlier pass dropped
+RAILING_TOP_Z 0.24→0.16 + TOP_BAR_THICKNESS 0.030→0.015 to
+align the back y_min, won the bbox + the score (0.49→0.41 /
+0.84→0.63), but visually shrank the timber railing to a 3 px
+hairline that reads worse than the original chunky-but-tall
+silhouette.  Reverted; scores back to 0.49 / 0.84 and the y
+mismatches are open again.  Likely structural causes: pak128's
+deck top is at a slightly lower screen-y than ours (so the
+whole deck-and-railing stack sits 6 px lower in the cell), or
+pak128 uses a fascia under the deck edge (front-side bar
+extends below deck) rather than our kick-rail-on-top-of-deck
+geometry.  Bbox-fitting RAILING_TOP_Z is the wrong move per
+CLAUDE.md "diff is a sanity check, not the steering signal" —
+needs a side-by-side eyeball of the references first to figure
+out what 3D structure actually produces the reference.
 
 **Sheet offset (`xoff,yoff`) semantics not pinned down.** A .dat
 entry like `BackImage[NS][0]=…,0,32` is an engine compositing
