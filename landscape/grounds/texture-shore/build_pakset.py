@@ -99,5 +99,4 @@ if __name__ == "__main__":
         render_cell=lambda slope, water_mask, geom: render.render_shore(
             slope, water_mask, geom=geom),
         iter_entries=_shore_entries,
-        bitmask=True,
     )

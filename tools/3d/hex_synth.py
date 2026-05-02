@@ -651,7 +651,7 @@ def slope_keyed_entries(halves: int = 1):
 
 def bake_pakset(*, script_path: Path, asset_name: str, obj_name: str,
                 header_doc: str, render_cell, iter_entries,
-                default_cols: int = 12, argv=None, bitmask: bool = False):
+                default_cols: int = 12, argv=None):
     """Run argparse, bake atlas + .dat for one synth-overlay family.
 
     Each per-asset `build_pakset.py` shrinks to a single call to this
@@ -729,14 +729,13 @@ def bake_pakset(*, script_path: Path, asset_name: str, obj_name: str,
         "",
     ]
 
-    img_prefix = "*" if bitmask else ""
     for idx, (dat_typ, dat_stage, render_args, comment) in enumerate(entries):
         r, c = divmod(idx, args.cols)
         cell = render_cell(*render_args, geom=geom)
         atlas[r * cell_h:(r + 1) * cell_h,
               c * cell_w:(c + 1) * cell_w] = cell
         dat_lines.append(
-            f"Image[{dat_typ}][{dat_stage}]={img_prefix}{asset_name}.{r}.{c}\t# {comment}"
+            f"Image[{dat_typ}][{dat_stage}]={asset_name}.{r}.{c}\t# {comment}"
         )
     dat_lines.append("")
 
