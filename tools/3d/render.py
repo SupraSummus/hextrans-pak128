@@ -43,7 +43,7 @@ import numpy as np
 from PIL import Image
 
 from hex_synth import (
-    DEFAULT_W, HexGeom, hash_noise01, hex_height_raster_scale_y
+    DEFAULT_W, HEIGHT_STEP, HexGeom, hash_noise01, hex_height_raster_scale_y
 )
 
 # --- Camera / projection -----------------------------------------------------
@@ -103,10 +103,12 @@ def engine_z_per_step(height_step: int = 1, w: int = DEFAULT_W) -> float:
     """World-z value whose hex projection lifts the screen by `height_step`
     engine height steps.  A bespoke render that wants its sloped sprite
     to align with the engine's ground rendering tilts world-z by this
-    amount across one height-step's worth of slope; matches
-    `hex_height_raster_scale_y` divided by HEX_Z_SCALE.
+    amount across one height-step's worth of slope.  Engine callers
+    pass `z * TILE_HEIGHT_STEP` into `hex_height_raster_scale_y` (see
+    `display/viewport.cc`); we mirror that here — a height_step of 1
+    is `HEIGHT_STEP` raster units, ~16 px lift at W=128.
     """
-    return hex_height_raster_scale_y(height_step, w) / HEX_Z_SCALE
+    return hex_height_raster_scale_y(height_step * HEIGHT_STEP, w) / HEX_Z_SCALE
 
 
 def hex_plan_clip(wx: np.ndarray, wy: np.ndarray, radius: float = 0.5,
