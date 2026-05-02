@@ -83,6 +83,26 @@ Common reflexes:
   trestle / pillar bases sit at z=0 by convention. Use these as
   fixed points to back-solve other parameters.
 
+## Modelling as programming
+
+A scene is code that emits geometry — apply the usual code
+hygiene.  DRY: a constant or helper used by two assets belongs in
+a shared module (track cross-section in
+`rail_tracks/rail_060_tracks/track_params.py`, atlas plumbing in
+`tools/3d/bespoke.py`), not duplicated.  Separation of concerns:
+per-asset `scene.py` owns geometry + the `(label, render_fn)`
+entry list; `tools/3d/` owns rendering, atlas composition,
+projection; `build.py` owns crop+render+diff orchestration.  One
+source of truth across projections: the same 3D parts emit both
+square and hex via `Scene.render(projection=…)` — never fork a
+scene file per projection.  Refactor when the second consumer
+arrives, not before; premature abstraction misfires the first
+time a structural fact contradicts it.
+
+The diff-against-pak128 step is the unit test: a structural
+regression shows up as a bbox shift or a score drop on the
+affected slice.
+
 ## Open debt registry
 
 `TODO.md` at the repo root is the running registry of open debt

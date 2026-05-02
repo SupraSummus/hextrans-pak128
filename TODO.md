@@ -57,16 +57,15 @@ terminus.
 
 **Depth-clip plane spec partially used.** `rail_060_bridge`'s hex
 bake (`scene.py::bake_pakset` → `rail_060_bridge_hex.png`) emits
-multi-layer hex output via the per-quad hardcoded-layers route —
-the NS axis happens to match `front_back_split`'s `n=(1,0)` rule
-exactly (manual `front`=+x ↔ spec `front`=+x>0), so the spec is
-implicitly stress-tested for NS only.  `HEX_DEPTH_CLIP_NORMAL` /
-`front_back_split` in `tools/3d/hex_synth.py` themselves are still
-unreferenced from any baker.  When the NE_SW or NW_SE axes are
-modeled they'll need either auto-tagging at render time or a
-per-axis re-tag in the scene; the manual tags will not pass
-through.  The N-S tie-break (Front=+x for the degenerate case)
-remains untested against a non-NS asset.
+multi-layer hex output via the per-quad hardcoded-layers route.
+The NS axis matches `front_back_split`'s `n=(1,0)` rule exactly
+(manual `front`=+x ↔ spec `front`=+x>0); EW matches `n=(0,-1)`
+(manual `front`=-y ↔ spec `front`=-y>0).  Both implicit; the
+`HEX_DEPTH_CLIP_NORMAL` / `front_back_split` symbols in
+`tools/3d/hex_synth.py` are still unreferenced from any baker.
+When NE_SW or NW_SE axes are modelled they'll need either
+auto-tagging at render time or a per-axis re-tag — the manual
+NS / EW tags will not pass through to a 60°-rotated bridge.
 
 **X-bracing on rail_060_bridge.** The numpy z-buffer rasterizer
 in `tools/3d/render.py` only supports axis-aligned boxes via
@@ -77,31 +76,32 @@ rendered double-sided), or switch this asset class to Blender.
 Defer until other rail bridge variants are in flight so the fix
 applies once across the family.
 
-**rail_060_bridge remaining sheet entries.** ~28 entries still
-un-modelled: BackImage/FrontImage[EW] (perpendicular orientation),
-BackRamp/FrontRamp × {N,S,E,W}, BackStart/FrontStart × 4,
-BackStart2/FrontStart2 × 4 (double-height), backPillar[S/W], plus
-winter variants of all of the above. The scene composes from 3D
-parts (deck, pillar, ramp), so most should drop in once the core
-NS segment is right; the exception is the EW orientation which
-exercises the perpendicular layer split.
+**rail_060_bridge remaining sheet entries.** Mid-segments (NS/EW
+back+front) and pillars (S/W) are now modelled and bake into both
+the square verification renders (`build.py` refs table) and the
+hex atlas; ramps, starts, and start2 (× 4 directions) are still
+un-modelled.  Pillar geometry is a first-pass stub — a single
+stone box from z=PILLAR_BOTTOM_Z to deck-bottom; it doesn't match
+the reference's wider cross-section or the asymmetric face that
+`pillar_asymmetric=1` implies (alpha_iou ≈ 0.15 per the diff).
+Tighten the pillar after ramps/starts are in flight, when the
+overall sheet coverage is good enough to judge it in context.
+Winter variants of every entry remain entirely deferred — should
+plug in as a colour/material variant on the same parts once the
+summer set reads right.
 
-**`rail_060_bridge_hex.dat` is a chimera.** The hex deliverable
-ships hex-projected cells only for `BackImage[NS]` /
-`FrontImage[NS]`; every other slot (EW, ramps, starts, pillars)
-references upstream pak128 square-dimetric art with the legacy
-`,0,32` sheet offset — geometrically wrong on a hex tile.
-Acceptable as a pipeline-demo artifact, not as a shippable
-hex bridge.  Drop the upstream-art placeholder lines (let the
-engine read `IMG_EMPTY`) once the engine's hex-bridge handling
-is forgiving of missing slots, or fill them in once the model
-covers ramps/starts/pillars.  Also: `bridge_desc_t::img_t`
-(`descriptor/bridge_desc.h`) still has only the legacy 2-axis
-enum (NS_Segment / OW_Segment / N/S/O/W_Start /…), so there
-is no engine-side "hex bridge path" yet — the new .dat is just
-another 2-axis bridge in the table.  The header comment in
-`rail_060_bridge_hex.dat` overpromises this; trim it once the
-engine actually grows hex bridge support.
+**rail_060_bridge_hex schema is the legacy 2-axis one.**
+`bridge_desc_t::img_t` (`descriptor/bridge_desc.h`) still has only
+the legacy 2-axis enum (NS_Segment / OW_Segment / N/S/O/W_Start /…),
+so the new `rail_060_bridge_hex.dat` is just another 2-axis bridge
+in the table — there is no engine-side "hex bridge path" yet.  The
+hex deliverable currently models 6 cells (NS / EW back+front, S /
+W pillars) which fits the legacy schema; ramps and starts have no
+representation here even though pak128's bridge dat declares them,
+because the 6-axis hex equivalent of `[N]/[S]/[E]/[W]` would
+need a writer-side schema bump first.  Trim the header comment
+in `rail_060_bridge_hex.dat` once the engine grows hex bridge
+support.
 
 **rail_060_bridge silhouette y mismatch — don't chase it via
 RAILING_TOP_Z alone.** Back y_min=27 vs ref 33 (cand 6 px too
