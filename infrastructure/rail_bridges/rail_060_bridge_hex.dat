@@ -2,18 +2,21 @@
 # Hex deliverable for rail_060_bridge.  Modeled cells (baked from
 # `rail_060_bridge/scene.py::bake_pakset` -> `rail_060_bridge_hex.png`):
 #
-#   col 0  BackImage[NS][0]
-#   col 1  FrontImage[NS][0]
-#   col 2  BackImage[EW][0]
-#   col 3  FrontImage[EW][0]
-#   col 4  backPillar[S][0]
-#   col 5  backPillar[W][0]
+#   col 0  BackImage[ns][0]
+#   col 1  FrontImage[ns][0]
+#   col 2  BackImage[nw_se][0]
+#   col 3  FrontImage[nw_se][0]
+#   col 4  backPillar[ns][0]
+#   col 5  backPillar[nw_se][0]
 #
-# Ramps, starts and start2 entries are intentionally absent for the
-# hex deliverable -- see TODO.md "rail_060_bridge remaining sheet
-# entries".  Engine-side hex bridge support (an img_t enum that
-# covers all 6 hex axes / 6 ramp directions) does not exist yet, so
-# this .dat is a 2-axis bridge in the legacy table.
+# Hex bridge .dat key contract (engine `bridge_desc_t::img_t`):
+# 3 way axes for segments / pillars (`ns`, `ne_sw`, `nw_se`) and 6 hex
+# edges for starts / ramps (`n`, `s`, `ne`, `se`, `sw`, `nw`).  The
+# third axis (`ne_sw`), all ramps, all starts and the start2 / image2
+# / pillar2 / *2 (double-height) entries are intentionally absent —
+# see TODO.md "rail_060_bridge_hex covers 2 of 3 hex axes".  The cells
+# that are present cover the NS axis and (under the iso viewport
+# rename `legacy east → hex SE`) the NW-SE axis.
 obj=bridge
 name=Rail_060_Bridge_Hex
 copyright=Fabio Gonella + hextrans
@@ -31,9 +34,9 @@ pillar_asymmetric=1
 icon=> rail_060_bridge.0.6
 cursor=rail_060_bridge.0.7,0,-16
 #SUMMER
-BackImage[NS][0]=rail_060_bridge_hex.0.0
-FrontImage[NS][0]=rail_060_bridge_hex.0.1
-BackImage[EW][0]=rail_060_bridge_hex.0.2
-FrontImage[EW][0]=rail_060_bridge_hex.0.3
-backPillar[S][0]=rail_060_bridge_hex.0.4
-backPillar[W][0]=rail_060_bridge_hex.0.5
+BackImage[ns][0]=rail_060_bridge_hex.0.0
+FrontImage[ns][0]=rail_060_bridge_hex.0.1
+BackImage[nw_se][0]=rail_060_bridge_hex.0.2
+FrontImage[nw_se][0]=rail_060_bridge_hex.0.3
+backPillar[ns][0]=rail_060_bridge_hex.0.4
+backPillar[nw_se][0]=rail_060_bridge_hex.0.5
