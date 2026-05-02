@@ -43,7 +43,7 @@ REPO_ROOT = HERE.parents[2]
 sys.path.insert(0, str(REPO_ROOT / "tools" / "3d"))
 
 from bespoke import bake_atlas  # noqa: E402
-from render import Scene  # noqa: E402
+from render import Scene, engine_z_per_step  # noqa: E402
 # Track-family parameters (cross-section, colours) live in a sibling
 # module so other rail assets (rail_060_bridge, future rail_060_*)
 # can pull them in without loading this whole scene file.
@@ -214,6 +214,12 @@ HEX_EDGES = {
     "SW": ("W",  "SW"),
     "NW": ("NW", "W"),
 }
+# 180° pair across the hex centre — the slope axis a low edge sits on.
+HEX_OPPOSITE_EDGE = {
+    "N": "S", "S": "N",
+    "NE": "SW", "SW": "NE",
+    "NW": "SE", "SE": "NW",
+}
 
 
 def _edge_midpoint(edge: str) -> tuple[float, float]:
@@ -380,6 +386,38 @@ def build_curve(scene: Scene, edge_a: str, edge_b: str) -> None:
         build_between_edges(scene, edge_a, edge_b)
 
 
+def build_axis_slope(scene: Scene, low_edge: str) -> None:
+    """Lay a straight track on an axis-aligned hex slope.
+
+    Track geometry is the same as `build_between_edges(low_edge,
+    opposite(low_edge))`; on top, every vertex's world-z is offset
+    linearly along the slope axis so the high-edge end is one engine
+    height step up.  The screen-y lift then matches
+    `hex_height_raster_scale_y`, so the sprite aligns with the
+    engine's ground rendering on a 1×-step axis slope.
+
+    Narrow (2-corner) and wide (4-corner) variants of the same axis
+    edge produce the same sprite — track follows the slope axis;
+    off-axis ground inflection isn't drawn.
+    """
+    high_edge = HEX_OPPOSITE_EDGE[low_edge]
+    build_between_edges(scene, low_edge, high_edge)
+
+    low_mx, low_my = _edge_midpoint(low_edge)
+    high_mx, high_my = _edge_midpoint(high_edge)
+    chord_dx, chord_dy = high_mx - low_mx, high_my - low_my
+    chord_len_sq = chord_dx * chord_dx + chord_dy * chord_dy
+    z_total = engine_z_per_step()
+
+    # Linear z-tilt along the chord: t=0 at low-edge midpoint, t=1 at
+    # high-edge midpoint.  Project (vx, vy) onto the chord direction.
+    scene.verts = [
+        (vx, vy, vz + ((vx - low_mx) * chord_dx + (vy - low_my) * chord_dy)
+                       / chord_len_sq * z_total)
+        for vx, vy, vz in scene.verts
+    ]
+
+
 def build_stub(scene: Scene, edge: str, n_ties: int = N_TIES // 2) -> None:
     """Lay a half-tile track from the hex centre to one edge midpoint.
 
@@ -431,6 +469,22 @@ HEX_ENTRIES = [
     ("n_ne",  ("N",  "NE")),
 ]
 
+# Slope sprites — one per hex axis low edge.  Direction matters
+# (lighting / visible rail bed differ between ascending and
+# descending the same axis), so each low edge is its own cell.
+# Narrow and wide variants of the same low edge share — the rail
+# climbs the same 0→1 path, only off-axis ground inflection differs.
+# Order matches `way_writer.cc::slope_keys` clockwise from north so
+# the dat columns line up with how a reader thinks about the axis.
+SLOPE_HEX_ENTRIES = [
+    ("n",  "N"),
+    ("ne", "NE"),
+    ("se", "SE"),
+    ("s",  "S"),
+    ("sw", "SW"),
+    ("nw", "NW"),
+]
+
 
 def render_hex_cell(edges):
     """Build a fresh Scene with one hex sprite and render it through
@@ -443,6 +497,14 @@ def render_hex_cell(edges):
         build_stub(s, edges[0])
     else:
         build_curve(s, edges[0], edges[1])
+    return s.render(out_path=None, projection="hex")
+
+
+def render_hex_slope_cell(low_edge: str):
+    """One axis-aligned slope sprite for the given low edge — same
+    interface as `render_hex_cell` but emits a slope cell."""
+    s = Scene()
+    build_axis_slope(s, low_edge)
     return s.render(out_path=None, projection="hex")
 
 
@@ -467,6 +529,12 @@ def main() -> None:
 # coverage status.
 
 def bake_pakset() -> None:
+    bake_atlas(
+        out_png=HERE.parent / "rail_060_tracks_hex_slope.png",
+        entries=[(label, lambda e=edge: render_hex_slope_cell(e))
+                 for label, edge in SLOPE_HEX_ENTRIES],
+        repo_root=REPO_ROOT,
+    )
     bake_atlas(
         out_png=HERE.parent / "rail_060_tracks_hex.png",
         entries=[(ribi, lambda edges=edges: render_hex_cell(edges))
