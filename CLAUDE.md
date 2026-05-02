@@ -62,6 +62,14 @@ per-asset-class .dat keys (the matching
 a worktree of its `simutrans` branch is typically kept parallel to
 the pakset checkout for these lookups.
 
+The engine repo is checked out locally at `/home/user/hextrans` and
+the pakset at `/home/user/hextrans-pak128`. Read, grep and edit
+through the local working trees — not the GitHub API. The MCP
+`mcp__github__*` tools are for genuine GitHub operations (PRs,
+issues, CI status, cross-repo search); using them for local file
+reads or edits costs round-trips and skips the file-tooling that's
+already wired up.
+
 When something doesn't match the reference, before tweaking a
 parameter, ask "is this an engine fact I haven't looked up yet?".
 Common reflexes:

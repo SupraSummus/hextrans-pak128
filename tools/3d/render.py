@@ -42,7 +42,9 @@ import math
 import numpy as np
 from PIL import Image
 
-from hex_synth import HexGeom, hash_noise01
+from hex_synth import (
+    DEFAULT_W, HexGeom, hash_noise01, hex_height_raster_scale_y
+)
 
 # --- Camera / projection -----------------------------------------------------
 YAW = np.deg2rad(45.0)
@@ -95,6 +97,16 @@ def world_to_screen(p, screen_center_y=SCREEN_CENTER_Y_GROUND):
 # convention and need an absolute px/world_z scale, which we share with
 # square dimetric.
 HEX_Z_SCALE = PIXELS_PER_UNIT
+
+
+def engine_z_per_step(height_step: int = 1, w: int = DEFAULT_W) -> float:
+    """World-z value whose hex projection lifts the screen by `height_step`
+    engine height steps.  A bespoke render that wants its sloped sprite
+    to align with the engine's ground rendering tilts world-z by this
+    amount across one height-step's worth of slope; matches
+    `hex_height_raster_scale_y` divided by HEX_Z_SCALE.
+    """
+    return hex_height_raster_scale_y(height_step, w) / HEX_Z_SCALE
 
 
 def hex_plan_clip(wx: np.ndarray, wy: np.ndarray, radius: float = 0.5,
