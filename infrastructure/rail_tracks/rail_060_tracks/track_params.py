@@ -17,12 +17,15 @@ TIE_BROWN = (100, 70, 45)
 RAIL_GREY = (140, 140, 130)
 
 # --- Cross-section (perpendicular to the track axis) ------------------------
-# 1 unit = 1 tile width.  Calibrated against pak128 cell 1.5 of
-# `rail_060_tracks.png`: rails ~12 px apart on screen at the cell's
-# middle row, ballast ~30 px wide.
+# 1 unit = 1 tile width.  Calibrated against pak128 cells 1.5 / 1.6 of
+# `rail_060_tracks.png` by `measure_gauge.py`, which fits a line to the
+# rail-head pixels of each rail and inverts the dimetric projection's
+# perpendicular px-per-world factor.  Both cells land on 0.04744 — keep
+# `measure_gauge.py` working (and re-run after pak128 refresh) rather
+# than tweaking this number by eye.
 TIE_HALF_W = 0.16
 RAIL_HALF_W = 0.008      # rail head thickness (perpendicular to track)
-RAIL_GAUGE_HALF = 0.085  # half the rail-to-rail spacing
+RAIL_GAUGE_HALF = 0.0474  # half the rail-to-rail spacing
 
 # Stack heights above ground (z=0).  Bridge scenes lift these onto
 # their deck top via `DECK_TOP_Z + (TIE_TOP_Z - BALLAST_TOP_Z)` etc.
