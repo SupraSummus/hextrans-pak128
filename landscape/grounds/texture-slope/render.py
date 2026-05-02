@@ -90,21 +90,23 @@ def render_slope(slope: int, corner_mask: int,
     or BLUE chosen by dithered strength bands; outside pixels stay
     alpha=0.
 
-    Strength is `hex_synth.centre_fan_field` with `centre =
-    mean(corners)` — symmetric (no shore-style land bias; climate
-    transitions don't have a "background" the field should retreat
-    towards).  Band thresholds: 1/3 (RED→GREEN) and 2/3 (GREEN→BLUE),
-    with a ±0.4 hashed-noise jitter so the boundaries fuzz across
-    ~6 px per band rather than collapsing to clean lines.
+    Strength is `hex_synth.centre_fan_field` with `centre = 0.0` —
+    own biome wins at the centre even when every corner
+    transitions, so a tile reads as "own biome with a transition
+    bite" rather than a 50/50 blend (same land-bias structure as
+    `texture-shore`, looser parameters).  Band thresholds: 0.5
+    (RED→GREEN) and 0.85 (GREEN→BLUE), with a ±0.4 hashed-noise
+    jitter — wider grit than shore's ±0.2, so band boundaries
+    feather across ~6 px rather than collapsing toward a 3 px line.
+    Note the snowline path reuses this atlas: biasing toward RED
+    also biases toward un-snowed ground at partial-snowline tiles.
     """
     if geom is None:
         geom = hex_synth.HexGeom()
 
     silhouette = hex_synth.silhouette_mask(slope, geom)
     weight = [(corner_mask >> i) & 1 for i in range(hex_synth.CORNER_COUNT)]
-    strength = hex_synth.centre_fan_field(slope, weight,
-                                          sum(weight) / hex_synth.CORNER_COUNT,
-                                          geom)
+    strength = hex_synth.centre_fan_field(slope, weight, 0.0, geom)
 
     xs = np.arange(geom.w, dtype=np.uint32)
     ys = np.arange(geom.h, dtype=np.uint32)
@@ -112,8 +114,8 @@ def render_slope(slope: int, corner_mask: int,
     jitter = (hex_synth.hash_noise01(gx, gy) - 0.5) * 0.8
     s = strength + jitter
 
-    is_blue  = silhouette & (s >= 2.0 / 3.0)
-    is_green = silhouette & (s >= 1.0 / 3.0) & ~is_blue
+    is_blue  = silhouette & (s >= 0.85)
+    is_green = silhouette & (s >= 0.5) & ~is_blue
     is_red   = silhouette & ~is_blue & ~is_green
 
     buf = np.zeros((geom.h, geom.w, 4), dtype=np.uint8)
