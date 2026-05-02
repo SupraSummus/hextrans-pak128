@@ -4,19 +4,25 @@
 #
 #   col 0  BackImage[ns][0]
 #   col 1  FrontImage[ns][0]
-#   col 2  BackImage[nw_se][0]
-#   col 3  FrontImage[nw_se][0]
-#   col 4  backPillar[ns][0]
-#   col 5  backPillar[nw_se][0]
+#   col 2  BackImage[ne_sw][0]
+#   col 3  FrontImage[ne_sw][0]
+#   col 4  BackImage[nw_se][0]
+#   col 5  FrontImage[nw_se][0]
+#   col 6  backPillar[ns][0]
+#   col 7  backPillar[ne_sw][0]
+#   col 8  backPillar[nw_se][0]
 #
 # Hex bridge .dat key contract (engine `bridge_desc_t::img_t`):
 # 3 way axes for segments / pillars (`ns`, `ne_sw`, `nw_se`) and 6 hex
-# edges for starts / ramps (`n`, `s`, `ne`, `se`, `sw`, `nw`).  The
-# third axis (`ne_sw`), all ramps, all starts and the start2 / image2
-# / pillar2 / *2 (double-height) entries are intentionally absent —
-# see TODO.md "rail_060_bridge_hex covers 2 of 3 hex axes".  The cells
-# that are present cover the NS axis and (under the iso viewport
-# rename `legacy east → hex SE`) the NW-SE axis.
+# edges for starts / ramps (`n`, `s`, `ne`, `se`, `sw`, `nw`).  All
+# three way axes are now covered for segments + pillars; ramps,
+# starts and the *2 (double-height) entries are still absent — see
+# TODO.md "rail_060_bridge_hex ramps / starts / double-height
+# entries still missing".  The NE-SW axis bake comes through
+# `build_segment_ne_sw` / `build_pillar_ne_sw` (NS geometry rotated
+# 30° clockwise around z) with engine-spec front/back tagging via
+# `front_back_split`; NS and NW-SE come through the legacy
+# square-axis builds with hardcoded tags.
 obj=bridge
 name=Rail_060_Bridge_Hex
 copyright=Fabio Gonella + hextrans
@@ -36,7 +42,10 @@ cursor=rail_060_bridge.0.7,0,-16
 #SUMMER
 BackImage[ns][0]=rail_060_bridge_hex.0.0
 FrontImage[ns][0]=rail_060_bridge_hex.0.1
-BackImage[nw_se][0]=rail_060_bridge_hex.0.2
-FrontImage[nw_se][0]=rail_060_bridge_hex.0.3
-backPillar[ns][0]=rail_060_bridge_hex.0.4
-backPillar[nw_se][0]=rail_060_bridge_hex.0.5
+BackImage[ne_sw][0]=rail_060_bridge_hex.0.2
+FrontImage[ne_sw][0]=rail_060_bridge_hex.0.3
+BackImage[nw_se][0]=rail_060_bridge_hex.0.4
+FrontImage[nw_se][0]=rail_060_bridge_hex.0.5
+backPillar[ns][0]=rail_060_bridge_hex.0.6
+backPillar[ne_sw][0]=rail_060_bridge_hex.0.7
+backPillar[nw_se][0]=rail_060_bridge_hex.0.8

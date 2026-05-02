@@ -82,6 +82,22 @@ Common reflexes:
   a tile spans x,y in [-0.5, +0.5] (in unit-tile world coords);
   trestle / pillar bases sit at z=0 by convention. Use these as
   fixed points to back-solve other parameters.
+- **Hex way axes pair opposite edges, not corners.**
+  `display/hex_proj.h::hex_way_axis_t` defines `NS = N edge ↔ S
+  edge`, `NE_SW = NE edge ↔ SW edge`, `NW_SE = NW edge ↔ SE
+  edge`.  A way running through a tile enters at one edge midpoint
+  and exits at the opposite edge midpoint, so a bridge segment's
+  length must lie along the edge-midpoint line — `(0, 1)` for NS,
+  `(√3/2, 1/2)` for NE-SW, `(√3/2, -1/2)` for NW-SE.  The
+  corner-to-corner diagonals (`(0.5, √3/2)` and `(0.5, -√3/2)`)
+  are 30° off and *wrong*; baking a bridge along them produces a
+  silhouette that doesn't meet the tile boundary at the engine's
+  expected entry/exit edges.  `HEX_DEPTH_CLIP_NORMAL` in
+  `tools/3d/hex_synth.py` is perpendicular to the edge-midpoint
+  axis, so a NS-frame bridge rotated by `0` / `-60°` / `-120°`
+  around z lands its perpendicular sides exactly on the front /
+  back depth-clip plane — no axis-line straddle, no spurious
+  per-quad layer flips along the bridge length.
 
 ## Modelling as programming
 
