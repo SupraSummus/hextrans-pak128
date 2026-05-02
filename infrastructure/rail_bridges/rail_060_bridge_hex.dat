@@ -1,9 +1,19 @@
 #BRIDGE
-# Hex deliverable for rail_060_bridge.  Only `BackImage[NS][0]` and
-# `FrontImage[NS][0]` are modeled (baked from
-# `rail_060_bridge/scene.py::bake_pakset` → `rail_060_bridge_hex.png`).
-# Other slots intentionally absent — see TODO.md
-# "rail_060_bridge_hex.dat is a chimera" / "remaining sheet entries".
+# Hex deliverable for rail_060_bridge.  Modeled cells (baked from
+# `rail_060_bridge/scene.py::bake_pakset` -> `rail_060_bridge_hex.png`):
+#
+#   col 0  BackImage[NS][0]
+#   col 1  FrontImage[NS][0]
+#   col 2  BackImage[EW][0]
+#   col 3  FrontImage[EW][0]
+#   col 4  backPillar[S][0]
+#   col 5  backPillar[W][0]
+#
+# Ramps, starts and start2 entries are intentionally absent for the
+# hex deliverable -- see TODO.md "rail_060_bridge remaining sheet
+# entries".  Engine-side hex bridge support (an img_t enum that
+# covers all 6 hex axes / 6 ramp directions) does not exist yet, so
+# this .dat is a 2-axis bridge in the legacy table.
 obj=bridge
 name=Rail_060_Bridge_Hex
 copyright=Fabio Gonella + hextrans
@@ -23,3 +33,7 @@ cursor=rail_060_bridge.0.7,0,-16
 #SUMMER
 BackImage[NS][0]=rail_060_bridge_hex.0.0
 FrontImage[NS][0]=rail_060_bridge_hex.0.1
+BackImage[EW][0]=rail_060_bridge_hex.0.2
+FrontImage[EW][0]=rail_060_bridge_hex.0.3
+backPillar[S][0]=rail_060_bridge_hex.0.4
+backPillar[W][0]=rail_060_bridge_hex.0.5

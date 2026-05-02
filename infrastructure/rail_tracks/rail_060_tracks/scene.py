@@ -37,20 +37,24 @@ import math
 import sys
 from pathlib import Path
 
-import numpy as np
-from PIL import Image
 
 HERE = Path(__file__).resolve().parent
 REPO_ROOT = HERE.parents[2]
 sys.path.insert(0, str(REPO_ROOT / "tools" / "3d"))
 
-from render import IMG_SIZE, Scene  # noqa: E402
+from bespoke import bake_atlas  # noqa: E402
+from render import Scene  # noqa: E402
+# Track-family parameters (cross-section, colours) live in a sibling
+# module so other rail assets (rail_060_bridge, future rail_060_*)
+# can pull them in without loading this whole scene file.
+from track_params import (  # noqa: E402
+    BALLAST_TOP_Z, N_TIES, RAIL_GAUGE_HALF, RAIL_GREY, RAIL_HALF_W,
+    RAIL_TOP_Z, TIE_BROWN, TIE_HALF_W, TIE_TOP_Z,
+)
 
-# --- Material colors ---------------------------------------------------------
+# --- Material colors (track-only — not part of the shared family) -----------
 BALLAST_DARK = (95, 80, 65)
 BALLAST_MID = (130, 110, 85)
-TIE_BROWN = (100, 70, 45)
-RAIL_GREY = (140, 140, 130)
 
 # --- Track dimensions (1 unit = 1 tile width) -------------------------------
 # `length_half` is the half-length along the track axis; for a square pak128
@@ -59,16 +63,6 @@ RAIL_GREY = (140, 140, 130)
 # 0.433 produces a track that meets the hex silhouette at the edge
 # midpoints rather than overshooting.
 DEFAULT_LENGTH_HALF = 0.5
-
-# Cross-section dimensions (perpendicular to the track axis).  These match
-# the rough proportions of the pak128 cell 1.5 reference: rails ~12 px
-# apart on screen at the cell's middle row, ballast ~30 px wide.
-BALLAST_TOP_Z = 0.020
-TIE_HALF_W = 0.16
-TIE_TOP_Z = 0.030
-RAIL_HALF_W = 0.008      # rail head thickness (perpendicular to track)
-RAIL_GAUGE_HALF = 0.085  # half the rail-to-rail spacing
-RAIL_TOP_Z = 0.045
 
 # Ballast is laid as concentric perpendicular bands so the dither-keep
 # tapers from dense near the rails to sparse at the bed's outer edges.
@@ -82,8 +76,6 @@ BALLAST_BANDS = [
     (0.155, 0.220, 0.22),  # gravel shoulders fading into terrain
 ]
 BALLAST_HALF_W = BALLAST_BANDS[-1][1]
-
-N_TIES = 12              # cross-ties along the span
 
 
 def _add_track_segment(scene, start_mid, end_mid,
@@ -475,29 +467,12 @@ def main() -> None:
 # coverage status.
 
 def bake_pakset() -> None:
-    n = len(HEX_ENTRIES)
-    atlas = np.zeros((IMG_SIZE, IMG_SIZE * n, 4), dtype=np.uint8)
-    bboxes = []
-    for col, (ribi, edges) in enumerate(HEX_ENTRIES):
-        rgba = render_hex_cell(edges)
-        atlas[:, col * IMG_SIZE:(col + 1) * IMG_SIZE] = rgba
-        m = rgba[..., 3] > 0
-        if m.any():
-            ys, xs = np.where(m)
-            bboxes.append((ribi, int(xs.min()), int(ys.min()),
-                           int(xs.max()), int(ys.max()), int(m.sum())))
-        else:
-            bboxes.append((ribi, None, None, None, None, 0))
-
-    out_png = HERE.parent / "rail_060_tracks_hex.png"
-    Image.fromarray(atlas, mode="RGBA").save(out_png)
-    print(f"wrote {out_png.relative_to(REPO_ROOT)} "
-          f"({atlas.shape[1]}x{atlas.shape[0]} px, {n} cells)")
-    for col, (ribi, x0, y0, x1, y1, px) in enumerate(bboxes):
-        if px == 0:
-            print(f"  col {col:2d}: {ribi:7s} EMPTY")
-        else:
-            print(f"  col {col:2d}: {ribi:7s} bbox=({x0},{y0})-({x1},{y1}) px={px}")
+    bake_atlas(
+        out_png=HERE.parent / "rail_060_tracks_hex.png",
+        entries=[(ribi, lambda edges=edges: render_hex_cell(edges))
+                 for ribi, edges in HEX_ENTRIES],
+        repo_root=REPO_ROOT,
+    )
 
 
 if __name__ == "__main__":
