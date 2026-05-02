@@ -90,18 +90,28 @@ Winter variants of every entry remain entirely deferred — should
 plug in as a colour/material variant on the same parts once the
 summer set reads right.
 
-**rail_060_bridge_hex schema is the legacy 2-axis one.**
-`bridge_desc_t::img_t` (`descriptor/bridge_desc.h`) still has only
-the legacy 2-axis enum (NS_Segment / OW_Segment / N/S/O/W_Start /…),
-so the new `rail_060_bridge_hex.dat` is just another 2-axis bridge
-in the table — there is no engine-side "hex bridge path" yet.  The
-hex deliverable currently models 6 cells (NS / EW back+front, S /
-W pillars) which fits the legacy schema; ramps and starts have no
-representation here even though pak128's bridge dat declares them,
-because the 6-axis hex equivalent of `[N]/[S]/[E]/[W]` would
-need a writer-side schema bump first.  Trim the header comment
-in `rail_060_bridge_hex.dat` once the engine grows hex bridge
-support.
+**rail_060_bridge_hex covers 2 of 3 hex axes; ramps / starts /
+double-height entries still missing.**  Engine `bridge_desc_t::img_t`
+is now the hex layout — 3 way axes for segments / pillars (`ns`,
+`ne_sw`, `nw_se`) and 6 hex edges for starts / ramps (`n`, `s`,
+`ne`, `se`, `sw`, `nw`); the writer reads keys at those names
+(`bridge_writer.cc`).  The hex deliverable currently models 6 cells
+(NS and NW-SE back+front, NS and NW-SE pillars).  The third axis
+(`ne_sw`) has no asset and `scene.py::HEX_ENTRIES` lacks an
+NE-SW segment render.  All ramps, starts and `*2` (double-height)
+entries are absent — makeobj emits "No frontramp[…] specified"
+warnings for each, which is the expected partial-coverage signal.
+Wire those in as the bridge model gains the matching 3D parts.
+
+**Asymmetric-pillar corner pair for the NE-SW axis is a guess.**
+`pillar_t::calc_image` (engine `obj/pillar.cc`) hides an
+asymmetric pillar when its reference 2-corner pair sits high.
+The square-era pairs (NS: SW+SE, NW-SE: SE+NE) carried a
+viewer-side "lower-screen half" semantic that doesn't split a
+hex tile into clean halves; the engine's NE-SW choice
+(corner_e + corner_se) is provisional.  Verify when a hex
+NE-SW bridge bake exists and a real composite shows whether
+the right pillar face hides on each ramp slope.
 
 **rail_060_bridge silhouette y mismatch — don't chase it via
 RAILING_TOP_Z alone.** Back y_min=27 vs ref 33 (cand 6 px too

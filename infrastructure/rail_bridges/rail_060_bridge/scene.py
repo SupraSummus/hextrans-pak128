@@ -288,17 +288,18 @@ def main() -> None:
 # --- Hex bake --------------------------------------------------------------
 # Atlas col matches `rail_060_bridge_hex.dat`'s entries.  Multi-layer hex
 # output via per-quad hardcoded `back`/`front` tags: the NS axis matches
-# `front_back_split`'s `n=(1,0)` rule (front=+x), the EW axis matches
-# `n=(0,-1)` (front=-y).  Pillars carry through unchanged (single layer).
-# See TODO.md "Depth-clip plane spec partially used" for the auto-tagging
-# story when NE_SW / NW_SE axes are added.
+# `front_back_split`'s `n=(1,0)` rule (front=+x), the legacy "EW" axis
+# (now hex NW-SE under the iso viewport rename `legacy east → hex SE`)
+# matches `n=(0,-1)` (front=-y).  Pillars carry through unchanged
+# (single layer).  See TODO.md "Depth-clip plane spec partially used"
+# for the auto-tagging story when the third axis (NE-SW) is added.
 HEX_ENTRIES: list[tuple[str, callable]] = [
-    ("BackImage[NS][0]",    lambda: render_segment("NS", projection="hex")[0]),
-    ("FrontImage[NS][0]",   lambda: render_segment("NS", projection="hex")[1]),
-    ("BackImage[EW][0]",    lambda: render_segment("EW", projection="hex")[0]),
-    ("FrontImage[EW][0]",   lambda: render_segment("EW", projection="hex")[1]),
-    ("backPillar[S][0]",    lambda: render_pillar("NS", projection="hex")),
-    ("backPillar[W][0]",    lambda: render_pillar("EW", projection="hex")),
+    ("BackImage[ns][0]",       lambda: render_segment("NS", projection="hex")[0]),
+    ("FrontImage[ns][0]",      lambda: render_segment("NS", projection="hex")[1]),
+    ("BackImage[nw_se][0]",    lambda: render_segment("EW", projection="hex")[0]),
+    ("FrontImage[nw_se][0]",   lambda: render_segment("EW", projection="hex")[1]),
+    ("backPillar[ns][0]",      lambda: render_pillar("NS", projection="hex")),
+    ("backPillar[nw_se][0]",   lambda: render_pillar("EW", projection="hex")),
 ]
 
 
