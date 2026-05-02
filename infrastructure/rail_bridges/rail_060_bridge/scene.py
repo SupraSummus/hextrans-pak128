@@ -29,6 +29,9 @@ world z=0 at screen y = 96 - 32 = 64.
 import sys
 from pathlib import Path
 
+import numpy as np
+from PIL import Image
+
 HERE = Path(__file__).resolve().parent
 REPO_ROOT = HERE.parents[2]  # infrastructure/rail_bridges/rail_060_bridge -> repo
 sys.path.insert(0, str(REPO_ROOT / "tools" / "3d"))
@@ -48,8 +51,8 @@ DECK_WIDTH_HALF = 0.20
 DECK_BOTTOM_Z = 0.10
 DECK_TOP_Z = 0.13
 RAIL_TOP_Z = 0.155
-# Railing reaches ~10 px on screen; reference front strip is ~12 px tall.
 RAILING_TOP_Z = 0.24
+TOP_BAR_THICKNESS = 0.030
 
 # Slimmer trestle posts than the original first pass; reference shows
 # delicate timber framing rather than chunky pillars.
@@ -111,7 +114,7 @@ def build(scene: Scene) -> None:
         layer = "front" if x_side > 0 else "back"
         # Top bar.
         scene.add_box(
-            (x_side - 0.012, -BRIDGE_LEN_HALF, RAILING_TOP_Z - 0.030),
+            (x_side - 0.012, -BRIDGE_LEN_HALF, RAILING_TOP_Z - TOP_BAR_THICKNESS),
             (x_side + 0.012, +BRIDGE_LEN_HALF, RAILING_TOP_Z),
             TIMBER_LIGHT,
             layer=layer,
@@ -147,17 +150,51 @@ def build(scene: Scene) -> None:
         )
 
 
-def main() -> None:
-    # World z=0 lands at screen y=68 in the cell. The pak128 bridge .dat
-    # offset (0, 32) shifts the sprite down 32 px at engine compositing
-    # time; within the raw sheet cell the artist drew z=0 around y=68
-    # (empirical: cropped ref's south trestle bottom sits at y=90, our
-    # geometry says z=0 projects to sy = 68 + 22 = 90 at the south end).
+def render_layers(projection: str = "square") -> tuple[np.ndarray, np.ndarray]:
+    # screen_center_y=68 anchors world z=0 to the pak128 ref cell; ignored
+    # on the hex projection path (see render.py::world_to_screen_hex).
     scene = Scene(screen_center_y=68)
     build(scene)
-    scene.render(str(HERE / "out_back.png"), layer_filter="back")
-    scene.render(str(HERE / "out_front.png"), layer_filter="front")
+    back = scene.render(layer_filter="back", projection=projection)
+    front = scene.render(layer_filter="front", projection=projection)
+    return back, front
+
+
+def main() -> None:
+    back, front = render_layers()
+    Image.fromarray(back, mode="RGBA").save(HERE / "out_back.png")
+    Image.fromarray(front, mode="RGBA").save(HERE / "out_front.png")
+
+
+# Hex bake — atlas col matches `rail_060_bridge_hex.dat`'s entries.
+# Manual `back`/`front` quad tags carry through to NS-axis hex output
+# unchanged; NE_SW / NW_SE would need re-tagging (see TODO.md
+# "Depth-clip plane spec partially used").
+ATLAS_ENTRIES = ["BackImage[NS][0]", "FrontImage[NS][0]"]
+
+
+def bake_pakset() -> None:
+    cells = list(render_layers(projection="hex"))
+    h, w = cells[0].shape[:2]
+    atlas = np.zeros((h, w * len(cells), 4), dtype=np.uint8)
+    for col, cell in enumerate(cells):
+        atlas[:, col * w:(col + 1) * w] = cell
+
+    out_png = HERE.parent / "rail_060_bridge_hex.png"
+    Image.fromarray(atlas, mode="RGBA").save(out_png)
+    print(f"wrote {out_png.relative_to(REPO_ROOT)} "
+          f"({atlas.shape[1]}x{atlas.shape[0]} px, {len(cells)} cells)")
+    for col, name in enumerate(ATLAS_ENTRIES):
+        m = cells[col][..., 3] > 0
+        if m.any():
+            ys, xs = np.where(m)
+            print(f"  col {col}: {name:18s} bbox=({int(xs.min())},"
+                  f"{int(ys.min())})-({int(xs.max())},{int(ys.max())}) "
+                  f"px={int(m.sum())}")
+        else:
+            print(f"  col {col}: {name:18s} EMPTY")
 
 
 if __name__ == "__main__":
     main()
+    bake_pakset()
