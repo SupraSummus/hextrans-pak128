@@ -105,16 +105,6 @@ the engine clips at composite time; hex may want the same contract),
 or extend the hex output buffer vertically.  Tracks don't hit this
 because they sit at z ≥ 0.
 
-**Asymmetric-pillar corner pair for the NE-SW axis is a guess.**
-`pillar_t::calc_image` (engine `obj/pillar.cc`) hides an
-asymmetric pillar when its reference 2-corner pair sits high.
-The square-era pairs (NS: SW+SE, NW-SE: SE+NE) carried a
-viewer-side "lower-screen half" semantic that doesn't split a
-hex tile into clean halves; the engine's NE-SW choice
-(corner_e + corner_se) is provisional.  Verify when a hex
-NE-SW bridge bake exists and a real composite shows whether
-the right pillar face hides on each ramp slope.
-
 **rail_060_bridge silhouette y mismatch — don't chase it via
 RAILING_TOP_Z alone.** Back y_min=27 vs ref 33 (cand 6 px too
 tall at the railing top); front y_max=80 vs ref 86 (cand 6 px
@@ -185,16 +175,6 @@ shore/` bakes one ALPHA_RED-keyed alpha cell per realisable
 this is the last slope-axis collapse in the parametric ground
 family.
 
-**Shore atlas in-game look unverified.** `landscape/grounds/
-texture-shore/` produces a per-`(slope, water_mask)` atlas with a
-2-colour (red / blue) ALPHA_RED-keyed mask + hashed dither at the
-boundary.  The bake reproduces the legacy gritty-soft-edge feel on
-synthetic samples but hasn't been compared against pak128's actual
-in-game shore on a real map; first interactive run with the hex
-engine should sanity-check the dither width (`±0.4` jitter, ~6 px
-band at W=128) and the wetness threshold (`0.5`) against pak128's
-beach.  Drop this entry once that's done.
-
 **Water_ani art is procedural-placeholder.** The renderer is a
 top-K hash speckle that reads as uniform-random sparkle rather
 than the layered, clustered glints of pak128's palette art.  Two
@@ -209,11 +189,3 @@ keeping mean exact.  Both deferred until the deliverable is in-game
 and the cartoon-vs-realistic balance can be judged against the
 rest of the hex tileset.
 
-**Sheet-coordinate compass cross-check on the bridge.** I
-established N=upper-right / E=lower-right / S=lower-left /
-W=upper-left from `viewport.cc` + `koord.cc` for the NS bridge,
-and the orientation matches the reference. Worth verifying the
-same convention on a different asset family (e.g. road bridge or
-station) before the lookup graduates to "always trust" status —
-the .dat keys (`[NS]`, `[N]`, `[S]`) might mean different things
-in different desc types.
