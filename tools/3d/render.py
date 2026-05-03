@@ -9,18 +9,30 @@ Why this and not OpenSCAD/Blender:
   hard-surface assets (terrain, bridges, low-poly buildings, vehicles).
 - The renderer outputs the per-asset 128x128 RGBA PNG that
   `models/tools/diff.py` consumes.
-- pak128 dimetric defaults (camera + sun) live here. Per-asset sheet
-  offsets (e.g. bridges' (0,32)) shift world z=0 up the screen via
-  `screen_center_y`.
+
+Model / camera split:
+
+- `Model` holds geometry only (verts + quads).  One model represents
+  the asset's 3D parts and is built once per asset.
+- `SquareCamera` / `HexCamera` hold projection-specific parameters
+  (z-anchor, lighting, output geometry).  Each projection has its own
+  composite-time conventions in pakset land — square absorbs a
+  `,0,32`-style dat shift; hex composites the cell pixels directly —
+  so a single camera abstraction can't represent both without a
+  pile of "this only applies if projection=…" flags.
+- `render(model, camera, layer_filter=…, out_path=…)` dispatches on
+  camera type and emits one RGBA buffer per call.  Multi-projection
+  baking is a model built once + multiple `render` calls with
+  different cameras.
 
 Usage in a scene file:
 
-    from render import Scene
-    s = Scene(screen_center_y=64)            # bridge tile offset
-    s.add_box((-0.5,-0.2,0), (0.5,0.2,0.05), (130,95,60))
+    from render import Model, SquareCamera, HexCamera, render
+    m = Model()
+    m.add_box((-0.5,-0.2,0), (0.5,0.2,0.05), (130,95,60))
     ...
-    s.render("out.png")                      # square dimetric
-    s.render("out_hex.png", projection="hex")  # hex flat-top
+    render(m, SquareCamera(screen_center_y=64), out_path="out.png")
+    render(m, HexCamera(),                       out_path="out_hex.png")
 
 Conventions:
 - World axes: +x, +y horizontal; +z up. Tile spans [-0.5, 0.5] in x,y.
@@ -38,6 +50,7 @@ Conventions:
 from __future__ import annotations
 
 import math
+from dataclasses import dataclass, field
 
 import numpy as np
 from PIL import Image
@@ -132,13 +145,18 @@ def hex_plan_clip(wx: np.ndarray, wy: np.ndarray, radius: float = 0.5,
            (s * abs_x + abs_y <= s * radius + 2.0 * slack)
 
 
-def world_to_screen_hex(p, geom: HexGeom):
+def world_to_screen_hex(p, geom: HexGeom, anchor_y=None):
     p = np.asarray(p, dtype=np.float64)
     x, y, z = p[..., 0], p[..., 1], p[..., 2]
     sx = geom.w / 2.0 + x * geom.w
     # y-compression by 1/√3 makes the regular hex (corners at radius 0.5)
     # land on the engine's flat-tile vertices.  z lifts up the screen.
-    sy = geom.mid_y - y * geom.w / np.sqrt(3.0) - z * HEX_Z_SCALE
+    # `anchor_y` is the cell-y where world z=0 lands; defaults to the
+    # tile's mid_y (correct for ground-level assets).  Bridges anchor
+    # below mid_y so the deck lifts off the cell-centre line by the
+    # same offset pak128 square achieves via its `,0,32` dat shift.
+    base_y = geom.mid_y if anchor_y is None else anchor_y
+    sy = base_y - y * geom.w / np.sqrt(3.0) - z * HEX_Z_SCALE
     # Depth: +y (further north in world) is further from the camera; +z
     # is closer (sits on top).  Match this to the y-ordering screen so
     # painter's-algorithm via z-buffer works for tilted quads.
@@ -206,28 +224,26 @@ def _draw_triangle(rgba, zbuf, verts_screen, color, dither_keep=1.0,
     region_rgba[write, 3] = 255
 
 
-# --- Scene API ---------------------------------------------------------------
-class Scene:
-    """Append-only collection of vertices and quads, plus a renderer.
+# --- Model --------------------------------------------------------------------
+class Model:
+    """Append-only collection of vertices and quads.  Pure geometry —
+    no camera or projection state.  One `Model` populated by an asset's
+    `build_*` functions, rendered through one or more cameras.
 
-    A quad is (i0, i1, i2, i3, color_rgb) with vertices in CCW order seen
-    from outside (so the cross product (v1-v0) x (v3-v0) points outward).
+    A quad is `(i0, i1, i2, i3, color_rgb, layer, dither_keep)` with
+    vertices in CCW order seen from outside (so the cross product
+    `(v1-v0) x (v3-v0)` points outward).
     """
 
-    def __init__(self, screen_center_y=SCREEN_CENTER_Y_GROUND, ambient=0.25,
-                 sun_dir=None):
-        self.verts = []
-        self.quads = []
-        self.screen_center_y = screen_center_y
-        self.ambient = ambient
-        self.sun_dir = SUN_DIR if sun_dir is None else sun_dir / np.linalg.norm(sun_dir)
-        self.hex_geom = HexGeom()
+    def __init__(self):
+        self.verts: list[tuple] = []
+        self.quads: list[tuple] = []
 
     def add_quad(self, points, color, layer="back", dither_keep=1.0):
         """Append a quad given 4 world-space points (CCW from outside).
 
         `layer` tags which sheet entry the quad belongs to ("back" /
-        "front" for pak128 bridge slicing). See render(layer_filter).
+        "front" for pak128 bridge slicing). See `render(layer_filter)`.
         `dither_keep` < 1.0 punches `hash_noise01`-driven holes through
         the quad's pixels so the rendered surface blends with whatever
         terrain texture the engine composites underneath (the pak128
@@ -260,51 +276,90 @@ class Scene:
             (b + 0, b + 4, b + 7, b + 3, color, layer, dither_keep),  # west  (-x)
         ])
 
-    def render(self, out_path=None, img_size=IMG_SIZE, layer_filter=None,
-               projection="square"):
-        """Render the scene to an RGBA buffer; if `out_path` is given,
-        also save it as a PNG.  Returns the (h, w, 4) uint8 array so
-        callers that want to compose multiple renders into one atlas
-        don't need a temp-file round-trip.
 
-        `layer_filter`: if not None, only quads whose layer matches are
-        drawn — used to emit one PNG per pak128 sheet entry (Back vs.
-        Front). The depth buffer still considers only included quads,
-        so occlusion within the slice is correct.
+# --- Cameras ------------------------------------------------------------------
+@dataclass
+class SquareCamera:
+    """Pak128 square dimetric camera.
 
-        `projection`: "square" (pak128 dimetric) or "hex" (flat-top hex
-        camera, anchored to engine `HexGeom`).  Same scene, two views;
-        keeps the modeling-unit / output-slicing split that
-        `infrastructure/.../CLAUDE.md` calls for.
-        """
-        verts = np.asarray(self.verts, dtype=np.float64)
-        if projection == "hex":
-            out_w, out_h = self.hex_geom.w, self.hex_geom.h
-        else:
-            out_w = out_h = img_size
-        rgba = np.zeros((out_h, out_w, 4), dtype=np.uint8)
-        zbuf = np.full((out_h, out_w), -np.inf, dtype=np.float32)
+    `screen_center_y` is the cell-y where world z=0 lands; the default
+    `SCREEN_CENTER_Y_GROUND=96` matches a flat-tile-bbox bottom at
+    cell-y=96 (the pak128 visible-centre convention).  Bridges drop
+    this to absorb the typical `,0,N` dat composite shift — the dat
+    adds N back at draw time, so a non-default `screen_center_y` plus
+    a matching dat offset sums to the engine's per-tile anchor.
+    """
+    screen_center_y: float = SCREEN_CENTER_Y_GROUND
+    ambient: float = 0.25
+    sun_dir: tuple | None = None  # None → SUN_DIR
+    img_size: int = IMG_SIZE
 
-        plan_clip = hex_plan_clip if projection == "hex" else None
-        for v0, v1, v2, v3, color, layer, dither_keep in self.quads:
-            if layer_filter is not None and layer != layer_filter:
-                continue
-            wq = verts[[v0, v1, v2, v3]]
-            n = _quad_normal(wq)
-            light = max(0.0, float(np.dot(-self.sun_dir, n)))
-            shade = self.ambient + (1.0 - self.ambient) * light
-            c = (np.array(color) * shade).clip(0, 255).astype(np.uint8)
-            if projection == "hex":
-                sq = world_to_screen_hex(wq, self.hex_geom)
-            else:
-                sq = world_to_screen(wq, screen_center_y=self.screen_center_y)
-            world_xy = wq[:, :2]
-            for i0, i1, i2 in [(0, 1, 2), (0, 2, 3)]:
-                _draw_triangle(rgba, zbuf, sq[[i0, i1, i2]], c,
-                               dither_keep=dither_keep,
-                               world_xy=world_xy[[i0, i1, i2]],
-                               plan_clip=plan_clip)
 
-        if out_path is not None:
-            Image.fromarray(rgba, mode="RGBA").save(out_path)
-        return rgba
+@dataclass
+class HexCamera:
+    """Flat-top hex camera anchored to the engine's `HexGeom`.
+
+    `anchor_y` is the cell-y where world z=0 lands; `None` defaults to
+    `geom.mid_y` (correct for ground-level assets).  Bridges anchor
+    below `mid_y` so the cell pixels carry the offset that pak128
+    square gets from its `,0,N` dat shift — hex pakset entries
+    composite without a dat shift.
+    """
+    anchor_y: int | None = None
+    ambient: float = 0.25
+    sun_dir: tuple | None = None
+    geom: HexGeom = field(default_factory=HexGeom)
+
+
+# --- Render -------------------------------------------------------------------
+def render(model: Model, camera, *, layer_filter=None, out_path=None
+           ) -> np.ndarray:
+    """Render `model` through `camera`; return an `(h, w, 4)` uint8 RGBA
+    buffer and optionally save it as `out_path`.  Output dimensions are
+    set by the camera (`SquareCamera.img_size` square; hex `geom.w` ×
+    `geom.h`).
+
+    `layer_filter`: if not None, only quads whose layer matches are
+    drawn — used to emit one PNG per pak128 sheet entry (Back vs.
+    Front).  The depth buffer still considers only included quads, so
+    occlusion within the slice is correct.
+    """
+    sun = SUN_DIR if camera.sun_dir is None else \
+        np.asarray(camera.sun_dir, dtype=float) / np.linalg.norm(camera.sun_dir)
+
+    if isinstance(camera, HexCamera):
+        out_w, out_h = camera.geom.w, camera.geom.h
+        plan_clip = hex_plan_clip
+        def project(wq):
+            return world_to_screen_hex(wq, camera.geom, anchor_y=camera.anchor_y)
+    elif isinstance(camera, SquareCamera):
+        out_w = out_h = camera.img_size
+        plan_clip = None
+        def project(wq):
+            return world_to_screen(wq, screen_center_y=camera.screen_center_y)
+    else:
+        raise TypeError(f"unknown camera type: {type(camera).__name__}")
+
+    verts = np.asarray(model.verts, dtype=np.float64)
+    rgba = np.zeros((out_h, out_w, 4), dtype=np.uint8)
+    zbuf = np.full((out_h, out_w), -np.inf, dtype=np.float32)
+
+    for v0, v1, v2, v3, color, layer, dither_keep in model.quads:
+        if layer_filter is not None and layer != layer_filter:
+            continue
+        wq = verts[[v0, v1, v2, v3]]
+        n = _quad_normal(wq)
+        light = max(0.0, float(np.dot(-sun, n)))
+        shade = camera.ambient + (1.0 - camera.ambient) * light
+        c = (np.array(color) * shade).clip(0, 255).astype(np.uint8)
+        sq = project(wq)
+        world_xy = wq[:, :2]
+        for i0, i1, i2 in [(0, 1, 2), (0, 2, 3)]:
+            _draw_triangle(rgba, zbuf, sq[[i0, i1, i2]], c,
+                           dither_keep=dither_keep,
+                           world_xy=world_xy[[i0, i1, i2]],
+                           plan_clip=plan_clip)
+
+    if out_path is not None:
+        Image.fromarray(rgba, mode="RGBA").save(out_path)
+    return rgba

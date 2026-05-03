@@ -56,11 +56,12 @@ correctness: deck supported all the way to the tile edge; a slow
 bridge upgraded to a fast one shouldn't tilt, all rail_*_bridge
 decks share a deck-top z).
 
-pak128 sheet offset for the mid-segment images is `(0, 32)`, so we
-render with world z=0 anchored to a screen y derived empirically
-from the references (see `screen_center_y=68`).  The .dat's `0,32`
-is a draw-time compositing shift, not a shift baked into the cell;
-the empirical anchor is what matters for the cell pixels.
+Per-projection cameras (`_SQ_CAMERA`, `_HEX_CAMERA`) at the bottom
+of the file carry the calibrated z=0 anchor for each side; both are
+empirically tuned to match pak128 reference cells.  The .dat's
+`0,32` square-only shift is a draw-time compositing offset the
+engine applies, not a shift baked into the cell — the in-cell
+anchor and the dat offset add at composite time.
 """
 import functools
 import math
@@ -87,7 +88,7 @@ from hex_synth import (  # noqa: E402
     NS as HEX_NS,
     NW_SE as HEX_NW_SE,
 )
-from render import Scene  # noqa: E402
+from render import HexCamera, Model, SquareCamera, render  # noqa: E402
 from track_params import (  # noqa: E402
     BALLAST_TOP_Z, N_TIES, RAIL_GAUGE_HALF, RAIL_GREY, RAIL_HALF_W,
     RAIL_TOP_Z, TIE_BROWN, TIE_HALF_W, TIE_TOP_Z,
@@ -180,7 +181,7 @@ ORIENT_HEX_EDGE = {
 }
 
 
-def _add_oriented_box(scene: Scene, orient: Orient,
+def _add_oriented_box(model: Model, orient: Orient,
                       along_lo: float, along_hi: float,
                       side_lo: float, side_hi: float,
                       z_lo: float, z_hi: float, color,
@@ -188,7 +189,7 @@ def _add_oriented_box(scene: Scene, orient: Orient,
                       dither_keep: float = 1.0) -> None:
     """Append a box in NS-frame coordinates (along = world y, side =
     world x), rotated by `orient.rot_deg` around z, emitted as 5
-    outward-facing quads (skips the bottom, like `Scene.add_box`).
+    outward-facing quads (skips the bottom, like `Model.add_box`).
     Layer is `force_layer` when set, else per-quad-centroid via
     `n · centroid > 0` against `orient.front_normal`.
 
@@ -224,17 +225,17 @@ def _add_oriented_box(scene: Scene, orient: Orient,
             cx = sum(p[0] for p in q) / 4.0
             cy = sum(p[1] for p in q) / 4.0
             layer = "front" if nx * cx + ny * cy > 0.0 else "back"
-        scene.add_quad(q, color, layer=layer, dither_keep=dither_keep)
+        model.add_quad(q, color, layer=layer, dither_keep=dither_keep)
 
 
-def build_segment(scene: Scene, orient: Orient) -> None:
+def build_segment(model: Model, orient: Orient) -> None:
     """Build a mid-segment bridge in `orient`'s frame.
 
     Emits all parts (deck, trestle, railings, ties, rails) tagged
     with `back` / `front` layers per `orient.front_normal` so the
-    renderer can slice off Back / Front from one scene.
+    renderer can slice off Back / Front from one model.
     """
-    add = functools.partial(_add_oriented_box, scene, orient)
+    add = functools.partial(_add_oriented_box, model, orient)
 
     # 1. Deck slab — back layer (deck is part of the silhouette,
     #    vehicle draws on top).
@@ -316,7 +317,7 @@ def _end_profile(kind: str, along: float) -> tuple[float, float]:
     raise ValueError(f"unknown bridge end kind: {kind}")
 
 
-def build_end(scene: Scene, orient: Orient, kind: str) -> None:
+def build_end(model: Model, orient: Orient, kind: str) -> None:
     """Build a bridge ramp/start/start2 end tile in `orient`'s frame.
 
     The parts deliberately mirror `build_segment` so early bridge
@@ -326,7 +327,7 @@ def build_end(scene: Scene, orient: Orient, kind: str) -> None:
     silhouette reads as a continuous incline while keeping the simple
     box rasterizer.
     """
-    add = functools.partial(_add_oriented_box, scene, orient)
+    add = functools.partial(_add_oriented_box, model, orient)
 
     deck_steps = 10
     for i in range(deck_steps):
@@ -412,7 +413,7 @@ def build_end(scene: Scene, orient: Orient, kind: str) -> None:
                 force_layer="back")
 
 
-def build_pillar(scene: Scene, orient: Orient) -> None:
+def build_pillar(model: Model, orient: Orient) -> None:
     """Single stone pillar centred on the tile, drawn behind the
     bridge segment when the engine composites a multi-tile bridge
     over a deep gap.  pak128 ships `pillar_asymmetric=1` so only the
@@ -422,36 +423,54 @@ def build_pillar(scene: Scene, orient: Orient) -> None:
     broad face shows from the front.  All quads "back".
     """
     along_half = PILLAR_HALF * PILLAR_ALONG_ASPECT
-    _add_oriented_box(scene, orient,
+    _add_oriented_box(model, orient,
                       -along_half, +along_half,
                       -PILLAR_HALF, +PILLAR_HALF,
                       PILLAR_BOTTOM_Z, PILLAR_TOP_Z, STONE_GREY,
                       force_layer="back")
 
 
+# Per-projection cameras, calibrated so the deck lands at the same
+# composite screen-y in both — `ypos + 94` ≈ 2 px above the
+# tile-centre, matching pak128's reference cells (the existing
+# `silhouette y mismatch` TODO entry diagnosed cand 6 px too high
+# against the square reference).  Square: dat `,0,32` shift adds 32
+# at composite time, so cell-anchor 74 + 32 = 106 composite for z=0;
+# deck at z=0.13 lands 11.77 px above z=0.  Hex: no dat shift, so
+# the cell pixels carry the full offset — anchor 106 for z=0.
+_SQ_CAMERA = SquareCamera(screen_center_y=74)
+_HEX_CAMERA = HexCamera(anchor_y=106)
+
+
+def _camera(projection: str):
+    return _HEX_CAMERA if projection == "hex" else _SQ_CAMERA
+
+
 def render_segment(orient: Orient, projection: str
                    ) -> tuple[np.ndarray, np.ndarray]:
     """Render a mid-segment bridge in `orient`; return `(back, front)`."""
-    scene = Scene(screen_center_y=68)
-    build_segment(scene, orient)
-    return (scene.render(layer_filter="back", projection=projection),
-            scene.render(layer_filter="front", projection=projection))
+    m = Model()
+    build_segment(m, orient)
+    cam = _camera(projection)
+    return (render(m, cam, layer_filter="back"),
+            render(m, cam, layer_filter="front"))
 
 
 def render_pillar(orient: Orient, projection: str) -> np.ndarray:
     """Render a pillar in `orient`; single-layer (back)."""
-    scene = Scene(screen_center_y=68)
-    build_pillar(scene, orient)
-    return scene.render(layer_filter="back", projection=projection)
+    m = Model()
+    build_pillar(m, orient)
+    return render(m, _camera(projection), layer_filter="back")
 
 
 def render_end(orient: Orient, kind: str, projection: str
                ) -> tuple[np.ndarray, np.ndarray]:
     """Render a ramp/start/start2 end; return `(back, front)`."""
-    scene = Scene(screen_center_y=68)
-    build_end(scene, orient, kind)
-    return (scene.render(layer_filter="back", projection=projection),
-            scene.render(layer_filter="front", projection=projection))
+    m = Model()
+    build_end(m, orient, kind)
+    cam = _camera(projection)
+    return (render(m, cam, layer_filter="back"),
+            render(m, cam, layer_filter="front"))
 
 
 # --- Square verification renders -------------------------------------------

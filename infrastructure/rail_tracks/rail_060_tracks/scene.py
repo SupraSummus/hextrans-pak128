@@ -43,7 +43,7 @@ REPO_ROOT = HERE.parents[2]
 sys.path.insert(0, str(REPO_ROOT / "tools" / "3d"))
 
 from bespoke import bake_atlas  # noqa: E402
-from render import Scene, engine_z_per_step  # noqa: E402
+from render import HexCamera, Model, SquareCamera, engine_z_per_step, render  # noqa: E402
 # Track-family parameters (cross-section, colours) live in a sibling
 # module so other rail assets (rail_060_bridge, future rail_060_*)
 # can pull them in without loading this whole scene file.
@@ -78,7 +78,7 @@ BALLAST_BANDS = [
 BALLAST_HALF_W = BALLAST_BANDS[-1][1]
 
 
-def _add_track_segment(scene, start_mid, end_mid,
+def _add_track_segment(model, start_mid, end_mid,
                        cap_dir_start, cap_dir_end,
                        n_ties: int):
     """Lay one straight track segment with arbitrary end caps.
@@ -141,11 +141,11 @@ def _add_track_segment(scene, start_mid, end_mid,
             world(s1, perp1, z1), world(s0, perp1, z1),
         ]
         kw = {"layer": "back", "dither_keep": dither_keep}
-        scene.add_quad([corners[4], corners[5], corners[6], corners[7]], color, **kw)
-        scene.add_quad([corners[0], corners[1], corners[5], corners[4]], color, **kw)
-        scene.add_quad([corners[2], corners[3], corners[7], corners[6]], color, **kw)
-        scene.add_quad([corners[1], corners[2], corners[6], corners[5]], color, **kw)
-        scene.add_quad([corners[0], corners[4], corners[7], corners[3]], color, **kw)
+        model.add_quad([corners[4], corners[5], corners[6], corners[7]], color, **kw)
+        model.add_quad([corners[0], corners[1], corners[5], corners[4]], color, **kw)
+        model.add_quad([corners[2], corners[3], corners[7], corners[6]], color, **kw)
+        model.add_quad([corners[1], corners[2], corners[6], corners[5]], color, **kw)
+        model.add_quad([corners[0], corners[4], corners[7], corners[3]], color, **kw)
 
     # 1. Ballast bands.
     for inner, outer, keep in BALLAST_BANDS:
@@ -176,7 +176,7 @@ def _add_track_segment(scene, start_mid, end_mid,
                  TIE_TOP_Z, RAIL_TOP_Z, RAIL_GREY)
 
 
-def build(scene: Scene, length_half: float = DEFAULT_LENGTH_HALF,
+def build(model: Model, length_half: float = DEFAULT_LENGTH_HALF,
           axis_yaw_deg: float = 0.0) -> None:
     """Build a straight rail track centred on the origin.
 
@@ -189,7 +189,7 @@ def build(scene: Scene, length_half: float = DEFAULT_LENGTH_HALF,
     start = (-length_half * tx, -length_half * ty)
     end = (+length_half * tx, +length_half * ty)
     perp = (-ty, tx)
-    _add_track_segment(scene, start, end, perp, perp, n_ties=N_TIES)
+    _add_track_segment(model, start, end, perp, perp, n_ties=N_TIES)
 
 
 # ---- Hex tile geometry helpers --------------------------------------------
@@ -238,7 +238,7 @@ def _edge_unit_dir(edge: str) -> tuple[float, float]:
     return (dx / n, dy / n)
 
 
-def build_between_edges(scene: Scene, edge_a: str, edge_b: str,
+def build_between_edges(model: Model, edge_a: str, edge_b: str,
                         n_ties: int = N_TIES) -> None:
     """Lay a straight track between the midpoints of two hex edges,
     with each end mitred along the local edge direction.
@@ -254,7 +254,7 @@ def build_between_edges(scene: Scene, edge_a: str, edge_b: str,
     end = _edge_midpoint(edge_b)
     cap_a = _edge_unit_dir(edge_a)
     cap_b = _edge_unit_dir(edge_b)
-    _add_track_segment(scene, start, end, cap_a, cap_b, n_ties=n_ties)
+    _add_track_segment(model, start, end, cap_a, cap_b, n_ties=n_ties)
 
 
 # Hex straight tracks span between opposite edge midpoints, distance
@@ -272,7 +272,7 @@ def _shared_corner(edge_a: str, edge_b: str) -> str:
     return next(iter(shared))
 
 
-def _add_radial_tie(scene: Scene, arc_cx: float, arc_cy: float,
+def _add_radial_tie(model: Model, arc_cx: float, arc_cy: float,
                     radius: float, angle: float) -> None:
     """Lay one cross-tie at `radius` and `angle` around arc centre
     `(arc_cx, arc_cy)`.
@@ -281,7 +281,7 @@ def _add_radial_tie(scene: Scene, arc_cx: float, arc_cy: float,
     (its "thickness", same 0.05 world units the straight ties use) and
     wide across the rails (`±TIE_HALF_W` along the radial direction).
     Built as 5 outward-facing quads.  Local axes are picked so
-    `tangent × radial = +ẑ` (right-handed, matching `Scene.add_box`'s
+    `tangent × radial = +ẑ` (right-handed, matching `Model.add_box`'s
     x×y=z convention) — using +tangent = (-sin t, cos t) (the CCW arc
     direction) as `u` and +radial = (cos t, sin t) as `v` gives
     u×v = +ẑ, so the same quad enumeration as `add_box` produces
@@ -301,7 +301,7 @@ def _add_radial_tie(scene: Scene, arc_cx: float, arc_cy: float,
                 cy + su * U * uy + sv * V * vy,
                 z)
 
-    # 8 corners ordered like Scene.add_box's (x,y,z) lattice with
+    # 8 corners ordered like Model.add_box's (x,y,z) lattice with
     # (su, sv) playing the role of (sx, sy):
     #   0:(-,-,z0) 1:(+,-,z0) 2:(+,+,z0) 3:(-,+,z0)
     #   4:(-,-,z1) 5:(+,-,z1) 6:(+,+,z1) 7:(-,+,z1)
@@ -309,14 +309,14 @@ def _add_radial_tie(scene: Scene, arc_cx: float, arc_cy: float,
            c(-1, -1, z1), c(+1, -1, z1), c(+1, +1, z1), c(-1, +1, z1)]
 
     kw = {"layer": "back", "dither_keep": 0.75}
-    scene.add_quad([pts[4], pts[5], pts[6], pts[7]], TIE_BROWN, **kw)  # top
-    scene.add_quad([pts[0], pts[1], pts[5], pts[4]], TIE_BROWN, **kw)  # -v side
-    scene.add_quad([pts[2], pts[3], pts[7], pts[6]], TIE_BROWN, **kw)  # +v side
-    scene.add_quad([pts[1], pts[2], pts[6], pts[5]], TIE_BROWN, **kw)  # +u side
-    scene.add_quad([pts[0], pts[4], pts[7], pts[3]], TIE_BROWN, **kw)  # -u side
+    model.add_quad([pts[4], pts[5], pts[6], pts[7]], TIE_BROWN, **kw)  # top
+    model.add_quad([pts[0], pts[1], pts[5], pts[4]], TIE_BROWN, **kw)  # -v side
+    model.add_quad([pts[2], pts[3], pts[7], pts[6]], TIE_BROWN, **kw)  # +v side
+    model.add_quad([pts[1], pts[2], pts[6], pts[5]], TIE_BROWN, **kw)  # +u side
+    model.add_quad([pts[0], pts[4], pts[7], pts[3]], TIE_BROWN, **kw)  # -u side
 
 
-def _build_arc_curve(scene: Scene, edge_a: str, edge_b: str,
+def _build_arc_curve(model: Model, edge_a: str, edge_b: str,
                      n_segments: int = 12) -> None:
     """Lay a curved track between two 60°-apart hex edges (sharing a corner).
 
@@ -363,16 +363,16 @@ def _build_arc_curve(scene: Scene, edge_a: str, edge_b: str,
         # with the edge direction, so adjacent tiles meet flush.
         cap0 = (math.cos(t0), math.sin(t0))
         cap1 = (math.cos(t1), math.sin(t1))
-        _add_track_segment(scene, p0, p1, cap0, cap1, n_ties=0)
+        _add_track_segment(model, p0, p1, cap0, cap1, n_ties=0)
 
     arc_len = abs(delta) * radius
     n_ties_arc = max(1, round(N_TIES * arc_len / _STRAIGHT_CHORD))
     for i in range(n_ties_arc):
         s = (i + 0.5) / n_ties_arc
-        _add_radial_tie(scene, arc_cx, arc_cy, radius, a_az + delta * s)
+        _add_radial_tie(model, arc_cx, arc_cy, radius, a_az + delta * s)
 
 
-def build_curve(scene: Scene, edge_a: str, edge_b: str) -> None:
+def build_curve(model: Model, edge_a: str, edge_b: str) -> None:
     """Lay a track between two hex edges, dispatching on whether they
     share a corner: 60°-apart pairs do (→ corner-centred arc,
     `_build_arc_curve`); 120° / 180° pairs don't (→ chord with mitred /
@@ -381,12 +381,12 @@ def build_curve(scene: Scene, edge_a: str, edge_b: str) -> None:
     Single entrypoint so callers (preview, bake) don't enumerate the
     three families."""
     if set(HEX_EDGES[edge_a]) & set(HEX_EDGES[edge_b]):
-        _build_arc_curve(scene, edge_a, edge_b)
+        _build_arc_curve(model, edge_a, edge_b)
     else:
-        build_between_edges(scene, edge_a, edge_b)
+        build_between_edges(model, edge_a, edge_b)
 
 
-def build_axis_slope(scene: Scene, low_edge: str) -> None:
+def build_axis_slope(model: Model, low_edge: str) -> None:
     """Lay a straight track on an axis-aligned hex slope.
 
     Track geometry is the same as `build_between_edges(low_edge,
@@ -401,7 +401,7 @@ def build_axis_slope(scene: Scene, low_edge: str) -> None:
     off-axis ground inflection isn't drawn.
     """
     high_edge = HEX_OPPOSITE_EDGE[low_edge]
-    build_between_edges(scene, low_edge, high_edge)
+    build_between_edges(model, low_edge, high_edge)
 
     low_mx, low_my = _edge_midpoint(low_edge)
     high_mx, high_my = _edge_midpoint(high_edge)
@@ -411,14 +411,14 @@ def build_axis_slope(scene: Scene, low_edge: str) -> None:
 
     # Linear z-tilt along the chord: t=0 at low-edge midpoint, t=1 at
     # high-edge midpoint.  Project (vx, vy) onto the chord direction.
-    scene.verts = [
+    model.verts = [
         (vx, vy, vz + ((vx - low_mx) * chord_dx + (vy - low_my) * chord_dy)
                        / chord_len_sq * z_total)
-        for vx, vy, vz in scene.verts
+        for vx, vy, vz in model.verts
     ]
 
 
-def build_stub(scene: Scene, edge: str, n_ties: int = N_TIES // 2) -> None:
+def build_stub(model: Model, edge: str, n_ties: int = N_TIES // 2) -> None:
     """Lay a half-tile track from the hex centre to one edge midpoint.
 
     The edge end is mitred along the local edge direction (so it meets
@@ -434,10 +434,10 @@ def build_stub(scene: Scene, edge: str, n_ties: int = N_TIES // 2) -> None:
     cdx, cdy = end[0] - start[0], end[1] - start[1]
     n = math.hypot(cdx, cdy)
     cap_centre = (-cdy / n, cdx / n)
-    _add_track_segment(scene, start, end, cap_centre, cap_edge, n_ties=n_ties)
+    _add_track_segment(model, start, end, cap_centre, cap_edge, n_ties=n_ties)
 
 
-def build_junction(scene: Scene, edges: tuple[str, ...]) -> None:
+def build_junction(model: Model, edges: tuple[str, ...]) -> None:
     """Lay a 3+ way junction as one stub per active edge.
 
     Placeholder geometry: every edge gets the same centre→edge stub
@@ -450,7 +450,7 @@ def build_junction(scene: Scene, edges: tuple[str, ...]) -> None:
     and leave the remaining edges as branching stubs.
     """
     for edge in edges:
-        build_stub(scene, edge)
+        build_stub(model, edge)
 
 
 # Hex sprites the dat declares.  Ribi codes follow
@@ -500,41 +500,41 @@ SLOPE_HEX_ENTRIES = [
 
 
 def render_hex_cell(edges):
-    """Build a fresh Scene with one hex sprite and render it through
+    """Build a fresh Model with one hex sprite and render it through
     the hex camera.  Single edge → stub; two edges → straight or
     curve (dispatched by `build_curve`); 3+ edges → junction (one
     stub per edge, see `build_junction`).  Returns the (h, w, 4)
     uint8 RGBA array; no file written.  Atlas bake and per-cell
     preview share this entrypoint."""
-    s = Scene()
+    m = Model()
     if len(edges) == 1:
-        build_stub(s, edges[0])
+        build_stub(m, edges[0])
     elif len(edges) == 2:
-        build_curve(s, edges[0], edges[1])
+        build_curve(m, edges[0], edges[1])
     else:
-        build_junction(s, edges)
-    return s.render(out_path=None, projection="hex")
+        build_junction(m, edges)
+    return render(m, HexCamera())
 
 
 def render_hex_slope_cell(low_edge: str):
     """One axis-aligned slope sprite for the given low edge — same
     interface as `render_hex_cell` but emits a slope cell."""
-    s = Scene()
-    build_axis_slope(s, low_edge)
-    return s.render(out_path=None, projection="hex")
+    m = Model()
+    build_axis_slope(m, low_edge)
+    return render(m, HexCamera())
 
 
 def main() -> None:
     # Square dimetric verification: world +y / +x axis tracks, matching
     # pak128 cells 1.5 / 1.6.  Tracks ship no per-image (0, 32) shift, so
-    # we use Scene's default ground anchor.
-    s_ns = Scene()
-    build(s_ns, length_half=0.5, axis_yaw_deg=0.0)
-    s_ns.render(str(HERE / "out_square_ns.png"))
+    # the default square ground anchor is fine.
+    m_ns = Model()
+    build(m_ns, length_half=0.5, axis_yaw_deg=0.0)
+    render(m_ns, SquareCamera(), out_path=str(HERE / "out_square_ns.png"))
 
-    s_ew = Scene()
-    build(s_ew, length_half=0.5, axis_yaw_deg=90.0)
-    s_ew.render(str(HERE / "out_square_ew.png"))
+    m_ew = Model()
+    build(m_ew, length_half=0.5, axis_yaw_deg=90.0)
+    render(m_ew, SquareCamera(), out_path=str(HERE / "out_square_ew.png"))
 
     # Per-cell hex previews are written by `bake_pakset()` as a
     # side-effect of the atlas bake — single source for the rgba.

@@ -92,48 +92,35 @@ placement against the square reference diffs before cloning the
 material variant for winter.
 
 **rail_060_bridge_hex deep supports clip at the image bottom.**
-`PILLAR_BOTTOM_Z = -0.55` projects to screen-y ≈ 145 under the hex
-camera (`mid_y=96 + 0.55 × HEX_Z_SCALE`), but the hex output is 128
-tall, so all three pillar cells land y_max=127.  The new start/start2
-end cells also touch y=127 where their support posts extend below
-the deck.  The square bake doesn't hit this because
-`screen_center_y=68` lifts world z=0 30 px higher up the cell.
-Either shorten deep supports for the hex bake (an axis-by-axis check
-whether the engine actually composites the full max-depth shape would
-say if that's safe — pak128's square cells ship the full depth and
-the engine clips at composite time; hex may want the same contract),
-or extend the hex output buffer vertically.  Tracks don't hit this
+`PILLAR_BOTTOM_Z = -0.55` projects to screen-y ≈ 156 under the hex
+camera (`hex_anchor_y=106 + 0.55 × HEX_Z_SCALE`), but the hex output
+is 128 tall, so all three pillar cells land y_max=127.  Pillar
+accessible depth tops out at z ≈ -0.23 — about a third of the
+modelled pillar.  Start/start2 end cells also touch y=127 where
+their support posts extend below the deck.  The deck-anchor
+calibration (`hex_anchor_y` 96→106 to match pak128's deck-vs-tile
+offset) tightened this — every px the deck moves down in the cell
+trades against pillar head-room.  Either shorten deep supports for
+the hex bake (an axis-by-axis check whether the engine actually
+composites the full max-depth shape would say if that's safe —
+pak128's square cells ship the full depth and the engine clips at
+composite time; hex may want the same contract), or extend the hex
+output buffer vertically (give the cell a bottom-pad analogous to
+HexGeom's existing top_pad for slope room).  Tracks don't hit this
 because they sit at z ≥ 0.
 
-**rail_060_bridge silhouette y mismatch — don't chase it via
-RAILING_TOP_Z alone.** Back y_min=27 vs ref 33 (cand 6 px too
-tall at the railing top); front y_max=80 vs ref 86 (cand 6 px
-too short at the kick-rail bottom).  An earlier pass dropped
-RAILING_TOP_Z 0.24→0.16 + TOP_BAR_THICKNESS 0.030→0.015 to
-align the back y_min, won the bbox + the score (0.49→0.41 /
-0.84→0.63), but visually shrank the timber railing to a 3 px
-hairline that reads worse than the original chunky-but-tall
-silhouette.  Reverted; scores back to 0.49 / 0.84 and the y
-mismatches are open again.  Likely structural causes: pak128's
-deck top is at a slightly lower screen-y than ours (so the
-whole deck-and-railing stack sits 6 px lower in the cell), or
-pak128 uses a fascia under the deck edge (front-side bar
-extends below deck) rather than our kick-rail-on-top-of-deck
-geometry.  Bbox-fitting RAILING_TOP_Z is the wrong move per
-CLAUDE.md "diff is a sanity check, not the steering signal" —
-needs a side-by-side eyeball of the references first to figure
-out what 3D structure actually produces the reference.
-
-**Sheet offset (`xoff,yoff`) semantics not pinned down.** A .dat
-entry like `BackImage[NS][0]=…,0,32` is an engine compositing
-shift applied at draw-time, not a shift baked into the cell.
-Empirically the rail bridge needed `screen_center_y=68` for the
-cropped reference's south trestle bottom (y_max=90) to line up;
-the original CLAUDE.md had inferred `screen_center_y=64` from the
-.dat's `32`. The mapping between the .dat's yoff and the in-cell y
-of world z=0 isn't documented. Trace where the engine applies the
-offset (start in `obj/bruecke.cc::calc_image` and the way drawing
-path) and add an entry to Engine facts in CLAUDE.md.
+**rail_060_bridge silhouette y mismatch — remaining structural
+question after the deck-anchor shift.**  The 6-px-too-high
+hypothesis was confirmed: shifting `screen_center_y` 68→74 (+ hex
+anchor 96→106) raised IoUs across the board (BackImage 0.66→0.74,
+FrontImage 0.31→0.53).  What's left is the front-half score plateau
+at ~0.53 — likely the second hypothesis from the prior entry: pak128
+uses a fascia under the deck edge (front-side bar that extends
+below deck) rather than our kick-rail-on-top-of-deck geometry.
+Verify by eyeballing a front-half ref cell side-by-side with the
+candidate, then add the fascia geometry.  The kick-rail tweaks
+(RAILING_TOP_Z, TOP_BAR_THICKNESS) are still the wrong move —
+they fit the bbox by shrinking the railing to a hairline.
 
 **Aggregate scoring across slices not designed.** Multi-view
 supervision gives one score per slice; there's no rolled-up
