@@ -49,14 +49,49 @@ SHEET = HERE.parent / "rail_060_bridge.png"
 # Every entry the scene currently emits a candidate render for. New
 # sheet entries get one row here when their 3D parts are wired in
 # scene.py.
-SQUARE_REFS = [
+SQUARE_SEGMENT_REFS = [
     (1, 0, "back_ns.png",  "out_back_ns.png",  "BackImage[NS][0]  (cell 1.0)"),
     (1, 1, "front_ns.png", "out_front_ns.png", "FrontImage[NS][0] (cell 1.1)"),
     (1, 2, "back_ew.png",  "out_back_ew.png",  "BackImage[EW][0]  (cell 1.2)"),
     (1, 3, "front_ew.png", "out_front_ew.png", "FrontImage[EW][0] (cell 1.3)"),
+]
+
+END_SHEET_CELLS = [
+    ("Ramp",   "ramp",   "N", 1, 4),
+    ("Ramp",   "ramp",   "S", 1, 6),
+    ("Ramp",   "ramp",   "E", 2, 0),
+    ("Ramp",   "ramp",   "W", 2, 2),
+    ("Start",  "start",  "N", 2, 4),
+    ("Start",  "start",  "S", 2, 6),
+    ("Start",  "start",  "E", 3, 0),
+    ("Start",  "start",  "W", 3, 2),
+    ("Start2", "start2", "N", 3, 4),
+    ("Start2", "start2", "S", 3, 6),
+    ("Start2", "start2", "E", 4, 0),
+    ("Start2", "start2", "W", 4, 2),
+]
+
+
+SQUARE_END_REFS = []
+for dat_key, file_key, direction, row, col in END_SHEET_CELLS:
+    d = direction.lower()
+    SQUARE_END_REFS.extend([
+        (row, col,
+         f"back_{file_key}_{d}.png",
+         f"out_back_{file_key}_{d}.png",
+         f"Back{dat_key}[{direction}][0]  (cell {row}.{col})"),
+        (row, col + 1,
+         f"front_{file_key}_{d}.png",
+         f"out_front_{file_key}_{d}.png",
+         f"Front{dat_key}[{direction}][0] (cell {row}.{col + 1})"),
+    ])
+
+SQUARE_PILLAR_REFS = [
     (4, 4, "pillar_s.png", "out_pillar_s.png", "backPillar[S][0]  (cell 4.4)"),
     (4, 5, "pillar_w.png", "out_pillar_w.png", "backPillar[W][0]  (cell 4.5)"),
 ]
+
+SQUARE_REFS = SQUARE_SEGMENT_REFS + SQUARE_END_REFS + SQUARE_PILLAR_REFS
 
 
 def crop_sheet_cell(row: int, col: int, out: Path) -> None:

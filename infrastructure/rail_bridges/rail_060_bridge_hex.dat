@@ -2,27 +2,22 @@
 # Hex deliverable for rail_060_bridge.  Modeled cells (baked from
 # `rail_060_bridge/scene.py::bake_pakset` -> `rail_060_bridge_hex.png`):
 #
-#   col 0  BackImage[ns][0]
-#   col 1  FrontImage[ns][0]
-#   col 2  BackImage[ne_sw][0]
-#   col 3  FrontImage[ne_sw][0]
-#   col 4  BackImage[nw_se][0]
-#   col 5  FrontImage[nw_se][0]
-#   col 6  backPillar[ns][0]
-#   col 7  backPillar[ne_sw][0]
-#   col 8  backPillar[nw_se][0]
+#   row 0 col 0  BackImage[ns][0]
+#   row 0 col 1  FrontImage[ns][0]
+#   row 0 col 2  BackImage[ne_sw][0]
+#   row 0 col 3  FrontImage[ne_sw][0]
+#   row 0 col 4  BackImage[nw_se][0]
+#   row 0 col 5  FrontImage[nw_se][0]
+#   row 0 col 6  backPillar[ns][0]
+#   row 0 col 7  backPillar[ne_sw][0]
+#   row 0 col 8  backPillar[nw_se][0]
+#   rows 1-4    ramps, starts, and start2 entries for n/s/ne/se/sw/nw
 #
 # Hex bridge .dat key contract (engine `bridge_desc_t::img_t`):
 # 3 way axes for segments / pillars (`ns`, `ne_sw`, `nw_se`) and 6 hex
 # edges for starts / ramps (`n`, `s`, `ne`, `se`, `sw`, `nw`).  All
-# three way axes are now covered for segments + pillars; ramps,
-# starts and the *2 (double-height) entries are still absent — see
-# TODO.md "rail_060_bridge_hex ramps / starts / double-height
-# entries still missing".  The NE-SW axis bake comes through
-# `build_segment_ne_sw` / `build_pillar_ne_sw` (NS geometry rotated
-# 30° clockwise around z) with engine-spec front/back tagging via
-# `front_back_split`; NS and NW-SE come through the legacy
-# square-axis builds with hardcoded tags.
+# entries are baked from the same end-tile builder, with front/back
+# tagging from the engine-spec depth clip plane.
 obj=bridge
 name=Rail_060_Bridge_Hex
 copyright=Fabio Gonella + hextrans
@@ -49,3 +44,39 @@ FrontImage[nw_se][0]=rail_060_bridge_hex.0.5
 backPillar[ns][0]=rail_060_bridge_hex.0.6
 backPillar[ne_sw][0]=rail_060_bridge_hex.0.7
 backPillar[nw_se][0]=rail_060_bridge_hex.0.8
+BackRamp[n][0]=rail_060_bridge_hex.1.0
+FrontRamp[n][0]=rail_060_bridge_hex.1.1
+BackRamp[s][0]=rail_060_bridge_hex.1.2
+FrontRamp[s][0]=rail_060_bridge_hex.1.3
+BackRamp[ne][0]=rail_060_bridge_hex.1.4
+FrontRamp[ne][0]=rail_060_bridge_hex.1.5
+BackRamp[se][0]=rail_060_bridge_hex.1.6
+FrontRamp[se][0]=rail_060_bridge_hex.1.7
+BackRamp[sw][0]=rail_060_bridge_hex.1.8
+FrontRamp[sw][0]=rail_060_bridge_hex.2.0
+BackRamp[nw][0]=rail_060_bridge_hex.2.1
+FrontRamp[nw][0]=rail_060_bridge_hex.2.2
+BackStart[n][0]=rail_060_bridge_hex.2.3
+FrontStart[n][0]=rail_060_bridge_hex.2.4
+BackStart[s][0]=rail_060_bridge_hex.2.5
+FrontStart[s][0]=rail_060_bridge_hex.2.6
+BackStart[ne][0]=rail_060_bridge_hex.2.7
+FrontStart[ne][0]=rail_060_bridge_hex.2.8
+BackStart[se][0]=rail_060_bridge_hex.3.0
+FrontStart[se][0]=rail_060_bridge_hex.3.1
+BackStart[sw][0]=rail_060_bridge_hex.3.2
+FrontStart[sw][0]=rail_060_bridge_hex.3.3
+BackStart[nw][0]=rail_060_bridge_hex.3.4
+FrontStart[nw][0]=rail_060_bridge_hex.3.5
+BackStart2[n][0]=rail_060_bridge_hex.3.6
+FrontStart2[n][0]=rail_060_bridge_hex.3.7
+BackStart2[s][0]=rail_060_bridge_hex.3.8
+FrontStart2[s][0]=rail_060_bridge_hex.4.0
+BackStart2[ne][0]=rail_060_bridge_hex.4.1
+FrontStart2[ne][0]=rail_060_bridge_hex.4.2
+BackStart2[se][0]=rail_060_bridge_hex.4.3
+FrontStart2[se][0]=rail_060_bridge_hex.4.4
+BackStart2[sw][0]=rail_060_bridge_hex.4.5
+FrontStart2[sw][0]=rail_060_bridge_hex.4.6
+BackStart2[nw][0]=rail_060_bridge_hex.4.7
+FrontStart2[nw][0]=rail_060_bridge_hex.4.8

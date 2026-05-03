@@ -66,47 +66,44 @@ rendered double-sided), or switch this asset class to Blender.
 Defer until other rail bridge variants are in flight so the fix
 applies once across the family.
 
-**rail_060_bridge remaining sheet entries.** Mid-segments (NS/EW
-back+front) and pillars (S/W) are now modelled and bake into both
-the square verification renders (`build.py` refs table) and the
-hex atlas; ramps, starts, and start2 (× 4 directions) are still
-un-modelled.  Pillar geometry is a first-pass stub — a single
+**rail_060_bridge remaining sheet calibration.** Mid-segments
+(NS/EW back+front), ramps, starts, start2, and pillars are now
+modelled and bake into both the square verification renders
+(`build.py` refs table) and the hex atlas.  Ramps/starts are still
+first-pass geometry — coherent with the 60 bridge model, but not yet
+closely fitted to the upstream pak128 cells.  Pillar geometry is also
+a first-pass stub — a single
 stone box from z=PILLAR_BOTTOM_Z to deck-bottom; it doesn't match
 the reference's wider cross-section or the asymmetric face that
 `pillar_asymmetric=1` implies (alpha_iou ≈ 0.15 per the diff).
-Tighten the pillar after ramps/starts are in flight, when the
-overall sheet coverage is good enough to judge it in context.
 Winter variants of every entry remain entirely deferred — should
 plug in as a colour/material variant on the same parts once the
 summer set reads right.
 
-**rail_060_bridge_hex ramps / starts / double-height entries still
-missing.**  Engine `bridge_desc_t::img_t` is the hex layout — 3 way
+**rail_060_bridge_hex end-entry calibration.**  Engine
+`bridge_desc_t::img_t` is the hex layout — 3 way
 axes for segments / pillars (`ns`, `ne_sw`, `nw_se`) and 6 hex edges
 for starts / ramps (`n`, `s`, `ne`, `se`, `sw`, `nw`); the writer
-reads keys at those names (`bridge_writer.cc`).  All three way axes
-are covered for segments + pillars (9 cells) via `build_segment` /
-`build_pillar` keyed on an `Orient(rot_deg, front_normal)` value —
-`ORIENT_NS` (rot=0°), `ORIENT_NE_SW` (rot=-60°), `ORIENT_NW_SE`
-(rot=-120°), with `front_normal` for the hex axes pulled from
-`HEX_DEPTH_CLIP_NORMAL`; per-quad layer tagging is `n · centroid >
-0`.  All ramps, starts and `*2` (double-height) entries are still
-absent — makeobj emits "No frontramp[…] specified" warnings for
-each, which is the expected partial-coverage signal.  Wire those
-in as the bridge model gains the matching 3D parts.
+reads keys at those names (`bridge_writer.cc`).  The hex dat now
+covers the full summer set: segments + pillars via the axis
+orientations, and ramps / starts / start2 via edge orientations.
+Next pass should tune the ramp grade, landward cut, and front railing
+placement against the square reference diffs before cloning the
+material variant for winter.
 
-**rail_060_bridge_hex pillar clips at the image bottom.**
+**rail_060_bridge_hex deep supports clip at the image bottom.**
 `PILLAR_BOTTOM_Z = -0.55` projects to screen-y ≈ 145 under the hex
 camera (`mid_y=96 + 0.55 × HEX_Z_SCALE`), but the hex output is 128
-tall, so all three pillar cells land y_max=127 (clipped at the
-image boundary instead of fading into the gap).  The square bake
-doesn't hit it because `screen_center_y=68` lifts world z=0 30 px
-higher up the cell.  Either shorten `PILLAR_BOTTOM_Z` for the hex
-bake (an axis-by-axis check whether the engine actually composites
-the full max-depth shape would say if that's safe — pak128's square
-cells ship the full depth and the engine clips at composite time;
-hex may want the same contract), or extend the hex output buffer
-vertically.  Tracks don't hit this because they sit at z ≥ 0.
+tall, so all three pillar cells land y_max=127.  The new start/start2
+end cells also touch y=127 where their support posts extend below
+the deck.  The square bake doesn't hit this because
+`screen_center_y=68` lifts world z=0 30 px higher up the cell.
+Either shorten deep supports for the hex bake (an axis-by-axis check
+whether the engine actually composites the full max-depth shape would
+say if that's safe — pak128's square cells ship the full depth and
+the engine clips at composite time; hex may want the same contract),
+or extend the hex output buffer vertically.  Tracks don't hit this
+because they sit at z ≥ 0.
 
 **Asymmetric-pillar corner pair for the NE-SW axis is a guess.**
 `pillar_t::calc_image` (engine `obj/pillar.cc`) hides an

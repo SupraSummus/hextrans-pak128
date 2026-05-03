@@ -163,6 +163,22 @@ ORIENT_EW    = Orient( -90.0, (0.0, -1.0))                       # square only
 ORIENT_NE_SW = Orient( -60.0, HEX_DEPTH_CLIP_NORMAL[HEX_NE_SW])  # hex only
 ORIENT_NW_SE = Orient(-120.0, HEX_DEPTH_CLIP_NORMAL[HEX_NW_SE])  # hex only
 
+ORIENT_SQUARE_EDGE = {
+    "N": Orient(0.0, ORIENT_NS.front_normal),
+    "S": Orient(180.0, ORIENT_NS.front_normal),
+    "E": Orient(-90.0, ORIENT_EW.front_normal),
+    "W": Orient(90.0, ORIENT_EW.front_normal),
+}
+
+ORIENT_HEX_EDGE = {
+    "n":  Orient(0.0, HEX_DEPTH_CLIP_NORMAL[HEX_NS]),
+    "s":  Orient(180.0, HEX_DEPTH_CLIP_NORMAL[HEX_NS]),
+    "ne": Orient(-60.0, HEX_DEPTH_CLIP_NORMAL[HEX_NE_SW]),
+    "sw": Orient(120.0, HEX_DEPTH_CLIP_NORMAL[HEX_NE_SW]),
+    "se": Orient(-120.0, HEX_DEPTH_CLIP_NORMAL[HEX_NW_SE]),
+    "nw": Orient(60.0, HEX_DEPTH_CLIP_NORMAL[HEX_NW_SE]),
+}
+
 
 def _add_oriented_box(scene: Scene, orient: Orient,
                       along_lo: float, along_hi: float,
@@ -280,6 +296,122 @@ def build_segment(scene: Scene, orient: Orient) -> None:
             tie_top_z, rail_top_z, RAIL_GREY, force_layer="back")
 
 
+def _end_profile(kind: str, along: float) -> tuple[float, float]:
+    """Return (deck_bottom, support_bottom) for an end tile.
+
+    Canonical local +along points toward the bridge edge named by the
+    entry (`N`, `ne`, ...).  Ramps climb from ground at the landward
+    side (-0.5) to the normal bridge height at the outer edge (+0.5).
+    Starts are the flat first bridge tile, with `start2` using deeper
+    trestle posts for the double-height case.
+    """
+    if kind == "ramp":
+        t = (along + BRIDGE_LEN_HALF) / (2.0 * BRIDGE_LEN_HALF)
+        deck_bottom = 0.015 + t * (DECK_BOTTOM_Z - 0.015)
+        return deck_bottom, 0.0
+    if kind == "start2":
+        return DECK_BOTTOM_Z, -0.24
+    if kind == "start":
+        return DECK_BOTTOM_Z, -0.10
+    raise ValueError(f"unknown bridge end kind: {kind}")
+
+
+def build_end(scene: Scene, orient: Orient, kind: str) -> None:
+    """Build a bridge ramp/start/start2 end tile in `orient`'s frame.
+
+    The parts deliberately mirror `build_segment` so early bridge
+    graphics stay coherent: deck + track are Back, while the viewer
+    side railing is sliced into Front by the same depth plane logic.
+    The ramp is built from short horizontal steps; at pak128 scale the
+    silhouette reads as a continuous incline while keeping the simple
+    box rasterizer.
+    """
+    add = functools.partial(_add_oriented_box, scene, orient)
+
+    deck_steps = 10
+    for i in range(deck_steps):
+        a0 = -BRIDGE_LEN_HALF + (i / deck_steps) * 2 * BRIDGE_LEN_HALF
+        a1 = -BRIDGE_LEN_HALF + ((i + 1) / deck_steps) * 2 * BRIDGE_LEN_HALF
+        amid = (a0 + a1) / 2.0
+        deck_bottom, _support_bottom = _end_profile(kind, amid)
+        add(a0, a1, -DECK_WIDTH_HALF, +DECK_WIDTH_HALF,
+            deck_bottom, deck_bottom + (DECK_TOP_Z - DECK_BOTTOM_Z),
+            TIMBER_MID, force_layer="back")
+
+    # Trestle posts.  Ramps only gain real height near the bridge end;
+    # starts keep the full run supported, with start2 reaching deeper.
+    for i in range(N_PANELS + 1):
+        along = -BRIDGE_LEN_HALF + (i / N_PANELS) * 2 * BRIDGE_LEN_HALF
+        deck_bottom, support_bottom = _end_profile(kind, along)
+        if kind == "ramp" and deck_bottom < 0.04:
+            continue
+        for side in (-DECK_WIDTH_HALF, +DECK_WIDTH_HALF):
+            add(along - POST_HALF_Y, along + POST_HALF_Y,
+                side - POST_HALF_X, side + POST_HALF_X,
+                support_bottom, deck_bottom, TIMBER_DARK, force_layer="back")
+
+    # A heavier end bent makes the bridge/ground transition legible.
+    for along in (-BRIDGE_LEN_HALF, +BRIDGE_LEN_HALF):
+        deck_bottom, support_bottom = _end_profile(kind, along)
+        if kind == "ramp" and along < 0:
+            support_bottom = 0.0
+        for side in (-DECK_WIDTH_HALF, +DECK_WIDTH_HALF):
+            add(along - 0.030, along + 0.030,
+                side - 0.024, side + 0.024,
+                support_bottom, deck_bottom + 0.03,
+                TIMBER_DARK, force_layer="back")
+
+    # Railing posts and bars, following the deck profile.
+    for i in range(N_RAIL_POSTS):
+        along = -BRIDGE_LEN_HALF + ((i + 0.5) / N_RAIL_POSTS) * 2 * BRIDGE_LEN_HALF
+        deck_bottom, _support_bottom = _end_profile(kind, along)
+        deck_top = deck_bottom + (DECK_TOP_Z - DECK_BOTTOM_Z)
+        for side in (-DECK_WIDTH_HALF, +DECK_WIDTH_HALF):
+            add(along - 0.016, along + 0.016,
+                side - 0.016, side + 0.016,
+                deck_top, deck_top + (RAILING_TOP_Z - DECK_TOP_Z),
+                TIMBER_LIGHT)
+
+    bar_steps = 10
+    for i in range(bar_steps):
+        a0 = -BRIDGE_LEN_HALF + (i / bar_steps) * 2 * BRIDGE_LEN_HALF
+        a1 = -BRIDGE_LEN_HALF + ((i + 1) / bar_steps) * 2 * BRIDGE_LEN_HALF
+        amid = (a0 + a1) / 2.0
+        deck_bottom, _support_bottom = _end_profile(kind, amid)
+        deck_top = deck_bottom + (DECK_TOP_Z - DECK_BOTTOM_Z)
+        for side in (-DECK_WIDTH_HALF, +DECK_WIDTH_HALF):
+            add(a0, a1, side - 0.012, side + 0.012,
+                deck_top + (RAILING_TOP_Z - DECK_TOP_Z) - TOP_BAR_THICKNESS,
+                deck_top + (RAILING_TOP_Z - DECK_TOP_Z),
+                TIMBER_LIGHT)
+            add(a0, a1, side - 0.012, side + 0.012,
+                deck_top - 0.010, deck_top + 0.020,
+                TIMBER_LIGHT)
+
+    # Track on the end tile.
+    tie_top_offset = TIE_THICKNESS
+    rail_top_offset = TIE_THICKNESS + RAIL_THICKNESS
+    for i in range(N_TIES):
+        along = -BRIDGE_LEN_HALF + ((i + 0.5) / N_TIES) * 2 * BRIDGE_LEN_HALF
+        deck_bottom, _support_bottom = _end_profile(kind, along)
+        deck_top = deck_bottom + (DECK_TOP_Z - DECK_BOTTOM_Z)
+        add(along - 0.025, along + 0.025,
+            -TIE_HALF_W, +TIE_HALF_W,
+            deck_top, deck_top + tie_top_offset, TIE_BROWN,
+            force_layer="back")
+    for gauge_x in (-RAIL_GAUGE_HALF, +RAIL_GAUGE_HALF):
+        for i in range(deck_steps):
+            a0 = -BRIDGE_LEN_HALF + (i / deck_steps) * 2 * BRIDGE_LEN_HALF
+            a1 = -BRIDGE_LEN_HALF + ((i + 1) / deck_steps) * 2 * BRIDGE_LEN_HALF
+            amid = (a0 + a1) / 2.0
+            deck_bottom, _support_bottom = _end_profile(kind, amid)
+            deck_top = deck_bottom + (DECK_TOP_Z - DECK_BOTTOM_Z)
+            add(a0, a1, gauge_x - RAIL_HALF_W, gauge_x + RAIL_HALF_W,
+                deck_top + TIE_THICKNESS,
+                deck_top + rail_top_offset, RAIL_GREY,
+                force_layer="back")
+
+
 def build_pillar(scene: Scene, orient: Orient) -> None:
     """Single stone pillar centred on the tile, drawn behind the
     bridge segment when the engine composites a multi-tile bridge
@@ -313,6 +445,15 @@ def render_pillar(orient: Orient, projection: str) -> np.ndarray:
     return scene.render(layer_filter="back", projection=projection)
 
 
+def render_end(orient: Orient, kind: str, projection: str
+               ) -> tuple[np.ndarray, np.ndarray]:
+    """Render a ramp/start/start2 end; return `(back, front)`."""
+    scene = Scene(screen_center_y=68)
+    build_end(scene, orient, kind)
+    return (scene.render(layer_filter="back", projection=projection),
+            scene.render(layer_filter="front", projection=projection))
+
+
 # --- Square verification renders -------------------------------------------
 # Each entry: (out filename relative to HERE, callable returning RGBA).
 SQUARE_OUTPUTS = [
@@ -324,6 +465,23 @@ SQUARE_OUTPUTS = [
     ("out_pillar_w.png", lambda: render_pillar(ORIENT_EW, "square")),
 ]
 
+for _kind, _prefix in [
+    ("ramp", "ramp"),
+    ("start", "start"),
+    ("start2", "start2"),
+]:
+    for _dir in ("N", "S", "E", "W"):
+        _orient = ORIENT_SQUARE_EDGE[_dir]
+        _stem = f"{_prefix}_{_dir.lower()}"
+        SQUARE_OUTPUTS.extend([
+            (f"out_back_{_stem}.png",
+             lambda orient=_orient, kind=_kind:
+                 render_end(orient, kind, "square")[0]),
+            (f"out_front_{_stem}.png",
+             lambda orient=_orient, kind=_kind:
+                 render_end(orient, kind, "square")[1]),
+        ])
+
 
 def main() -> None:
     for name, fn in SQUARE_OUTPUTS:
@@ -331,7 +489,7 @@ def main() -> None:
 
 
 # --- Hex bake --------------------------------------------------------------
-# Atlas col matches `rail_060_bridge_hex.dat`'s entries.  Same scene
+# Atlas row/col matches `rail_060_bridge_hex.dat`'s entries.  Same scene
 # build as the square renders — only the `Orient` and the projection
 # differ.  Pillars carry single-layer.
 HEX_ENTRIES: list[tuple[str, callable]] = [
@@ -346,12 +504,29 @@ HEX_ENTRIES: list[tuple[str, callable]] = [
     ("backPillar[nw_se][0]", lambda: render_pillar(ORIENT_NW_SE, "hex")),
 ]
 
+for _kind, _key in [
+    ("ramp", "Ramp"),
+    ("start", "Start"),
+    ("start2", "Start2"),
+]:
+    for _edge in ("n", "s", "ne", "se", "sw", "nw"):
+        _orient = ORIENT_HEX_EDGE[_edge]
+        HEX_ENTRIES.extend([
+            (f"Back{_key}[{_edge}][0]",
+             lambda orient=_orient, kind=_kind:
+                 render_end(orient, kind, "hex")[0]),
+            (f"Front{_key}[{_edge}][0]",
+             lambda orient=_orient, kind=_kind:
+                 render_end(orient, kind, "hex")[1]),
+        ])
+
 
 def bake_pakset() -> None:
     bake_atlas(
         out_png=HERE.parent / "rail_060_bridge_hex.png",
         entries=HEX_ENTRIES,
         repo_root=REPO_ROOT,
+        cols_per_row=9,
     )
 
 
