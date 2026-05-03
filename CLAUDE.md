@@ -138,6 +138,18 @@ on the spot (scope creep) or leaving it as an in-code `// TODO`
 (invisible outside that file). Glance at it before starting new
 work.
 
+Every entry must name a concrete next move with a concrete trigger.
+"Verify in-game once the engine boots a real map", "sanity-check
+on first interactive run", "cross-check on a different asset
+family someday" are non-actions: nobody is booked to do them,
+nothing fires when the trigger condition lands, and they
+accumulate forever. If the work is genuinely deferred, gate it on
+a tracked entry that *will* fire (e.g. "verify when the third-axis
+bake from <other entry> lands") or drop it and trust `git grep` to
+surface the call site when somebody is in the neighbourhood.
+"Implemented but needs verifying" without a way to verify belongs
+in the commit message of the change that landed it, not here.
+
 ## Starting an asset
 
 Every asset (parametric or bespoke) follows roughly the same arc.
