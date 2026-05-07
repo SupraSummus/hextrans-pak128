@@ -1,37 +1,26 @@
 """3D model of the rail_060 timber rail track (one tile, mid-segment).
 
-Reference (square dimetric): infrastructure/rail_tracks/rail_060_tracks.png.
-The dat repoints square cells onto hex direction names, but the cells
-themselves are the original pak128 square art:
+Cross-section (per `RailCrossSection`): banded ballast bed (3 dither
+densities), evenly-spaced cross-ties, twin rails — emitted into the
+chord+caps frame supplied by `tools/3d/way_topology.py::make_slab_emitter`.
+The asset-agnostic topology (stub / curve / junction / axis-slope) lives
+in `way_topology` and dispatches into `paint_straight` / `paint_arc`.
 
-  rail_060_tracks.1.5  — straight track running along world +y axis
-                         (square dimetric "sw_ne" / hex "s_n" / "sw_ne")
-  rail_060_tracks.1.6  — straight track running along world +x axis
-                         (square dimetric "se_nw")
-
-Track parts (one shared 3D scene used for square verification *and*
-hex bake; see `tools/3d/render.py` projection split):
-
-  - ballast bed      : low trapezoidal gravel bed, full track length
-  - cross-ties       : evenly spaced timber blocks across the bed
-  - twin rails       : thin metal strips on top of the ties
-
-Everything is "back" layer — the engine draws track before vehicles, so
-there's no front/back split (unlike the rail_060_bridge that has a
-viewer-side railing).
+Hex deliverable: `rail_060_tracks_hex.png` (8×8 atlas, 63 ribi cells)
+plus `rail_060_tracks_hex_slope.png` (1×6 axis slopes), referenced
+from the sibling `rail_060_tracks.dat`.  Square verification: `build.py`
+lays straights via `way_verify` and diffs against pak128 cells
+1.5 / 1.6 (the upstream dimetric NS / EW straight art).
 
 Coordinate system matches `render.py` and `rail_060_bridge/scene.py`:
 world +x = east (lower-right onscreen in square dimetric, screen-right
 in hex), world +y = north (upper-right in square, screen-up in hex),
-world +z = up.  The "default" track runs along the world +y axis (used
-by `build()` for the two square verification renders).  Hex output
-goes through `build_curve()` / `build_stub()` instead, which lay each
-sprite directly between the relevant hex edge midpoints — no
-rotate-and-clip pass.
+world +z = up.  Track is "back" layer — engine draws track before
+vehicles, no front/back split.
 
-Tracks have no per-image sheet offset in the dat (unlike bridges which
-ship `,0,32`), so we render with world z=0 at the default ground
-anchor sy=96 (= IMG_SIZE/2 + 32, the flat-tile bbox midpoint).
+Tracks ship no per-image dat offset (unlike `rail_060_bridge`'s `,0,32`),
+so we render with world z=0 at the default ground anchor sy=96 (=
+IMG_SIZE/2 + 32, the flat-tile bbox midpoint).
 """
 import math
 import sys
@@ -43,7 +32,9 @@ REPO_ROOT = HERE.parents[2]
 sys.path.insert(0, str(REPO_ROOT / "tools" / "3d"))
 
 from bespoke import bake_atlas  # noqa: E402
-from render import HexCamera, Model, SquareCamera, engine_z_per_step, render  # noqa: E402
+from render import HexCamera, Model, render  # noqa: E402
+from way import HEX_ENTRIES, SLOPE_HEX_ENTRIES, STRAIGHT_CHORD  # noqa: E402
+import way_topology as wt  # noqa: E402
 # Track-family parameters (cross-section, colours) live in a sibling
 # module so other rail assets (rail_060_bridge, future rail_060_*)
 # can pull them in without loading this whole scene file.
@@ -52,224 +43,81 @@ from track_params import (  # noqa: E402
     RAIL_TOP_Z, TIE_BROWN, TIE_HALF_W, TIE_TOP_Z,
 )
 
-# --- Material colors (track-only — not part of the shared family) -----------
-BALLAST_DARK = (95, 80, 65)
-BALLAST_MID = (130, 110, 85)
-
-# --- Track dimensions (1 unit = 1 tile width) -------------------------------
-# `length_half` is the half-length along the track axis; for a square pak128
-# tile we use 0.5 (full tile diagonal).  The hex tile's edge-midpoint
-# spacing is √3/2·R = √3/4 ≈ 0.433 in the same world units, so passing
-# 0.433 produces a track that meets the hex silhouette at the edge
-# midpoints rather than overshooting.
-DEFAULT_LENGTH_HALF = 0.5
-
 # Ballast is laid as concentric perpendicular bands so the dither-keep
 # tapers from dense near the rails to sparse at the bed's outer edges.
 # Distances are |x| from the track centerline.  The reference cell 1.5
 # shows this taper as a clear gradient: nearly opaque between the rails,
 # fading into pure speckle at the gravel shoulders.
+BALLAST_MID = (130, 110, 85)
 BALLAST_BANDS = [
     # (inner_half, outer_half, dither_keep)
     (0.000, 0.105, 0.85),  # between & under the rails
     (0.105, 0.155, 0.55),  # inside the cross-tie footprint
     (0.155, 0.220, 0.22),  # gravel shoulders fading into terrain
 ]
-BALLAST_HALF_W = BALLAST_BANDS[-1][1]
 
 
-def _add_track_segment(model, start_mid, end_mid,
-                       cap_dir_start, cap_dir_end,
-                       n_ties: int):
-    """Lay one straight track segment with arbitrary end caps.
+class RailCrossSection(wt.CrossSection):
+    """Ballast bed + cross-ties + twin rails on top.
 
-    A "segment" is the chord from `start_mid` to `end_mid`.  The track's
-    cross-section is taken perpendicular to the chord at every point
-    along it, *except* at the two ends where the cap can lie along an
-    arbitrary direction in the ground plane (`cap_dir_start` /
-    `cap_dir_end`).  When the cap directions are perpendicular to the
-    chord this collapses to a plain rectangular footprint (the
-    axis-aligned NS / EW / hex-straight case); when they're parallel to
-    the local hex edge the segment renders as a parallelogram (mitred)
-    so adjacent tiles' rails meet flush across non-axis edges like SE,
-    SW.
-
-    All quads are emitted in world space; per-band `dither_keep`,
-    cross-tie cadence, and rail height carry the same convention as the
-    axis-aligned case.
+    `paint_straight` reads `path.role` to pick a tie count: a full
+    through-tile chord gets `N_TIES`; a half-tile stub gets
+    `N_TIES // 2`; an arc-piece (subdivision inside `paint_arc`) gets
+    none, since `paint_arc` lays radial ties separately at a cadence
+    scaled by arc length.
     """
-    sx, sy = start_mid
-    ex, ey = end_mid
-    # Chord direction (unit) and perpendicular.
-    cx, cy = ex - sx, ey - sy
-    chord_len = math.hypot(cx, cy)
-    cux, cuy = cx / chord_len, cy / chord_len
-    pux, puy = -cuy, cux  # left perpendicular
 
-    def cap_for(s, perp_amount):
-        # Linearly interpolate cap direction along the chord, scaled so
-        # the +1/-1 perp value lands on the cap's edge.  Cap directions
-        # passed in are unit vectors; the length we want at world-perp
-        # `perp_amount` is `perp_amount / sin(angle_to_chord)` so the
-        # perpendicular distance from the chord matches.  When the cap
-        # is perpendicular to the chord this is just `perp_amount`.
-        cdx = (1 - s) * cap_dir_start[0] + s * cap_dir_end[0]
-        cdy = (1 - s) * cap_dir_start[1] + s * cap_dir_end[1]
-        cdn = math.hypot(cdx, cdy) or 1.0
-        cdx, cdy = cdx / cdn, cdy / cdn
-        # Scale: we want the world-space perpendicular distance from the
-        # chord (along (pux, puy)) to equal perp_amount.  Project cap
-        # direction onto perpendicular: dot.  Then multiplier = 1/dot.
-        dot = cdx * pux + cdy * puy
-        if abs(dot) < 1e-6:
-            dot = 1e-6 if dot >= 0 else -1e-6
-        scale = perp_amount / dot
-        return cdx * scale, cdy * scale
+    _ROLE_TIE_COUNT = {
+        "full": N_TIES,
+        "half": N_TIES // 2,
+        "arc_piece": 0,
+    }
 
-    def world(s, perp, z):
-        # Centerline point + cap-aligned perpendicular offset.
-        bx = (1 - s) * sx + s * ex
-        by = (1 - s) * sy + s * ey
-        ox, oy = cap_for(s, perp)
-        return (bx + ox, by + oy, z)
+    def paint_straight(self, model, path: wt.StraightPath) -> None:
+        add_slab, chord_len = wt.make_slab_emitter(model, path)
 
-    def add_slab(s0, s1, perp0, perp1, z0, z1, color, dither_keep=1.0):
-        corners = [
-            world(s0, perp0, z0), world(s1, perp0, z0),
-            world(s1, perp1, z0), world(s0, perp1, z0),
-            world(s0, perp0, z1), world(s1, perp0, z1),
-            world(s1, perp1, z1), world(s0, perp1, z1),
-        ]
-        kw = {"layer": "back", "dither_keep": dither_keep}
-        model.add_quad([corners[4], corners[5], corners[6], corners[7]], color, **kw)
-        model.add_quad([corners[0], corners[1], corners[5], corners[4]], color, **kw)
-        model.add_quad([corners[2], corners[3], corners[7], corners[6]], color, **kw)
-        model.add_quad([corners[1], corners[2], corners[6], corners[5]], color, **kw)
-        model.add_quad([corners[0], corners[4], corners[7], corners[3]], color, **kw)
+        # 1. Ballast bands.
+        for inner, outer, keep in BALLAST_BANDS:
+            for sign in (-1, +1):
+                a, b = sign * inner, sign * outer
+                add_slab(0.0, 1.0, min(a, b), max(a, b),
+                         0.0, BALLAST_TOP_Z, BALLAST_MID, dither_keep=keep)
 
-    # 1. Ballast bands.
-    for inner, outer, keep in BALLAST_BANDS:
-        for sign in (-1, +1):
-            a, b = sign * inner, sign * outer
-            add_slab(0.0, 1.0, min(a, b), max(a, b),
-                     0.0, BALLAST_TOP_Z, BALLAST_MID, dither_keep=keep)
+        # 2. Cross-ties.  Tie thickness in chord direction is fixed in
+        #    world units; convert to the s-parameter.  Ties span the
+        #    chord from a margin in (so the angled caps don't clip them
+        #    off-tile).
+        n_ties = self._ROLE_TIE_COUNT[path.role]
+        if n_ties > 0:
+            tie_half_along_s = 0.025 / chord_len
+            margin_s = 1.5 * tie_half_along_s
+            for i in range(n_ties):
+                s_centre = margin_s + (i + 0.5) / n_ties * (1.0 - 2 * margin_s)
+                add_slab(s_centre - tie_half_along_s,
+                         s_centre + tie_half_along_s,
+                         -TIE_HALF_W, +TIE_HALF_W,
+                         BALLAST_TOP_Z, TIE_TOP_Z, TIE_BROWN,
+                         dither_keep=0.75)
 
-    # 2. Cross-ties.  Tie thickness in chord direction is fixed in world
-    #    units; convert to the s-parameter.  Ties span the chord from a
-    #    margin in (so the angled caps don't clip them off-tile).  Skipped
-    #    when n_ties == 0 — arc curves lay their ballast + rails as short
-    #    chord pieces but place ties separately along the arc with
-    #    `_add_radial_tie`, since the per-segment chord is shorter than a
-    #    single tie's world-space thickness.
-    if n_ties > 0:
-        tie_half_along_s = 0.025 / chord_len
-        margin_s = 1.5 * tie_half_along_s
-        for i in range(n_ties):
-            s_centre = margin_s + (i + 0.5) / n_ties * (1.0 - 2 * margin_s)
-            add_slab(s_centre - tie_half_along_s, s_centre + tie_half_along_s,
-                     -TIE_HALF_W, +TIE_HALF_W,
-                     BALLAST_TOP_Z, TIE_TOP_Z, TIE_BROWN, dither_keep=0.75)
+        # 3. Twin rails on top of the ties.
+        for x in (-RAIL_GAUGE_HALF, +RAIL_GAUGE_HALF):
+            add_slab(0.0, 1.0, x - RAIL_HALF_W, x + RAIL_HALF_W,
+                     TIE_TOP_Z, RAIL_TOP_Z, RAIL_GREY)
 
-    # 3. Twin rails on top of the ties.
-    for x in (-RAIL_GAUGE_HALF, +RAIL_GAUGE_HALF):
-        add_slab(0.0, 1.0, x - RAIL_HALF_W, x + RAIL_HALF_W,
-                 TIE_TOP_Z, RAIL_TOP_Z, RAIL_GREY)
+    def paint_arc(self, model, path: wt.ArcPath) -> None:
+        # super() emits ballast+rails per chord piece (role="arc_piece"
+        # → 0 ties).  Lay radial ties here at a per-length cadence so
+        # density matches the straight chord ties.
+        super().paint_arc(model, path)
+        arc_len = abs(path.delta) * path.radius
+        n_ties_arc = max(1, round(N_TIES * arc_len / STRAIGHT_CHORD))
+        for i in range(n_ties_arc):
+            s = (i + 0.5) / n_ties_arc
+            _add_radial_tie(model, path.cx, path.cy, path.radius,
+                            path.az_start + path.delta * s)
 
 
-def build(model: Model, length_half: float = DEFAULT_LENGTH_HALF,
-          axis_yaw_deg: float = 0.0) -> None:
-    """Build a straight rail track centred on the origin.
-
-    The default track runs along the world +y axis.  Pass `axis_yaw_deg`
-    to rotate the whole track around z (e.g. ±60° for the two non-NS
-    hex axes; ±90° for the world-x-aligned square sheet entry).
-    """
-    yaw = math.radians(axis_yaw_deg)
-    tx, ty = -math.sin(yaw), math.cos(yaw)
-    start = (-length_half * tx, -length_half * ty)
-    end = (+length_half * tx, +length_half * ty)
-    perp = (-ty, tx)
-    _add_track_segment(model, start, end, perp, perp, n_ties=N_TIES)
-
-
-# ---- Hex tile geometry helpers --------------------------------------------
-
-# Flat-top hex of radius 0.5 centred at origin.  Corner order matches
-# `hex_corner_t` in `dataobj/ribi.h`.
-_R = 0.5
-HEX_CORNERS = {
-    "E":  ( _R,                 0.0),
-    "SE": ( _R / 2,            -_R * math.sqrt(3) / 2),
-    "SW": (-_R / 2,            -_R * math.sqrt(3) / 2),
-    "W":  (-_R,                 0.0),
-    "NW": (-_R / 2,             _R * math.sqrt(3) / 2),
-    "NE": ( _R / 2,             _R * math.sqrt(3) / 2),
-}
-# Each named edge → (corner_a, corner_b).  Edge midpoint = mean of corners.
-HEX_EDGES = {
-    "N":  ("NE", "NW"),
-    "NE": ("E",  "NE"),
-    "SE": ("SE", "E"),
-    "S":  ("SW", "SE"),
-    "SW": ("W",  "SW"),
-    "NW": ("NW", "W"),
-}
-# 180° pair across the hex centre — the slope axis a low edge sits on.
-HEX_OPPOSITE_EDGE = {
-    "N": "S", "S": "N",
-    "NE": "SW", "SW": "NE",
-    "NW": "SE", "SE": "NW",
-}
-
-
-def _edge_midpoint(edge: str) -> tuple[float, float]:
-    a, b = HEX_EDGES[edge]
-    ax, ay = HEX_CORNERS[a]
-    bx, by = HEX_CORNERS[b]
-    return ((ax + bx) / 2.0, (ay + by) / 2.0)
-
-
-def _edge_unit_dir(edge: str) -> tuple[float, float]:
-    a, b = HEX_EDGES[edge]
-    ax, ay = HEX_CORNERS[a]
-    bx, by = HEX_CORNERS[b]
-    dx, dy = bx - ax, by - ay
-    n = math.hypot(dx, dy)
-    return (dx / n, dy / n)
-
-
-def build_between_edges(model: Model, edge_a: str, edge_b: str,
-                        n_ties: int = N_TIES) -> None:
-    """Lay a straight track between the midpoints of two hex edges,
-    with each end mitred along the local edge direction.
-
-    For opposite edges (`N` ↔ `S`, `NE` ↔ `SW`, `NW` ↔ `SE`) the chord
-    is perpendicular to both edges, the cap directions coincide with the
-    perpendicular, and the result is the same axis-aligned rectangle
-    `build()` produces.  For non-opposite pairs (e.g. `SE` ↔ `SW`) the
-    chord crosses each edge at an angle and the ends become parallelogram
-    cuts, so adjacent tiles' tracks meet flush at the shared edge midpoint.
-    """
-    start = _edge_midpoint(edge_a)
-    end = _edge_midpoint(edge_b)
-    cap_a = _edge_unit_dir(edge_a)
-    cap_b = _edge_unit_dir(edge_b)
-    _add_track_segment(model, start, end, cap_a, cap_b, n_ties=n_ties)
-
-
-# Hex straight tracks span between opposite edge midpoints, distance
-# 2·R·√3/2 = R·√3 ≈ 0.866.  Used to scale arc tie counts so density
-# matches the straight ties.
-_STRAIGHT_CHORD = 2.0 * math.hypot(*_edge_midpoint("N"))
-
-
-def _shared_corner(edge_a: str, edge_b: str) -> str:
-    """The corner shared by two 60°-apart hex edges; the centre of the
-    corner-radius arc that connects their midpoints."""
-    shared = set(HEX_EDGES[edge_a]) & set(HEX_EDGES[edge_b])
-    assert len(shared) == 1, (
-        f"edges {edge_a}/{edge_b} don't share exactly one corner")
-    return next(iter(shared))
+CS = RailCrossSection()
 
 
 def _add_radial_tie(model: Model, arc_cx: float, arc_cy: float,
@@ -301,10 +149,6 @@ def _add_radial_tie(model: Model, arc_cx: float, arc_cy: float,
                 cy + su * U * uy + sv * V * vy,
                 z)
 
-    # 8 corners ordered like Model.add_box's (x,y,z) lattice with
-    # (su, sv) playing the role of (sx, sy):
-    #   0:(-,-,z0) 1:(+,-,z0) 2:(+,+,z0) 3:(-,+,z0)
-    #   4:(-,-,z1) 5:(+,-,z1) 6:(+,+,z1) 7:(-,+,z1)
     pts = [c(-1, -1, z0), c(+1, -1, z0), c(+1, +1, z0), c(-1, +1, z0),
            c(-1, -1, z1), c(+1, -1, z1), c(+1, +1, z1), c(-1, +1, z1)]
 
@@ -316,233 +160,22 @@ def _add_radial_tie(model: Model, arc_cx: float, arc_cy: float,
     model.add_quad([pts[0], pts[4], pts[7], pts[3]], TIE_BROWN, **kw)  # -u side
 
 
-def _build_arc_curve(model: Model, edge_a: str, edge_b: str,
-                     n_segments: int = 12) -> None:
-    """Lay a curved track between two 60°-apart hex edges (sharing a corner).
-
-    The arc is centred on the shared corner, with radius = R/2 = distance
-    from corner to either adjacent edge midpoint.  At each midpoint the
-    arc's radial direction is parallel to the edge (the corner-to-midpoint
-    vector runs along the edge's bisector), so the arc crosses each edge
-    perpendicular to it and meets it at the midpoint — flush with whatever
-    a neighbouring tile lays through that same midpoint.  The arc bulges
-    away from the shared corner, toward the hex centre, which is the
-    natural railway turn (centre of curvature on the inside of the bend).
-
-    Ballast and rails are laid as `n_segments` short chord pieces with
-    radial-direction caps at every joint, so adjacent segments share an
-    endpoint cap and the boundary segments' caps reduce to the edge
-    direction at the two edge midpoints.
-
-    Cross-ties are placed separately as discrete radial slabs at evenly
-    spaced angles along the arc — one tie's chord-direction thickness
-    (0.05) is larger than a single arc segment's chord, so the per-
-    segment tie placement in `_add_track_segment` would clump every tie
-    at s ≈ 0.5 of its segment.  The tie count is scaled by arc length
-    vs. the straight through-tile chord so density matches the straight
-    ties.
-    """
-    corner = _shared_corner(edge_a, edge_b)
-    arc_cx, arc_cy = HEX_CORNERS[corner]
-    a_mid = _edge_midpoint(edge_a)
-    b_mid = _edge_midpoint(edge_b)
-    radius = math.hypot(a_mid[0] - arc_cx, a_mid[1] - arc_cy)
-    a_az = math.atan2(a_mid[1] - arc_cy, a_mid[0] - arc_cx)
-    b_az = math.atan2(b_mid[1] - arc_cy, b_mid[0] - arc_cx)
-    # Short signed sweep from a→b around the corner; |Δaz| = 2π/3.
-    delta = (b_az - a_az + math.pi) % (2 * math.pi) - math.pi
-    for i in range(n_segments):
-        t0 = a_az + delta * (i / n_segments)
-        t1 = a_az + delta * ((i + 1) / n_segments)
-        p0 = (arc_cx + radius * math.cos(t0),
-              arc_cy + radius * math.sin(t0))
-        p1 = (arc_cx + radius * math.cos(t1),
-              arc_cy + radius * math.sin(t1))
-        # Cap = radial direction at the joint (perpendicular to the
-        # local chord).  At the two boundary midpoints this lines up
-        # with the edge direction, so adjacent tiles meet flush.
-        cap0 = (math.cos(t0), math.sin(t0))
-        cap1 = (math.cos(t1), math.sin(t1))
-        _add_track_segment(model, p0, p1, cap0, cap1, n_ties=0)
-
-    arc_len = abs(delta) * radius
-    n_ties_arc = max(1, round(N_TIES * arc_len / _STRAIGHT_CHORD))
-    for i in range(n_ties_arc):
-        s = (i + 0.5) / n_ties_arc
-        _add_radial_tie(model, arc_cx, arc_cy, radius, a_az + delta * s)
-
-
-def build_curve(model: Model, edge_a: str, edge_b: str) -> None:
-    """Lay a track between two hex edges, dispatching on whether they
-    share a corner: 60°-apart pairs do (→ corner-centred arc,
-    `_build_arc_curve`); 120° / 180° pairs don't (→ chord with mitred /
-    perpendicular caps, `build_between_edges`).
-
-    Single entrypoint so callers (preview, bake) don't enumerate the
-    three families."""
-    if set(HEX_EDGES[edge_a]) & set(HEX_EDGES[edge_b]):
-        _build_arc_curve(model, edge_a, edge_b)
-    else:
-        build_between_edges(model, edge_a, edge_b)
-
-
-def build_axis_slope(model: Model, low_edge: str) -> None:
-    """Lay a straight track on an axis-aligned hex slope.
-
-    Track geometry is the same as `build_between_edges(low_edge,
-    opposite(low_edge))`; on top, every vertex's world-z is offset
-    linearly along the slope axis so the high-edge end is one engine
-    height step up.  The screen-y lift then matches
-    `hex_height_raster_scale_y`, so the sprite aligns with the
-    engine's ground rendering on a 1×-step axis slope.
-
-    Narrow (2-corner) and wide (4-corner) variants of the same axis
-    edge produce the same sprite — track follows the slope axis;
-    off-axis ground inflection isn't drawn.
-    """
-    high_edge = HEX_OPPOSITE_EDGE[low_edge]
-    build_between_edges(model, low_edge, high_edge)
-
-    low_mx, low_my = _edge_midpoint(low_edge)
-    high_mx, high_my = _edge_midpoint(high_edge)
-    chord_dx, chord_dy = high_mx - low_mx, high_my - low_my
-    chord_len_sq = chord_dx * chord_dx + chord_dy * chord_dy
-    z_total = engine_z_per_step()
-
-    # Linear z-tilt along the chord: t=0 at low-edge midpoint, t=1 at
-    # high-edge midpoint.  Project (vx, vy) onto the chord direction.
-    model.verts = [
-        (vx, vy, vz + ((vx - low_mx) * chord_dx + (vy - low_my) * chord_dy)
-                       / chord_len_sq * z_total)
-        for vx, vy, vz in model.verts
-    ]
-
-
-def build_stub(model: Model, edge: str, n_ties: int = N_TIES // 2) -> None:
-    """Lay a half-tile track from the hex centre to one edge midpoint.
-
-    The edge end is mitred along the local edge direction (so it meets
-    an adjacent tile's track flush at the shared edge midpoint, same
-    convention as `build_between_edges`); the centre end gets a clean
-    perpendicular cut — no buffer-stop geometry yet, the rails just
-    end.  `n_ties` is half the through-tile count by default since the
-    chord is half as long.
-    """
-    start = (0.0, 0.0)
-    end = _edge_midpoint(edge)
-    cap_edge = _edge_unit_dir(edge)
-    cdx, cdy = end[0] - start[0], end[1] - start[1]
-    n = math.hypot(cdx, cdy)
-    cap_centre = (-cdy / n, cdx / n)
-    _add_track_segment(model, start, end, cap_centre, cap_edge, n_ties=n_ties)
-
-
-def build_junction(model: Model, edges: tuple[str, ...]) -> None:
-    """Lay a 3+ way junction as one stub per active edge.
-
-    Placeholder geometry: every edge gets the same centre→edge stub
-    `build_stub` lays for the 1-edge case, so each rail meets the
-    edge midpoint flush with whatever a neighbouring tile lays
-    through that midpoint.  Stubs share the (0, 0) centre and their
-    ballast/ties/rails overlap there as a "frog blob" — correct
-    silhouette, no real switch geometry.  A future pass can promote
-    a 60°-apart pair inside the junction to an arc (through-route)
-    and leave the remaining edges as branching stubs.
-    """
-    for edge in edges:
-        build_stub(model, edge)
-
-
-# Hex sprites the dat declares.  Ribi codes follow
-# `way_writer.cc::hex_ribi_code` (low-bit-first joined with `_`,
-# bit positions SE=1, S=2, SW=4, NW=8, N=16, NE=32).  Listed in
-# popcount-then-ribi order — 6 single-edge stubs first, then 15
-# edge pairs, 20 three-way, 15 four-way, 6 five-way, and the
-# all-six-edge sprite.  Atlas is an 8×8 grid (last slot empty,
-# `cols_per_row=8` to bake_atlas), so HEX_ENTRIES index `i` maps
-# to atlas row `i//8`, col `i%8`.  Single source of truth for
-# both the per-cell preview renders and the atlas bake.
-_RIBI_BIT_NAMES = ("SE", "S", "SW", "NW", "N", "NE")
-
-
-def _ribi_edges(r: int) -> tuple[str, ...]:
-    return tuple(name for b, name in enumerate(_RIBI_BIT_NAMES) if r & (1 << b))
-
-
-def _ribi_label(r: int) -> str:
-    # `way_writer.cc::hex_ribi_code` joins lower-case bit names
-    # low-to-high with underscores; r=0 is keyed `-` but never
-    # baked (the engine's IMG_EMPTY default covers that slot).
-    return "_".join(name.lower() for name in _ribi_edges(r))
-
-
-HEX_ENTRIES = [
-    (_ribi_label(r), _ribi_edges(r))
-    for r in sorted(range(1, 64),
-                    key=lambda r: (bin(r).count("1"), r))
-]
-
-# Slope sprites — one per hex axis low edge.  Direction matters
-# (lighting / visible rail bed differ between ascending and
-# descending the same axis), so each low edge is its own cell.
-# Narrow and wide variants of the same low edge share — the rail
-# climbs the same 0→1 path, only off-axis ground inflection differs.
-# Order matches `way_writer.cc::slope_keys` clockwise from north so
-# the dat columns line up with how a reader thinks about the axis.
-SLOPE_HEX_ENTRIES = [
-    ("n",  "N"),
-    ("ne", "NE"),
-    ("se", "SE"),
-    ("s",  "S"),
-    ("sw", "SW"),
-    ("nw", "NW"),
-]
-
-
 def render_hex_cell(edges):
     """Build a fresh Model with one hex sprite and render it through
     the hex camera.  Single edge → stub; two edges → straight or
-    curve (dispatched by `build_curve`); 3+ edges → junction (one
-    stub per edge, see `build_junction`).  Returns the (h, w, 4)
-    uint8 RGBA array; no file written.  Atlas bake and per-cell
-    preview share this entrypoint."""
+    curve; 3+ edges → junction (placeholder one-stub-per-edge "frog
+    blob").  Returns the (h, w, 4) uint8 RGBA array."""
     m = Model()
-    if len(edges) == 1:
-        build_stub(m, edges[0])
-    elif len(edges) == 2:
-        build_curve(m, edges[0], edges[1])
-    else:
-        build_junction(m, edges)
+    CS.paint(m, wt.for_edges_paths(edges))
     return render(m, HexCamera())
 
 
 def render_hex_slope_cell(low_edge: str):
-    """One axis-aligned slope sprite for the given low edge — same
-    interface as `render_hex_cell` but emits a slope cell."""
+    """One axis-aligned slope sprite for the given low edge."""
     m = Model()
-    build_axis_slope(m, low_edge)
+    wt.lay_axis_slope(CS, m, low_edge)
     return render(m, HexCamera())
 
-
-def main() -> None:
-    # Square dimetric verification: world +y / +x axis tracks, matching
-    # pak128 cells 1.5 / 1.6.  Tracks ship no per-image (0, 32) shift, so
-    # the default square ground anchor is fine.
-    m_ns = Model()
-    build(m_ns, length_half=0.5, axis_yaw_deg=0.0)
-    render(m_ns, SquareCamera(), out_path=str(HERE / "out_square_ns.png"))
-
-    m_ew = Model()
-    build(m_ew, length_half=0.5, axis_yaw_deg=90.0)
-    render(m_ew, SquareCamera(), out_path=str(HERE / "out_square_ew.png"))
-
-    # Per-cell hex previews are written by `bake_pakset()` as a
-    # side-effect of the atlas bake — single source for the rgba.
-
-
-# Atlas bake of the hex sprites in HEX_ENTRIES; re-runs must be
-# byte-identical.  See TODO.md "Track-sprite baker" for the dat-side
-# coverage status.
 
 def bake_pakset() -> None:
     bake_atlas(
@@ -564,5 +197,4 @@ def bake_pakset() -> None:
 
 
 if __name__ == "__main__":
-    main()
     bake_pakset()
