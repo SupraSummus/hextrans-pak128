@@ -17,7 +17,10 @@ TIE_BROWN = (100, 70, 45)
 RAIL_GREY = (140, 140, 130)
 
 # --- Cross-section (perpendicular to the track axis) ------------------------
-# 1 unit = 1 tile width.  Calibrated against pak128 cells 1.5 / 1.6 of
+# 1 world unit = 1 entry-edge length, which equals 1 square-tile side
+# and 1 hex-edge length (see `tools/threed/way.py::HEX_TILE_RADIUS`).
+# So a perpendicular value of 0.5 fills the entry edge in either
+# projection.  Calibrated against pak128 cells 1.5 / 1.6 of
 # `rail_060_tracks.png` by `measure_gauge.py`, which fits a line to the
 # rail-head pixels of each rail and inverts the dimetric projection's
 # perpendicular px-per-world factor.  Both cells land on 0.04744 — keep

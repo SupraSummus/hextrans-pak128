@@ -36,13 +36,26 @@ full 63-cell set.  Roads share `infrastructure/roads/road_params.py`
 (pavement width / surface z / colour) so road_030 / road_050 / …
 land as a copy of `road_040/scene.py` with one parameter override.
 
+**rail_060_bridge bypasses way_topology.**  Mid-segments / ends are
+built directly with `_add_oriented_box` against a `BRIDGE_LEN_HALF`
+constant rather than the `StraightPath` chord that `rail_060_tracks`
+uses.  This is why `build_segment` / `build_end` had to grow a
+`length_half` parameter and why `render_segment` picks the value
+per projection (chord = 1.0 in square, √3 in hex with
+`HEX_TILE_RADIUS = 1.0`) — way_topology hides that scale inside the
+chord it builds from `edge_midpoint`s.  Port the bridge to drive its
+deck / posts / ties off a `StraightPath` (or a shared "build along
+this chord" helper) so the next rail bridge variant lands without
+re-plumbing length_half.
+
 **Way-baker shared topology.** `tools/threed/way.py` +
 `tools/threed/way_topology.py` carry the asset-agnostic hex topology
 (stub / curve / junction / axis-slope path builders + a
 `CrossSection` painter ABC).  Two consumers today —
 `infrastructure/rail_tracks/rail_060_tracks` (ballast + ties + rails
 cross-section, with a `paint_arc` override for radial ties) and
-`infrastructure/roads/road_040` (one pavement slab) — both bake the
+`infrastructure/roads/road_040` (carriageway slab + dithered
+cobblestone kerbs on the long sides) — both bake the
 full 63-cell hex set into `<asset>_hex.png` plus a 6-cell axis-slope
 atlas.  Open work: 3+ way junctions are placeholder "stub-per-edge"
 geometry — a pass should promote any 60°-apart pair inside a
@@ -179,15 +192,15 @@ keeping mean exact.  Both deferred until the deliverable is in-game
 and the cartoon-vs-realistic balance can be judged against the
 rest of the hex tileset.
 
-**Pavement RGB duplicated across road and sidewalk bakers.**
-`infrastructure/roads/road_params.py::PAVEMENT_GREY = (140, 130, 115)`
-and `landscape/grounds/sidewalk/render.py::BASE_RGB = (138, 136, 130)`
-are independent constants that both stand for "city-road pavement
-under default sun" — the road slab sits on top of the sidewalk cell
-and the two are both visible at the same time, so a mismatch reads
-as a seam.  When the second road family lands (road_030, road_050,
-…) and `road_params.py` accumulates more cross-asset constants,
-hoist the pavement colour out into a shared module both
-`infrastructure/roads/` and `landscape/grounds/sidewalk/` import
-from, and reconcile the two values to one.
+**Pavement RGB drift between road and sidewalk bakers.**
+`infrastructure/roads/road_params.py` now ships a two-tone road
+(`CARRIAGEWAY_BROWN = (97, 91, 72)`, `SIDEWALK_GREY = (157, 167,
+151)` — both sampled from pak128 cells 1.5/1.6) while
+`landscape/grounds/sidewalk/render.py::BASE_RGB = (138, 136, 130)`
+is still the single-tone city-pavement constant from before the
+two-tone split.  The road slab sits on top of the sidewalk cell, so
+once a road tile borders a sidewalk tile the seam will read as two
+mismatched greys.  Hoist into a shared palette when the second road
+family lands (road_030 / road_050) and reconcile against whichever
+of `BASE_RGB` / `SIDEWALK_GREY` matches the legacy art best.
 

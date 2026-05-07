@@ -41,8 +41,9 @@ east,west}`): world +y = north (upper-right onscreen), -y = south
 (lower-left), +x = east (lower-right), -x = west (upper-left).
 
 Per-axis frames (`ORIENT_*`, all rotations of the canonical NS
-geometry; bridge length spans world y ∈ [-0.5, +0.5] before
-rotation):
+geometry; bridge length spans world y ∈ [-length_half, +length_half]
+before rotation, with `length_half` picked per projection — see
+`_length_half` and `BRIDGE_LEN_HALF_*` below):
 - ORIENT_NS    rot=0°,    front=+x   — NS square + hex.
 - ORIENT_EW    rot=-90°,  front=-y   — EW square only (legacy
                                       pak128 compositing rule).
@@ -102,8 +103,24 @@ TIMBER_MID = (130, 95, 60)
 TIMBER_LIGHT = (170, 135, 90)
 STONE_GREY = (140, 130, 115)
 
-# --- Bridge dimensions (1 unit = 1 tile width) -------------------------------
-BRIDGE_LEN_HALF = 0.5
+# --- Bridge dimensions (1 world unit = 1 entry-edge length) -----------------
+# Bridge length is the chord between two opposite tile edges, and the
+# chord differs between projections — square = 1.0, hex = √3 — once
+# world is matched to the entry edge (see
+# `tools/threed/way.py::HEX_TILE_RADIUS`).  `build_segment` /
+# `build_end` take `length_half` so one geometry fits both, picked
+# per projection in `render_segment` / `render_end`.  `way_topology`
+# hides this scale for assets that build off `StraightPath` chords;
+# the bridge bypasses `way_topology` and pays the explicit parameter
+# until ported (TODO.md).
+BRIDGE_LEN_HALF_SQUARE = 0.5
+BRIDGE_LEN_HALF_HEX = math.sqrt(3.0) / 2.0
+
+
+def _length_half(projection: str) -> float:
+    return BRIDGE_LEN_HALF_HEX if projection == "hex" else BRIDGE_LEN_HALF_SQUARE
+
+
 # Deck must be wide enough to host the rail_060 cross-ties (TIE_HALF_W).
 DECK_WIDTH_HALF = max(0.20, TIE_HALF_W + 0.04)
 DECK_BOTTOM_Z = 0.10
@@ -225,7 +242,7 @@ def _add_oriented_box(model: Model, orient: Orient,
         model.add_quad(q, color, layer=layer, dither_keep=dither_keep)
 
 
-def build_segment(model: Model, orient: Orient) -> None:
+def build_segment(model: Model, orient: Orient, length_half: float) -> None:
     """Build a mid-segment bridge in `orient`'s frame.
 
     Emits all parts (deck, trestle, railings, ties, rails) tagged
@@ -236,7 +253,7 @@ def build_segment(model: Model, orient: Orient) -> None:
 
     # 1. Deck slab — back layer (deck is part of the silhouette,
     #    vehicle draws on top).
-    add(-BRIDGE_LEN_HALF, +BRIDGE_LEN_HALF,
+    add(-length_half, +length_half,
         -DECK_WIDTH_HALF, +DECK_WIDTH_HALF,
         DECK_BOTTOM_Z, DECK_TOP_Z, TIMBER_MID, force_layer="back")
 
@@ -249,7 +266,7 @@ def build_segment(model: Model, orient: Orient) -> None:
     #    the axis-aligned box rasterizer doesn't model it well.
     #    Deferred (TODO.md "X-bracing on rail_060_bridge").
     for i in range(N_PANELS + 1):
-        along = -BRIDGE_LEN_HALF + (i / N_PANELS) * 2 * BRIDGE_LEN_HALF
+        along = -length_half + (i / N_PANELS) * 2 * length_half
         for side in (-DECK_WIDTH_HALF, +DECK_WIDTH_HALF):
             add(along - POST_HALF_Y, along + POST_HALF_Y,
                 side - POST_HALF_X, side + POST_HALF_X,
@@ -259,7 +276,7 @@ def build_segment(model: Model, orient: Orient) -> None:
     #    front-side posts land in the front slice via
     #    `orient.front_normal`.
     for i in range(N_RAIL_POSTS):
-        along = -BRIDGE_LEN_HALF + ((i + 0.5) / N_RAIL_POSTS) * 2 * BRIDGE_LEN_HALF
+        along = -length_half + ((i + 0.5) / N_RAIL_POSTS) * 2 * length_half
         for side in (-DECK_WIDTH_HALF, +DECK_WIDTH_HALF):
             add(along - 0.016, along + 0.016,
                 side - 0.016, side + 0.016,
@@ -269,10 +286,10 @@ def build_segment(model: Model, orient: Orient) -> None:
     BOTTOM_BAR_Z_LO = DECK_TOP_Z - 0.010
     BOTTOM_BAR_Z_HI = DECK_TOP_Z + 0.020
     for side in (-DECK_WIDTH_HALF, +DECK_WIDTH_HALF):
-        add(-BRIDGE_LEN_HALF, +BRIDGE_LEN_HALF,
+        add(-length_half, +length_half,
             side - 0.012, side + 0.012,
             RAILING_TOP_Z - TOP_BAR_THICKNESS, RAILING_TOP_Z, TIMBER_LIGHT)
-        add(-BRIDGE_LEN_HALF, +BRIDGE_LEN_HALF,
+        add(-length_half, +length_half,
             side - 0.012, side + 0.012,
             BOTTOM_BAR_Z_LO, BOTTOM_BAR_Z_HI, TIMBER_LIGHT)
 
@@ -281,7 +298,7 @@ def build_segment(model: Model, orient: Orient) -> None:
     #    deck-top track lines up with the joining standalone track.
     tie_top_z = DECK_TOP_Z + TIE_THICKNESS
     for i in range(N_TIES):
-        along = -BRIDGE_LEN_HALF + ((i + 0.5) / N_TIES) * 2 * BRIDGE_LEN_HALF
+        along = -length_half + ((i + 0.5) / N_TIES) * 2 * length_half
         add(along - 0.025, along + 0.025,
             -TIE_HALF_W, +TIE_HALF_W,
             DECK_TOP_Z, tie_top_z, TIE_BROWN, force_layer="back")
@@ -289,22 +306,24 @@ def build_segment(model: Model, orient: Orient) -> None:
     # 6. Two parallel rails on top of ties — back layer.
     rail_top_z = tie_top_z + RAIL_THICKNESS
     for gauge_x in (-RAIL_GAUGE_HALF, +RAIL_GAUGE_HALF):
-        add(-BRIDGE_LEN_HALF, +BRIDGE_LEN_HALF,
+        add(-length_half, +length_half,
             gauge_x - RAIL_HALF_W, gauge_x + RAIL_HALF_W,
             tie_top_z, rail_top_z, RAIL_GREY, force_layer="back")
 
 
-def _end_profile(kind: str, along: float) -> tuple[float, float]:
+def _end_profile(kind: str, along: float,
+                 length_half: float) -> tuple[float, float]:
     """Return (deck_bottom, support_bottom) for an end tile.
 
     Canonical local +along points toward the bridge edge named by the
     entry (`N`, `ne`, ...).  Ramps climb from ground at the landward
-    side (-0.5) to the normal bridge height at the outer edge (+0.5).
-    Starts are the flat first bridge tile, with `start2` using deeper
-    trestle posts for the double-height case.
+    end (`-length_half`) to the normal bridge height at the outer
+    edge (`+length_half`).  Starts are the flat first bridge tile,
+    with `start2` using deeper trestle posts for the double-height
+    case.
     """
     if kind == "ramp":
-        t = (along + BRIDGE_LEN_HALF) / (2.0 * BRIDGE_LEN_HALF)
+        t = (along + length_half) / (2.0 * length_half)
         deck_bottom = 0.015 + t * (DECK_BOTTOM_Z - 0.015)
         return deck_bottom, 0.0
     if kind == "start2":
@@ -314,7 +333,8 @@ def _end_profile(kind: str, along: float) -> tuple[float, float]:
     raise ValueError(f"unknown bridge end kind: {kind}")
 
 
-def build_end(model: Model, orient: Orient, kind: str) -> None:
+def build_end(model: Model, orient: Orient, kind: str,
+              length_half: float) -> None:
     """Build a bridge ramp/start/start2 end tile in `orient`'s frame.
 
     The parts deliberately mirror `build_segment` so early bridge
@@ -328,10 +348,10 @@ def build_end(model: Model, orient: Orient, kind: str) -> None:
 
     deck_steps = 10
     for i in range(deck_steps):
-        a0 = -BRIDGE_LEN_HALF + (i / deck_steps) * 2 * BRIDGE_LEN_HALF
-        a1 = -BRIDGE_LEN_HALF + ((i + 1) / deck_steps) * 2 * BRIDGE_LEN_HALF
+        a0 = -length_half + (i / deck_steps) * 2 * length_half
+        a1 = -length_half + ((i + 1) / deck_steps) * 2 * length_half
         amid = (a0 + a1) / 2.0
-        deck_bottom, _support_bottom = _end_profile(kind, amid)
+        deck_bottom, _support_bottom = _end_profile(kind, amid, length_half)
         add(a0, a1, -DECK_WIDTH_HALF, +DECK_WIDTH_HALF,
             deck_bottom, deck_bottom + (DECK_TOP_Z - DECK_BOTTOM_Z),
             TIMBER_MID, force_layer="back")
@@ -339,8 +359,8 @@ def build_end(model: Model, orient: Orient, kind: str) -> None:
     # Trestle posts.  Ramps only gain real height near the bridge end;
     # starts keep the full run supported, with start2 reaching deeper.
     for i in range(N_PANELS + 1):
-        along = -BRIDGE_LEN_HALF + (i / N_PANELS) * 2 * BRIDGE_LEN_HALF
-        deck_bottom, support_bottom = _end_profile(kind, along)
+        along = -length_half + (i / N_PANELS) * 2 * length_half
+        deck_bottom, support_bottom = _end_profile(kind, along, length_half)
         if kind == "ramp" and deck_bottom < 0.04:
             continue
         for side in (-DECK_WIDTH_HALF, +DECK_WIDTH_HALF):
@@ -349,8 +369,8 @@ def build_end(model: Model, orient: Orient, kind: str) -> None:
                 support_bottom, deck_bottom, TIMBER_DARK, force_layer="back")
 
     # A heavier end bent makes the bridge/ground transition legible.
-    for along in (-BRIDGE_LEN_HALF, +BRIDGE_LEN_HALF):
-        deck_bottom, support_bottom = _end_profile(kind, along)
+    for along in (-length_half, +length_half):
+        deck_bottom, support_bottom = _end_profile(kind, along, length_half)
         if kind == "ramp" and along < 0:
             support_bottom = 0.0
         for side in (-DECK_WIDTH_HALF, +DECK_WIDTH_HALF):
@@ -361,8 +381,8 @@ def build_end(model: Model, orient: Orient, kind: str) -> None:
 
     # Railing posts and bars, following the deck profile.
     for i in range(N_RAIL_POSTS):
-        along = -BRIDGE_LEN_HALF + ((i + 0.5) / N_RAIL_POSTS) * 2 * BRIDGE_LEN_HALF
-        deck_bottom, _support_bottom = _end_profile(kind, along)
+        along = -length_half + ((i + 0.5) / N_RAIL_POSTS) * 2 * length_half
+        deck_bottom, _support_bottom = _end_profile(kind, along, length_half)
         deck_top = deck_bottom + (DECK_TOP_Z - DECK_BOTTOM_Z)
         for side in (-DECK_WIDTH_HALF, +DECK_WIDTH_HALF):
             add(along - 0.016, along + 0.016,
@@ -372,10 +392,10 @@ def build_end(model: Model, orient: Orient, kind: str) -> None:
 
     bar_steps = 10
     for i in range(bar_steps):
-        a0 = -BRIDGE_LEN_HALF + (i / bar_steps) * 2 * BRIDGE_LEN_HALF
-        a1 = -BRIDGE_LEN_HALF + ((i + 1) / bar_steps) * 2 * BRIDGE_LEN_HALF
+        a0 = -length_half + (i / bar_steps) * 2 * length_half
+        a1 = -length_half + ((i + 1) / bar_steps) * 2 * length_half
         amid = (a0 + a1) / 2.0
-        deck_bottom, _support_bottom = _end_profile(kind, amid)
+        deck_bottom, _support_bottom = _end_profile(kind, amid, length_half)
         deck_top = deck_bottom + (DECK_TOP_Z - DECK_BOTTOM_Z)
         for side in (-DECK_WIDTH_HALF, +DECK_WIDTH_HALF):
             add(a0, a1, side - 0.012, side + 0.012,
@@ -390,8 +410,8 @@ def build_end(model: Model, orient: Orient, kind: str) -> None:
     tie_top_offset = TIE_THICKNESS
     rail_top_offset = TIE_THICKNESS + RAIL_THICKNESS
     for i in range(N_TIES):
-        along = -BRIDGE_LEN_HALF + ((i + 0.5) / N_TIES) * 2 * BRIDGE_LEN_HALF
-        deck_bottom, _support_bottom = _end_profile(kind, along)
+        along = -length_half + ((i + 0.5) / N_TIES) * 2 * length_half
+        deck_bottom, _support_bottom = _end_profile(kind, along, length_half)
         deck_top = deck_bottom + (DECK_TOP_Z - DECK_BOTTOM_Z)
         add(along - 0.025, along + 0.025,
             -TIE_HALF_W, +TIE_HALF_W,
@@ -399,10 +419,10 @@ def build_end(model: Model, orient: Orient, kind: str) -> None:
             force_layer="back")
     for gauge_x in (-RAIL_GAUGE_HALF, +RAIL_GAUGE_HALF):
         for i in range(deck_steps):
-            a0 = -BRIDGE_LEN_HALF + (i / deck_steps) * 2 * BRIDGE_LEN_HALF
-            a1 = -BRIDGE_LEN_HALF + ((i + 1) / deck_steps) * 2 * BRIDGE_LEN_HALF
+            a0 = -length_half + (i / deck_steps) * 2 * length_half
+            a1 = -length_half + ((i + 1) / deck_steps) * 2 * length_half
             amid = (a0 + a1) / 2.0
-            deck_bottom, _support_bottom = _end_profile(kind, amid)
+            deck_bottom, _support_bottom = _end_profile(kind, amid, length_half)
             deck_top = deck_bottom + (DECK_TOP_Z - DECK_BOTTOM_Z)
             add(a0, a1, gauge_x - RAIL_HALF_W, gauge_x + RAIL_HALF_W,
                 deck_top + TIE_THICKNESS,
@@ -447,7 +467,7 @@ def render_segment(orient: Orient, projection: str
                    ) -> tuple[np.ndarray, np.ndarray]:
     """Render a mid-segment bridge in `orient`; return `(back, front)`."""
     m = Model()
-    build_segment(m, orient)
+    build_segment(m, orient, _length_half(projection))
     cam = _camera(projection)
     return (render(m, cam, layer_filter="back"),
             render(m, cam, layer_filter="front"))
@@ -464,7 +484,7 @@ def render_end(orient: Orient, kind: str, projection: str
                ) -> tuple[np.ndarray, np.ndarray]:
     """Render a ramp/start/start2 end; return `(back, front)`."""
     m = Model()
-    build_end(m, orient, kind)
+    build_end(m, orient, kind, _length_half(projection))
     cam = _camera(projection)
     return (render(m, cam, layer_filter="back"),
             render(m, cam, layer_filter="front"))
