@@ -20,10 +20,10 @@ from pathlib import Path
 
 from PIL import Image
 
-import crop_ref
-import diff as diff_mod
-from render import Model, SquareCamera, render
-from way_topology import CrossSection, StraightPath
+from . import crop_ref
+from . import diff as diff_mod
+from .render import Model, SquareCamera, render
+from .way_topology import CrossSection, StraightPath
 
 
 # Standard pak128 way sheet straights — same row/col across rail,

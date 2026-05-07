@@ -14,7 +14,7 @@ intensity (`(masked & 0x7c00) >> 5` → 0..31).  Two colours are
 enough: pure red where water shows fully, pure blue where it's
 suppressed (climate ground wins).  A position-deterministic
 hashed dither at the wet/dry boundary preserves the gritty,
-soft-edge look of the legacy `texture-shore.png` rather than
+soft-edge look of the legacy `texture_shore.png` rather than
 collapsing to a clean line.
 
 `water_mask` is the 6-bit hex-corner mask `grund.cc` builds from
@@ -38,16 +38,12 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import sys
 from pathlib import Path
 
 import numpy as np
 from PIL import Image
 
-# Make `tools/3d/` importable from the per-asset bake dir.
-sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "tools" / "3d"))
-
-import hex_synth  # noqa: E402
+from tools.threed import hex_synth
 
 
 # ALPHA_RED-keyed two-colour palette.  Engine reads only the red

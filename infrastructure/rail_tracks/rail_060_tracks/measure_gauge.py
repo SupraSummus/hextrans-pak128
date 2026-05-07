@@ -19,24 +19,22 @@ Pipeline:
   4. Invert the dimetric projection to recover the world half-gauge.
 
 The conversion factor (`PERP_PX_PER_HALF_GAUGE`) is derived from
-`tools/3d/render.py`'s YAW=45°, ELEV=29.5°, PIXELS_PER_UNIT=128/√2,
+`tools/threed/render.py`'s YAW=45°, ELEV=29.5°, PIXELS_PER_UNIT=128/√2,
 applied to the rail-pair displacement (Δworld = (2G, 0, 0)) for a
 NS-running track; the EW case mirrors and lands on the same number.
 """
 from __future__ import annotations
 
 import math
-import sys
 from pathlib import Path
 
 import numpy as np
 from PIL import Image
 
-HERE = Path(__file__).resolve().parent
-REPO_ROOT = HERE.parents[2]
-sys.path.insert(0, str(REPO_ROOT / "tools" / "3d"))
+from tools.threed.render import ELEV, PIXELS_PER_UNIT, YAW
 
-from render import ELEV, PIXELS_PER_UNIT, YAW  # noqa: E402
+
+HERE = Path(__file__).resolve().parent
 
 # Pak128 rail-head colour in `rail_060_tracks.png` cells 1.5 / 1.6.
 PAK128_RAIL_RGB = (174, 159, 132)

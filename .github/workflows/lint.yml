@@ -21,11 +21,6 @@ jobs:
           python-version: '3.x'
       - run: pip install numpy Pillow
       - name: Re-run parametric + bespoke bakers
-        run: |
-          shopt -s nullglob
-          for builder in landscape/grounds/*/build_pakset.py \
-                         infrastructure/*/*/scene.py; do
-            python3 "$builder"
-          done
+        run: python3 -m tools.bake_all
       - name: Verify byte-identical output
         run: git diff --exit-code -- landscape/grounds/ infrastructure/

@@ -27,7 +27,7 @@ Model / camera split:
 
 Usage in a scene file:
 
-    from render import Model, SquareCamera, HexCamera, render
+    from tools.threed.render import Model, SquareCamera, HexCamera, render
     m = Model()
     m.add_box((-0.5,-0.2,0), (0.5,0.2,0.05), (130,95,60))
     ...
@@ -37,9 +37,9 @@ Usage in a scene file:
 Conventions:
 - World axes: +x, +y horizontal; +z up. Tile spans [-0.5, 0.5] in x,y.
 - Square camera: yaw 45 deg around z, pitch ~29.5 deg above horizontal
-  (calibrated against the texture-lightmap flat tile bbox).
+  (calibrated against the texture_lightmap flat tile bbox).
 - Hex camera: flat-top, no yaw — world +x is screen-right, world +y is
-  screen-up.  Anchored to the engine's `HexGeom` (`tools/3d/hex_synth.py`,
+  screen-up.  Anchored to the engine's `HexGeom` (`tools/threed/hex_synth.py`,
   mirroring `synth_geometry.h`): the unit hex (radius 0.5 in world)
   maps onto the engine's W-wide × W/2-tall flat-top silhouette so a 3D
   scene shares one geometry source with the parametric ground bakers.
@@ -55,7 +55,7 @@ from dataclasses import dataclass, field
 import numpy as np
 from PIL import Image
 
-from hex_synth import (
+from .hex_synth import (
     DEFAULT_W, HEIGHT_STEP, HexGeom, hash_noise01, hex_height_raster_scale_y
 )
 

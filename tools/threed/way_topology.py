@@ -18,7 +18,7 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 
-from way import (
+from .way import (
     HEX_CORNERS, HEX_EDGES, HEX_OPPOSITE_EDGE,
     edge_midpoint, edge_unit_dir, shared_corner,
 )
@@ -259,7 +259,7 @@ def lay_axis_slope(cs: CrossSection, model, low_edge: str) -> None:
     numpy; topology callers that don't need slopes shouldn't pay
     the import cost.
     """
-    from render import engine_z_per_step
+    from .render import engine_z_per_step
 
     high_edge = HEX_OPPOSITE_EDGE[low_edge]
     cs.paint(model, between_edges_paths(low_edge, high_edge))

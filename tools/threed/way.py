@@ -4,7 +4,7 @@ Constants and small helpers that depend only on hex-tile geometry and
 the engine's ribi encoding — no rendering, no asset cross-section.
 The asset-specific cross-section (ballast for rail, pavement for road,
 …) lives in the asset's own scene file and is consumed by
-`tools/3d/way_topology.py` through the `CrossSection` interface.
+`tools/threed/way_topology.py` through the `CrossSection` interface.
 
 The names here are deliberately one source of truth for both the
 .dat-side index space (hex ribi codes per `way_writer.cc::hex_ribi_code`)

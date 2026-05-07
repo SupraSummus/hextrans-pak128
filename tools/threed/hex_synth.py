@@ -81,7 +81,7 @@ NS, NE_SW, NW_SE = 0, 1, 2
 # line; N-S degenerate, tie-broken to +x to match pak128's NS bridge
 # convention.
 #
-# World coords match `tools/3d/render.py`: +x east, +y north, +z up;
+# World coords match `tools/threed/render.py`: +x east, +y north, +z up;
 # hex tile centred at origin, corners at radius 0.5.  See
 # `front_back_split` below.
 
@@ -667,7 +667,7 @@ def bake_pakset(*, script_path: Path, asset_name: str, obj_name: str,
             renderer) and the relative path shown in the stderr
             summary.
         asset_name: filename basename for the deliverable
-            (`borders`, `marker`, `texture-lightmap`, …).  Usually
+            (`borders`, `marker`, `texture_lightmap`, …).  Usually
             equal to `script_path.parent.name` (the co-location
             convention) but may differ for multi-flavor families
             that bake several deliverables from one script (e.g.

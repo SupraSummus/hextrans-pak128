@@ -34,13 +34,13 @@ from pathlib import Path
 
 from PIL import Image
 
-HERE = Path(__file__).resolve().parent
-REPO_ROOT = HERE.parents[2]
-sys.path.insert(0, str(REPO_ROOT / "tools" / "3d"))
+from tools.threed import crop_ref
+from tools.threed import diff as diff_mod
 
-import crop_ref  # noqa: E402
-import diff as diff_mod  # noqa: E402
-import scene as scene_mod  # noqa: E402  # adjacent file
+from . import scene as scene_mod
+
+
+HERE = Path(__file__).resolve().parent
 
 
 SHEET = HERE.parent / "rail_060_bridge.png"

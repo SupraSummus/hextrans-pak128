@@ -17,11 +17,10 @@ that).
 
 from __future__ import annotations
 
-import sys
 from pathlib import Path
 
-import render
-from render import hex_synth
+from . import render
+from tools.threed import hex_synth
 
 
 HEADER_DOC = """\

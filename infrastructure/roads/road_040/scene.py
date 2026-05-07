@@ -3,7 +3,7 @@
 Cross-section (per `RoadCrossSection`): one full-width pavement slab,
 opaque (no banded dither — unlike rail's ballast bed which fades into
 terrain at the shoulders).  Topology (stub / curve / junction / axis-
-slope) comes from `tools/3d/way_topology.py`; family-shared materials
+slope) comes from `tools/threed/way_topology.py`; family-shared materials
 and dimensions come from `infrastructure/roads/road_params.py`, so the
 asset code reduces to "subclass `CrossSection`, point the bake at the
 atlas filename".
@@ -14,23 +14,19 @@ sibling `road_040.dat`.  Square verification: `build.py` lays straights
 via `way_verify` and diffs against pak128 cells 1.5 / 1.6 (the upstream
 dimetric NS / EW straight art).
 """
-import sys
 from pathlib import Path
+
+from tools.threed import way_topology as wt
+from tools.threed.bespoke import bake_atlas
+from tools.threed.render import HexCamera, Model, render
+from tools.threed.way import HEX_ENTRIES, SLOPE_HEX_ENTRIES
+
+from infrastructure.roads.road_params import (
+    PAVEMENT_GREY, PAVEMENT_HALF_W, PAVEMENT_TOP_Z,
+)
 
 
 HERE = Path(__file__).resolve().parent
-ROAD_FAMILY = HERE.parent          # infrastructure/roads/
-REPO_ROOT = ROAD_FAMILY.parent.parent
-sys.path.insert(0, str(REPO_ROOT / "tools" / "3d"))
-sys.path.insert(0, str(ROAD_FAMILY))
-
-from bespoke import bake_atlas  # noqa: E402
-from render import HexCamera, Model, render  # noqa: E402
-from road_params import (  # noqa: E402
-    PAVEMENT_GREY, PAVEMENT_HALF_W, PAVEMENT_TOP_Z,
-)
-from way import HEX_ENTRIES, SLOPE_HEX_ENTRIES  # noqa: E402
-import way_topology as wt  # noqa: E402
 
 
 class RoadCrossSection(wt.CrossSection):
@@ -65,13 +61,11 @@ def bake_pakset() -> None:
         out_png=HERE.parent / "road_040_hex_slope.png",
         entries=[(label, lambda e=edge: render_hex_slope_cell(e))
                  for label, edge in SLOPE_HEX_ENTRIES],
-        repo_root=REPO_ROOT,
     )
     bake_atlas(
         out_png=HERE.parent / "road_040_hex.png",
         entries=[(ribi, lambda edges=edges: render_hex_cell(edges))
                  for ribi, edges in HEX_ENTRIES],
-        repo_root=REPO_ROOT,
         cols_per_row=8,
     )
 
