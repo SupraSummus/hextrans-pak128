@@ -210,6 +210,35 @@ def iter_valid_slopes():
             yield slope
 
 
+def slope_is_way(slope: int) -> bool:
+    """Whether a way (road, rail, …) can be laid across this hex slope.
+
+    Mirrors `slope_t::is_way` in `dataobj/ribi.h`: a way running through
+    the tile enters at one edge midpoint and exits at the opposite
+    edge midpoint, so for at least one of the three hex axes the
+    crossed corners must admit either a uniform ramp (both edges
+    internally level, |delta| ≤ 1) or a flat chord at some height H
+    (each edge has a corner at H; double-corner slopes excluded).
+
+    Used by way-keyed bakers (sidewalk, …) to skip slopes the engine
+    will never request a sprite for.
+    """
+    ch = decode_corner_heights(slope)
+    return (_is_way_axis(ch, ch[NW], ch[NE], ch[SE], ch[SW]) or
+            _is_way_axis(ch, ch[NE], ch[E],  ch[SW], ch[W_C]) or
+            _is_way_axis(ch, ch[W_C], ch[NW], ch[E], ch[SE]))
+
+
+def _is_way_axis(ch: list[int], a0: int, a1: int, b0: int, b1: int) -> bool:
+    if a0 == a1 and b0 == b1 and abs(a0 - b0) <= 1:
+        return True  # ramp
+    if any(c >= 2 for c in ch):
+        return False  # double-corner: only the ramp case admits a way
+    a_lo, a_hi = min(a0, a1), max(a0, a1)
+    b_lo, b_hi = min(b0, b1), max(b0, b1)
+    return max(a_lo, b_lo) <= min(a_hi, b_hi)
+
+
 # ---- Lambert lighting (from synth_geometry.h) -----------------------------
 #
 # Light `L = (-1, 1, 2)`, calibrated against the flat tile so flat = 1.0×
@@ -552,9 +581,9 @@ def iter_region_polygons(slope: int, geom: HexGeom):
 
     Single source of truth for "which polygons cover a slope's hex tile":
     `silhouette_mask` paints them with a sentinel and reads the alpha
-    mask; the lightmap baker's `_per_region_brightness` paints them
-    with per-region Lambert shading.  Sharing the iterator means
-    silhouette_mask can't drift away from the lightmap's silhouette
+    mask; per-region shading bakers (lightmap, sidewalk, …) paint them
+    with Lambert via `region_brightness`.  Sharing the iterator means
+    silhouette_mask can't drift away from those bakers' silhouettes
     by construction.
 
     Skips degenerate `< 3`-vertex regions (the engine partitioner
@@ -567,6 +596,37 @@ def iter_region_polygons(slope: int, geom: HexGeom):
         xs = [geom.vx[i] for i in region]
         ys = [vy[i] for i in region]
         yield region, xs, ys
+
+
+def region_brightness(region: list[int], slope: int, geom: HexGeom) -> int:
+    """Lambert brightness (256 = 1.0×) for one coplanar region from
+    its first non-degenerate triangle.  Degenerate (fully collinear)
+    regions default to flat-up.
+
+    Shared across slope-keyed ground bakers (lightmap, sidewalk, …)
+    that paint per-region constant shade over the silhouette's
+    coplanar partition.
+    """
+    ch = decode_corner_heights(slope)
+    vy = geom.lifted_vy(slope)
+    i0 = region[0]
+    for k in range(2, len(region)):
+        i1, i2 = region[k - 1], region[k]
+        ax = geom.vx[i1] - geom.vx[i0]
+        ay = vy[i1] - vy[i0]
+        az = (ch[i1] - ch[i0]) * geom.lift
+        bx = geom.vx[i2] - geom.vx[i0]
+        by = vy[i2] - vy[i0]
+        bz = (ch[i2] - ch[i0]) * geom.lift
+        nx = ay * bz - az * by
+        ny = az * bx - ax * bz
+        nz = ax * by - ay * bx
+        if nx == 0.0 and ny == 0.0 and nz == 0.0:
+            continue
+        if nz < 0.0:
+            nx, ny, nz = -nx, -ny, -nz
+        return lambert_brightness(nx, ny, nz)
+    return lambert_brightness(0.0, 0.0, 1.0)
 
 
 def silhouette_mask(slope: int, geom: HexGeom) -> np.ndarray:
@@ -622,7 +682,7 @@ def rasterise_outline(buf: np.ndarray, geom: HexGeom, slope: int,
 # variable-axis families pass their own `iter_entries`.
 
 
-def slope_keyed_entries(halves: int = 1):
+def slope_keyed_entries(halves: int = 1, slope_filter=None):
     """Default `iter_entries` for slope-keyed assets.
 
     Yields `(slope, half, (slope, half), comment)` for `slope` in
@@ -632,6 +692,11 @@ def slope_keyed_entries(halves: int = 1):
     corner heights; for `halves == 2` it carries the front/back
     label.
 
+    `slope_filter`: optional `callable(slope) -> bool` that drops
+    slopes the asset will never render — e.g. sidewalk passes
+    `slope_is_way` to skip non-way-buildable shapes.  Defaults to
+    every valid slope.
+
     The renderer signature stays `render_cell(slope, half, geom)`
     via the `(slope, half)` `render_args` tuple, so existing
     lightmap / borders / marker bakers keep their current call
@@ -640,6 +705,8 @@ def slope_keyed_entries(halves: int = 1):
     def gen(geom):
         for half in range(halves):
             for slope in iter_valid_slopes():
+                if slope_filter is not None and not slope_filter(slope):
+                    continue
                 ch = decode_corner_heights(slope)
                 side = "" if halves == 1 else ("front " if half == 0 else "back ")
                 comment = (f"{side}corners=(E={ch[E]} SE={ch[SE]} "

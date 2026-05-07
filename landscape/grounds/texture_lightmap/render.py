@@ -40,19 +40,13 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 
-from tools.threed import hex_synth
 from tools.threed.hex_synth import (
     DEFAULT_W,
     HexGeom,
-    CORNER_COUNT,
-    E, SE, SW, W_C, NW, NE,
-    decode_corner_heights,
     fill_polygon,
     iter_region_polygons,
-    iter_valid_slopes,
-    lambert_brightness,
+    region_brightness,
     seal_horizontal_edges,
-    slope_is_valid,
 )
 
 
@@ -96,33 +90,6 @@ def _safe_face_rgb(gray8: int) -> tuple[int, int, int]:
     return (gray8, gray8, nudged)
 
 
-def _region_brightness(region: list[int], slope: int, geom: HexGeom) -> int:
-    """Lambert brightness for one region from its first non-degenerate
-    triangle.  Returns 256 (= 1.0×) if the region is fully collinear.
-    """
-    ch = decode_corner_heights(slope)
-    vy = geom.lifted_vy(slope)
-    i0 = region[0]
-    for k in range(2, len(region)):
-        i1 = region[k - 1]
-        i2 = region[k]
-        ax = geom.vx[i1] - geom.vx[i0]
-        ay = vy[i1] - vy[i0]
-        az = (ch[i1] - ch[i0]) * geom.lift
-        bx = geom.vx[i2] - geom.vx[i0]
-        by = vy[i2] - vy[i0]
-        bz = (ch[i2] - ch[i0]) * geom.lift
-        nx = ay * bz - az * by
-        ny = az * bx - ax * bz
-        nz = ax * by - ay * bx
-        if nx == 0.0 and ny == 0.0 and nz == 0.0:
-            continue
-        if nz < 0.0:
-            nx, ny, nz = -nx, -ny, -nz
-        return lambert_brightness(nx, ny, nz)
-    return lambert_brightness(0.0, 0.0, 1.0)
-
-
 def render_lightmap(slope: int, geom: HexGeom | None = None) -> np.ndarray:
     """Render one slope's lightmap cell.
 
@@ -144,7 +111,7 @@ def render_lightmap(slope: int, geom: HexGeom | None = None) -> np.ndarray:
 
     buf = np.zeros((geom.h, geom.w, 4), dtype=np.uint8)
     for region, xs, ys in iter_region_polygons(slope, geom):
-        brightness = _region_brightness(region, slope, geom)
+        brightness = region_brightness(region, slope, geom)
         gray5 = min(brightness // 16, 31)
         gray8 = (gray5 * 255 + 15) // 31
         face_rgb = _safe_face_rgb(gray8)
