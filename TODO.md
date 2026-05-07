@@ -36,8 +36,8 @@ full 63-cell set.  Roads share `infrastructure/roads/road_params.py`
 (pavement width / surface z / colour) so road_030 / road_050 / …
 land as a copy of `road_040/scene.py` with one parameter override.
 
-**Way-baker shared topology.** `tools/3d/way.py` +
-`tools/3d/way_topology.py` carry the asset-agnostic hex topology
+**Way-baker shared topology.** `tools/threed/way.py` +
+`tools/threed/way_topology.py` carry the asset-agnostic hex topology
 (stub / curve / junction / axis-slope path builders + a
 `CrossSection` painter ABC).  Two consumers today —
 `infrastructure/rail_tracks/rail_060_tracks` (ballast + ties + rails
@@ -60,7 +60,7 @@ as a colour/material variant on the same scene parts (rail: ballast
 `<asset>_hex_winter.png` and re-introducing the `[1]` season block.
 
 **X-bracing on rail_060_bridge.** The numpy z-buffer rasterizer
-in `tools/3d/render.py` only supports axis-aligned boxes via
+in `tools/threed/render.py` only supports axis-aligned boxes via
 `add_box`, so the diagonal X-bracing between trestle posts can't
 be modelled cleanly. Two options: extend `Scene.add_quad` with
 explicit non-axis-aligned corners (a thin plate in the y-z plane,
@@ -158,8 +158,9 @@ in-game test depends on the current shape.
 covers all 6 × 32 (depth, stage) cells but only at the flat slope.
 `get_water_tile`'s slope axis (`stage + water_animation_stages *
 doubleslope_to_imgnr[slope]`) is still collapsed to slope_idx = 0.
-The shore-side equivalent is now done — `landscape/grounds/texture-
-shore/` bakes one ALPHA_RED-keyed alpha cell per realisable
+The shore-side equivalent is now done —
+`landscape/grounds/texture_shore/` bakes one ALPHA_RED-keyed alpha
+cell per realisable
 `(slope, water_mask)`, and the wet/dry boundary lives there — so
 this is the last slope-axis collapse in the parametric ground
 family.

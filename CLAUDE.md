@@ -41,8 +41,8 @@ The work splits cleanly:
 The two pipelines share a renderer (camera, lighting, projection,
 depth-clip slicing) but have different reference data and different
 deliverables. The first parametric deliverable —
-`landscape/grounds/texture-lightmap/texture-lightmap.{png,dat}` baked from
-`landscape/grounds/texture-lightmap/` — is pipeline (1).
+`landscape/grounds/texture_lightmap/texture_lightmap.{png,dat}` baked from
+`landscape/grounds/texture_lightmap/` — is pipeline (1).
 
 ## Engine facts (look up, don't fit)
 
@@ -55,7 +55,7 @@ the next sheet entry.
 Recurring lookup categories: tile-to-screen mapping
 (`display/viewport.cc`), compass directions (`dataobj/koord.cc`),
 slope encoding (`dataobj/ribi.h`), hex camera + lighting
-(`tools/3d/hex_synth.py::HexGeom`, mirroring `display/hex_proj.h`),
+(`tools/threed/hex_synth.py::HexGeom`, mirroring `display/hex_proj.h`),
 per-asset-class .dat keys (the matching
 `descriptor/writer/*_writer.cc`), and pak128 art conventions
 (`devdocs/128painting.txt`). Engine repo is `SupraSummus/hextrans`;
@@ -101,7 +101,7 @@ Common reflexes:
   are 30° off and *wrong*; baking a bridge along them produces a
   silhouette that doesn't meet the tile boundary at the engine's
   expected entry/exit edges.  `HEX_DEPTH_CLIP_NORMAL` in
-  `tools/3d/hex_synth.py` is perpendicular to the edge-midpoint
+  `tools/threed/hex_synth.py` is perpendicular to the edge-midpoint
   axis, so a NS-frame bridge rotated by `0` / `-60°` / `-120°`
   around z lands its perpendicular sides exactly on the front /
   back depth-clip plane — no axis-line straddle, no spurious
@@ -113,9 +113,9 @@ A scene is code that emits geometry — apply the usual code
 hygiene.  DRY: a constant or helper used by two assets belongs in
 a shared module (track cross-section in
 `rail_tracks/rail_060_tracks/track_params.py`, atlas plumbing in
-`tools/3d/bespoke.py`), not duplicated.  Separation of concerns:
+`tools/threed/bespoke.py`), not duplicated.  Separation of concerns:
 per-asset `scene.py` owns geometry + the `(label, render_fn)`
-entry list; `tools/3d/` owns rendering, atlas composition,
+entry list; `tools/threed/` owns rendering, atlas composition,
 projection; `build.py` owns crop+render+diff orchestration.  One
 source of truth across projections: the same 3D parts emit both
 square and hex via `Scene.render(projection=…)` — never fork a
@@ -162,7 +162,7 @@ Working order:
    BackImage / FrontImage / BackRamp / FrontRamp / BackStart /
    FrontStart / BackStart2 / FrontStart2 × directions, plus
    pillars. Note seasons and the per-entry sheet offset. Then run
-   `tools/3d/crop_ref.py` over every referenced cell **before
+   `tools/threed/crop_ref.py` over every referenced cell **before
    opening `scene.py`** — the .dat alone doesn't tell you which
    cells are stubs vs. full-tile vs. slope variants, nor what art
    conventions apply (ballast dither, taper bands, mitred caps).
@@ -170,7 +170,7 @@ Working order:
    engine repo for whatever you need (compass, image enum, .dat
    key meaning, sheet offset semantics — see "Engine facts"
    above for the recurring lookup categories). Then skim
-   `tools/3d/hex_synth.py` and `tools/3d/render.py` for engine-
+   `tools/threed/hex_synth.py` and `tools/threed/render.py` for engine-
    mirror helpers (`HexGeom`, `hash_noise01`, `silhouette_mask`,
    `iter_valid_slopes`, projection support); reuse beats
    reinvention and keeps square / hex output coherent. Do all
@@ -237,7 +237,7 @@ References:
 - **Parametric pipeline.** Reference = the bakers' own output;
   validation is qualitative (legacy palette match, silhouette
   consistency with `LightTexture`).  Camera + lighting come from
-  `tools/3d/hex_synth.py::HexGeom`.  Deliverable: baked PNGs that
+  `tools/threed/hex_synth.py::HexGeom`.  Deliverable: baked PNGs that
   the engine reads directly.
 - **Bespoke pipeline.** Reference = pak128's existing sheet entries.
   All slices used as supervision simultaneously (one diff per
@@ -327,7 +327,7 @@ fits the asset:
 
 - A ~150-line numpy z-buffer rasterizer is enough for hard-surface
   CSG (terrain, simple bridges, low-poly vehicles); see
-  `tools/3d/render.py`.
+  `tools/threed/render.py`.
 - Blender Python (`bpy`, headless via `blender -b`) is the right
   pick for textured / sculpted / mesh-heavy content.
 - OpenSCAD is fine for blocky parametric assets if you can post-
@@ -371,17 +371,17 @@ game looks up.
 For new assets without textured supervision yet, compare alpha mask
 plus luminance over the alpha intersection (shape + shading, no
 texture). Once the pakset's tile textures are wired in as material
-inputs, switch to full RGB. `tools/3d/diff.py` does shape +
+inputs, switch to full RGB. `tools/threed/diff.py` does shape +
 luminance today.
 
 ## Repo layout
 
 Models live next to the pakset asset they generate or supervise, not
 in a separate `models/` tree. Shared rendering/diff tooling lives at
-`tools/3d/`. The two pipelines look like:
+`tools/threed/`. The two pipelines look like:
 
 ```
-tools/3d/                                # shared rendering, diff, cropping
+tools/threed/                                # shared rendering, diff, cropping
                                          # (z-buffer rasterizer, hex camera,
                                          # bake_pakset helper)
 
@@ -393,9 +393,9 @@ landscape/grounds/<name>/                # parametric pipeline.
                                          # texture-supervision input; not in
                                          # DIRS128, not packaged
                                          #
-                                         # current bakers: texture-lightmap,
+                                         # current bakers: texture_lightmap,
                                          # borders, marker, water_ani,
-                                         # texture-shore, texture-slope,
+                                         # texture_shore, texture_slope,
                                          # back_wall. each dir listed in
                                          # Makefile DIRS128.
 
@@ -410,7 +410,7 @@ Conventions, in order:
 - **Co-location.** A model directory shares a name (without extension)
   with the deliverable it produces. For parametric ground bakers the
   baked `.png`/`.dat` lives **inside** the model dir
-  (`texture-lightmap/texture-lightmap.{png,dat}`,
+  (`texture_lightmap/texture_lightmap.{png,dat}`,
   `borders/borders.{png,dat}`, `marker/marker.{png,dat}`,
   `water_ani/water_ani.{png,dat}`); each dir is listed in
   Makefile `DIRS128` so makeobj scans it.  For bespoke supervised
@@ -419,11 +419,11 @@ Conventions, in order:
   the model is shippable, the upstream art is the packaged
   deliverable, not the model output.
 - **Hex-baked deliverables keep the legacy filename.** When a
-  parametric synth family (borders, marker, texture-lightmap,
+  parametric synth family (borders, marker, texture_lightmap,
   water_ani, alpha, back_wall, …) has an existing pak128
   deliverable that the hex bake replaces outright, the baked output
   reuses the legacy name unchanged.  Even where the packing
-  differs — `texture-lightmap` is one cell per slope here vs. one
+  differs — `texture_lightmap` is one cell per slope here vs. one
   cell per `(climate × slope)` pair upstream — the filename stays
   the same; the `.dat` documents the new layout.  Apply this to
   every remaining synth family.
@@ -443,7 +443,7 @@ Conventions, in order:
   what gets packaged.
 - **Old art that is fully superseded is deleted.** No `_old` suffixes,
   no commented-out blocks.  Git history is the changelog.  The
-  square `texture-lightmap.{png,dat}` is gone for this reason — the
+  square `texture_lightmap.{png,dat}` is gone for this reason — the
   hex bake under the same filename replaces it outright (and the
   packing differs, so the cells aren't comparable in-place).
 - **No subdir-aware pakset compile.** Makeobj only scans the listed
@@ -464,11 +464,11 @@ Conventions, in order:
 
 ## Worked examples
 
-For the parametric pipeline, `landscape/grounds/texture-lightmap/`
+For the parametric pipeline, `landscape/grounds/texture_lightmap/`
 is the canonical reference: per-slope `render_cell()` plus a
 `build_pakset.py` that calls `hex_synth.bake_pakset`. The other
-ground bakers (borders, marker, water_ani, texture-shore,
-texture-slope, back_wall) are variations on the same shape and
+ground bakers (borders, marker, water_ani, texture_shore,
+texture_slope, back_wall) are variations on the same shape and
 each is worth a glance for the part you're working on (atlas
 axis, alpha key, .dat header).
 

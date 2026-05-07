@@ -25,8 +25,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import render
-from render import hex_synth, WALL_COUNT, IMAGE_COUNT
+from tools.threed import hex_synth
+from . import render
+from .render import WALL_COUNT, IMAGE_COUNT
 
 
 HEADER_DOC_TEMPLATE = """\

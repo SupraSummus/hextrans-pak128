@@ -9,9 +9,9 @@ the accompanying .dat file with --dat/--image. The .dat references tiles
 as `name.row.col` strings inside `Image[N][M]=...` lines.
 
 Examples:
-    crop_ref.py landscape/grounds/texture-lightmap.png --row 0 --col 14 -o flat.png
-    crop_ref.py landscape/grounds/texture-lightmap.png \\
-        --dat landscape/grounds/texture-lightmap.dat --image 0 -o flat.png
+    crop_ref.py landscape/grounds/texture_lightmap.png --row 0 --col 14 -o flat.png
+    crop_ref.py landscape/grounds/texture_lightmap.png \\
+        --dat landscape/grounds/texture_lightmap.dat --image 0 -o flat.png
 """
 import argparse
 import re

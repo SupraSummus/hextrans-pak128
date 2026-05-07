@@ -15,10 +15,11 @@ A scene file's `bake_pakset()` reduces to:
 
     def bake_pakset() -> None:
         bake_atlas(out_png=HERE.parent / "rail_060_bridge_hex.png",
-                   entries=HEX_ENTRIES, repo_root=REPO_ROOT)
+                   entries=HEX_ENTRIES)
 """
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import Callable, Iterable
 
@@ -29,7 +30,6 @@ CellFn = Callable[[], np.ndarray]
 
 
 def bake_atlas(*, out_png: Path, entries: Iterable[tuple[str, CellFn]],
-               repo_root: Path | None = None,
                cols_per_row: int | None = None) -> None:
     """Render each entry's RGBA cell, place them in an atlas grid,
     write `out_png`, print a per-cell bbox summary.
@@ -63,7 +63,7 @@ def bake_atlas(*, out_png: Path, entries: Iterable[tuple[str, CellFn]],
     Image.fromarray(atlas, mode="RGBA").save(out_png)
 
     label_w = max(len(label) for label, _ in entries)
-    rel = out_png.relative_to(repo_root) if repo_root else out_png
+    rel = os.path.relpath(out_png)
     print(f"wrote {rel} "
           f"({atlas.shape[1]}x{atlas.shape[0]} px, {len(cells)} cells)")
     for i, ((label, _), cell) in enumerate(zip(entries, cells)):

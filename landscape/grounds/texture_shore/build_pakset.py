@@ -20,8 +20,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import render
-from render import hex_synth
+from . import render
+from tools.threed import hex_synth
 
 
 HEADER_DOC = """\
@@ -54,7 +54,7 @@ The engine's `draw_alpha` reads only the **red channel** (`ALPHA_RED`,
 mask 0x7c00), so RED = water shows; BLUE (or any non-red colour) =
 water suppressed (climate texture wins).  A position-deterministic
 hashed dither at the wet/dry boundary preserves the gritty soft-edge
-look of the legacy `texture-shore.png`.
+look of the legacy `texture_shore.png`.
 
 Per-line comment carries the per-corner height tuple and the per-
 corner water-flag tuple, both as (E SE SW W NW NE).
@@ -93,7 +93,7 @@ def _shore_entries(geom):
 if __name__ == "__main__":
     hex_synth.bake_pakset(
         script_path=Path(__file__).resolve(),
-        asset_name="texture-shore",
+        asset_name="texture_shore",
         obj_name="ShoreTrans",
         header_doc=HEADER_DOC,
         render_cell=lambda slope, water_mask, geom: render.render_shore(

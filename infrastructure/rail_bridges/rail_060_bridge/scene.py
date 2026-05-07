@@ -65,34 +65,31 @@ anchor and the dat offset add at composite time.
 """
 import functools
 import math
-import sys
 from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
 from PIL import Image
 
-HERE = Path(__file__).resolve().parent
-REPO_ROOT = HERE.parents[2]  # infrastructure/rail_bridges/rail_060_bridge -> repo
-sys.path.insert(0, str(REPO_ROOT / "tools" / "3d"))
-# Track-family parameters live next to rail_060_tracks; the bridge
-# pulls them in so its deck-top track lines up with the joining
-# standalone track.
-sys.path.insert(0, str(REPO_ROOT / "infrastructure" / "rail_tracks"
-                       / "rail_060_tracks"))
-
-from bespoke import bake_atlas  # noqa: E402
-from hex_synth import (  # noqa: E402
+from tools.threed.bespoke import bake_atlas
+from tools.threed.hex_synth import (
     HEX_DEPTH_CLIP_NORMAL,
     NE_SW as HEX_NE_SW,
     NS as HEX_NS,
     NW_SE as HEX_NW_SE,
 )
-from render import HexCamera, Model, SquareCamera, render  # noqa: E402
-from track_params import (  # noqa: E402
+from tools.threed.render import HexCamera, Model, SquareCamera, render
+
+# Track-family parameters live next to rail_060_tracks; the bridge
+# pulls them in so its deck-top track lines up with the joining
+# standalone track.
+from infrastructure.rail_tracks.rail_060_tracks.track_params import (
     BALLAST_TOP_Z, N_TIES, RAIL_GAUGE_HALF, RAIL_GREY, RAIL_HALF_W,
     RAIL_TOP_Z, TIE_BROWN, TIE_HALF_W, TIE_TOP_Z,
 )
+
+
+HERE = Path(__file__).resolve().parent
 
 # Track-relative thicknesses derived from the cross-section stack
 # (rail head sits on top of ties, ties on top of ballast).
@@ -544,7 +541,6 @@ def bake_pakset() -> None:
     bake_atlas(
         out_png=HERE.parent / "rail_060_bridge_hex.png",
         entries=HEX_ENTRIES,
-        repo_root=REPO_ROOT,
         cols_per_row=9,
     )
 

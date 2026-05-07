@@ -26,16 +26,12 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import sys
 from pathlib import Path
 
 import numpy as np
 from PIL import Image
 
-# Make `tools/3d/` importable from the per-asset bake dir.
-sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "tools" / "3d"))
-
-import hex_synth  # noqa: E402
+from tools.threed import hex_synth
 
 
 # Number of (depth, stage) axes — match the legacy pak128 water_ani

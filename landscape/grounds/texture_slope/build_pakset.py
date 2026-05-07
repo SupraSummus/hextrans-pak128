@@ -21,8 +21,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import render
-from render import hex_synth
+from . import render
+from tools.threed import hex_synth
 
 
 HEADER_DOC = """\
@@ -85,7 +85,7 @@ region shows snow).  Three colours encode both:
 
 A position-deterministic hashed dither at the band boundaries
 preserves the gritty soft-edge look of the legacy
-`texture-slope.png` rather than collapsing to clean lines.
+`texture_slope.png` rather than collapsing to clean lines.
 
 Per-line comment carries the per-corner height tuple and the
 per-corner mask-flag tuple, both as (E SE SW W NW NE).
@@ -137,7 +137,7 @@ def _slope_entries(geom):
 if __name__ == "__main__":
     hex_synth.bake_pakset(
         script_path=Path(__file__).resolve(),
-        asset_name="texture-slope",
+        asset_name="texture_slope",
         obj_name="SlopeTrans",
         header_doc=HEADER_DOC,
         render_cell=lambda slope, corner_mask, geom: render.render_slope(

@@ -39,7 +39,7 @@ engine derives for the snowline transition (corners with
 `corner_height(slope, i) > 0`, since slopes are normalised to
 `min(ch) == 0`).  Wetness across the tile is the centre-fan
 barycentric mix of corner mask values, identical in shape to
-`texture-shore/render.py`'s wetness field — only the band
+`texture_shore/render.py`'s wetness field — only the band
 quantisation differs (3 bands here vs. shore's 2).
 
 Hex silhouette is the slope's lifted-corner hexagon (via
@@ -56,16 +56,12 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import sys
 from pathlib import Path
 
 import numpy as np
 from PIL import Image
 
-# Make `tools/3d/` importable from the per-asset bake dir.
-sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "tools" / "3d"))
-
-import hex_synth  # noqa: E402
+from tools.threed import hex_synth
 
 
 # Three-colour alpha palette.  See docstring for which engine alpha
@@ -94,7 +90,7 @@ def render_slope(slope: int, corner_mask: int,
     own biome wins at the centre even when every corner
     transitions, so a tile reads as "own biome with a transition
     bite" rather than a 50/50 blend (same land-bias structure as
-    `texture-shore`, looser parameters).  Band thresholds: 0.5
+    `texture_shore`, looser parameters).  Band thresholds: 0.5
     (RED→GREEN) and 0.85 (GREEN→BLUE), with a ±0.4 hashed-noise
     jitter — wider grit than shore's ±0.2, so band boundaries
     feather across ~6 px rather than collapsing toward a 3 px line.

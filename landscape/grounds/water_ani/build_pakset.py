@@ -21,8 +21,9 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 
-import render
-from render import hex_synth, N_DEPTHS, N_STAGES
+from tools.threed import hex_synth
+from . import render
+from .render import N_DEPTHS, N_STAGES
 
 
 HEADER_DOC = """\

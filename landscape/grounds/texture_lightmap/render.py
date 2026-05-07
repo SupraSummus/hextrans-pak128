@@ -23,7 +23,7 @@ Per-region shading uses a Python port of
 a single average shade.
 
 Geometry, slope decoding, partitioning, and polygon fill are pulled
-from `tools/3d/hex_synth.py` so the per-asset bakers (lightmap,
+from `tools/threed/hex_synth.py` so the per-asset bakers (lightmap,
 borders, …) share one definition of "what is a hex slope" and stay in
 lockstep when the engine's synth_geometry constants move.
 
@@ -35,18 +35,13 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import sys
 from pathlib import Path
 
 import numpy as np
 from PIL import Image
 
-# Make `tools/3d/` importable from the per-asset bake dir.
-_REPO_ROOT = Path(__file__).resolve().parents[3]
-sys.path.insert(0, str(_REPO_ROOT / "tools" / "3d"))
-
-import hex_synth  # noqa: E402
-from hex_synth import (  # noqa: E402
+from tools.threed import hex_synth
+from tools.threed.hex_synth import (
     DEFAULT_W,
     HexGeom,
     CORNER_COUNT,

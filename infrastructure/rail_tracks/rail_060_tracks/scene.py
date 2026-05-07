@@ -2,7 +2,7 @@
 
 Cross-section (per `RailCrossSection`): banded ballast bed (3 dither
 densities), evenly-spaced cross-ties, twin rails — emitted into the
-chord+caps frame supplied by `tools/3d/way_topology.py::make_slab_emitter`.
+chord+caps frame supplied by `tools/threed/way_topology.py::make_slab_emitter`.
 The asset-agnostic topology (stub / curve / junction / axis-slope) lives
 in `way_topology` and dispatches into `paint_straight` / `paint_arc`.
 
@@ -23,25 +23,23 @@ so we render with world z=0 at the default ground anchor sy=96 (=
 IMG_SIZE/2 + 32, the flat-tile bbox midpoint).
 """
 import math
-import sys
 from pathlib import Path
 
+from tools.threed import way_topology as wt
+from tools.threed.bespoke import bake_atlas
+from tools.threed.render import HexCamera, Model, render
+from tools.threed.way import HEX_ENTRIES, SLOPE_HEX_ENTRIES, STRAIGHT_CHORD
 
-HERE = Path(__file__).resolve().parent
-REPO_ROOT = HERE.parents[2]
-sys.path.insert(0, str(REPO_ROOT / "tools" / "3d"))
-
-from bespoke import bake_atlas  # noqa: E402
-from render import HexCamera, Model, render  # noqa: E402
-from way import HEX_ENTRIES, SLOPE_HEX_ENTRIES, STRAIGHT_CHORD  # noqa: E402
-import way_topology as wt  # noqa: E402
 # Track-family parameters (cross-section, colours) live in a sibling
 # module so other rail assets (rail_060_bridge, future rail_060_*)
 # can pull them in without loading this whole scene file.
-from track_params import (  # noqa: E402
+from .track_params import (
     BALLAST_TOP_Z, N_TIES, RAIL_GAUGE_HALF, RAIL_GREY, RAIL_HALF_W,
     RAIL_TOP_Z, TIE_BROWN, TIE_HALF_W, TIE_TOP_Z,
 )
+
+
+HERE = Path(__file__).resolve().parent
 
 # Ballast is laid as concentric perpendicular bands so the dither-keep
 # tapers from dense near the rails to sparse at the bed's outer edges.
@@ -182,7 +180,6 @@ def bake_pakset() -> None:
         out_png=HERE.parent / "rail_060_tracks_hex_slope.png",
         entries=[(label, lambda e=edge: render_hex_slope_cell(e))
                  for label, edge in SLOPE_HEX_ENTRIES],
-        repo_root=REPO_ROOT,
     )
     # 8×8 grid (63 cells, last slot empty) — a single 63-wide row is
     # ~8000 px wide and unhelpful to scroll.  Per-row mapping: i//8 →
@@ -191,7 +188,6 @@ def bake_pakset() -> None:
         out_png=HERE.parent / "rail_060_tracks_hex.png",
         entries=[(ribi, lambda edges=edges: render_hex_cell(edges))
                  for ribi, edges in HEX_ENTRIES],
-        repo_root=REPO_ROOT,
         cols_per_row=8,
     )
 
