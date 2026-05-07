@@ -19,22 +19,38 @@ enough that someone else can pick it up cold.
 
 **Way .dat migration to hex ribi keys.** The engine's `way_writer`
 now reads a 64-slot flat-image table keyed by hex ribi names
-(`Image[se]`, `Image[se_nw]`, …; `_` separator).  Two worked
-examples now exist, both with bespoke 3D bakes covering the full
-63-cell hex set: `infrastructure/rail_tracks/rail_060_tracks` and
-`infrastructure/roads/road_040`.  Every other way .dat —
-rail_080..rail_400, remaining roads (road_030/050/055/070/090,
-cityroad_030, highway_*), trams, runways, kanals, narrowgauge,
-monorails, maglevs, plus all elevated / catenary variants — still
-carries the legacy `Image[N]` / `Image[NSE]` keys.  These compile
-without fatal but every connectivity except `Image[-]` resolves to
-`IMG_EMPTY` at runtime, so those ways will be invisible on the
-map.  Two paths to migrate per family: a cell-repoint (pak `N` =
-hex NE etc.) leaves third-axis combos invisible; a 3D bake of the
-family's cross-section through the shared topology produces the
-full 63-cell set.  Roads share `infrastructure/roads/road_params.py`
-(pavement width / surface z / colour) so road_030 / road_050 / …
-land as a copy of `road_040/scene.py` with one parameter override.
+(`Image[se]`, `Image[se_nw]`, …; `_` separator).  Migrated today:
+`rail_060_tracks` and the single-layer road family (road_030 /
+road_040 / road_050 / road_055 / road_070 / road_090 /
+cityroad_030 / highway_110), each shipping a parameterised hex
+bake whose tier `scene.py` reduces to a `RoadParams` instance fed
+through `make_tier`.  Still legacy: rail_080..rail_400, trams,
+runways, kanals, narrowgauge, monorails, maglevs, all elevated /
+catenary variants, and the two front-layer highways.  These
+compile without fatal but every connectivity except `Image[-]`
+resolves to `IMG_EMPTY` at runtime, so those ways will be
+invisible on the map.  Two paths to migrate per family: a
+cell-repoint (pak `N` = hex NE etc.) leaves third-axis combos
+invisible; a 3D bake of the family's cross-section through the
+shared topology produces the full 63-cell set.  highway_130 /
+highway_200 additionally need a `FrontImage` block —
+`bespoke.bake_atlas` only writes a single back atlas today, so a
+second-layer pass needs adding before those tiers can migrate.
+
+**Asphalt-tier centre dashes.**  road_050 / road_070 / road_090 /
+highway_110 read as plain dark-grey slabs in the hex bake,
+because `RoadParams` captures one carriageway colour.  In pak128
+each of these tiers is the same colour with a white dashed
+centreline (single dashes on road_050 / road_070, double on
+road_090 / highway_110) — the most distinctive feature of the
+upstream art and the strongest cue distinguishing tiers from
+each other in-game.  Add a `lane_markings` field
+(None / "single" / "double") to `RoadParams` and have
+`RoadCrossSection.paint_straight` emit short-`s`-range white slabs
+along the chord centreline when set; cadence keyed off
+`chord_len` from `make_slab_emitter` so dashes line up across
+adjacent tiles regardless of chord length (full-tile vs.
+arc-piece).
 
 **rail_060_bridge bypasses way_topology.**  Mid-segments / ends are
 built directly with `_add_oriented_box` against a `BRIDGE_LEN_HALF`
@@ -51,26 +67,30 @@ re-plumbing length_half.
 **Way-baker shared topology.** `tools/threed/way.py` +
 `tools/threed/way_topology.py` carry the asset-agnostic hex topology
 (stub / curve / junction / axis-slope path builders + a
-`CrossSection` painter ABC).  Two consumers today —
+`CrossSection` painter ABC).  Consumers today:
 `infrastructure/rail_tracks/rail_060_tracks` (ballast + ties + rails
-cross-section, with a `paint_arc` override for radial ties) and
-`infrastructure/roads/road_040` (carriageway slab + dithered
-cobblestone kerbs on the long sides) — both bake the
-full 63-cell hex set into `<asset>_hex.png` plus a 6-cell axis-slope
+cross-section, with a `paint_arc` override for radial ties) and the
+road family (`road_030` / `road_040` / `road_050` / `road_055` /
+`road_070` / `road_090` / `cityroad_030` / `highway_110`, all
+sharing the parameterised `RoadCrossSection` in
+`infrastructure/roads/road_params.py`) — every one bakes the full
+63-cell hex set into `<asset>_hex.png` plus a 6-cell axis-slope
 atlas.  Open work: 3+ way junctions are placeholder "stub-per-edge"
 geometry — a pass should promote any 60°-apart pair inside a
 junction to an arc (through-route) and leave the remaining edges as
 branching stubs; rail also wants a buffer-stop short beam at the
 centre end of single-edge stubs (currently a clean cut reads as
 "track ending mid-air"); the no-way `Image[-]` placeholder still
-borrows an upstream pak128 square cell on both bakers.
+borrows an upstream pak128 square cell on every baker.
 
-**Way winter art.** Both `rail_060_tracks.dat` and `road_040.dat`
-are now single-season — engine treats `Image[-][1]` absent as
-year-round summer.  Hex winter art is deferred per family; lands
-as a colour/material variant on the same scene parts (rail: ballast
-+ tie palette swap; road: snow-dusted pavement) producing
-`<asset>_hex_winter.png` and re-introducing the `[1]` season block.
+**Way winter art.** `rail_060_tracks.dat` and the migrated road
+family (road_030 / road_040 / road_050 / road_055 / road_070 /
+road_090 / cityroad_030 / highway_110) are all single-season now
+— engine treats `Image[-][1]` absent as year-round summer.  Hex
+winter art is deferred per family; lands as a colour/material
+variant on the same scene parts (rail: ballast + tie palette swap;
+road: snow-dusted pavement) producing `<asset>_hex_winter.png`
+and re-introducing the `[1]` season block.
 
 **X-bracing on rail_060_bridge.** The numpy z-buffer rasterizer
 in `tools/threed/render.py` only supports axis-aligned boxes via
