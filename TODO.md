@@ -179,3 +179,15 @@ keeping mean exact.  Both deferred until the deliverable is in-game
 and the cartoon-vs-realistic balance can be judged against the
 rest of the hex tileset.
 
+**Pavement RGB duplicated across road and sidewalk bakers.**
+`infrastructure/roads/road_params.py::PAVEMENT_GREY = (140, 130, 115)`
+and `landscape/grounds/sidewalk/render.py::BASE_RGB = (138, 136, 130)`
+are independent constants that both stand for "city-road pavement
+under default sun" — the road slab sits on top of the sidewalk cell
+and the two are both visible at the same time, so a mismatch reads
+as a seam.  When the second road family lands (road_030, road_050,
+…) and `road_params.py` accumulates more cross-asset constants,
+hoist the pavement colour out into a shared module both
+`infrastructure/roads/` and `landscape/grounds/sidewalk/` import
+from, and reconcile the two values to one.
+
