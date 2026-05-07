@@ -66,20 +66,29 @@ SLOPE_HEX_ENTRIES: list[tuple[str, str]] = [
 
 
 # ---- Hex tile geometry ----------------------------------------------------
-# Flat-top hex of radius 0.5 centred at origin.  Corner order matches
-# `hex_corner_t` in `dataobj/ribi.h`; edge naming matches the EDGE
-# convention ("flat-top hexes have due-N and due-S edges, corners do
-# not") — see hextrans/AGENTS.md.
+# Flat-top hex centred at origin.  Corner order matches `hex_corner_t`
+# in `dataobj/ribi.h`; edge naming matches the EDGE convention
+# ("flat-top hexes have due-N and due-S edges, corners do not") —
+# see hextrans/AGENTS.md.
+#
+# `HEX_TILE_RADIUS` is the hex's circumradius in world units, picked so the entry
+# edge length (= R for a regular hexagon) matches the square dimetric
+# tile's side length (1.0).  This way one set of asset widths
+# (`PAVEMENT_HALF_W = 0.5` "fills the entry edge") reads correctly
+# under both projections — square sees a tile-filling road; hex sees
+# a road that fills its entry edge while leaving the hex shoulder
+# corners showing terrain.  `world_to_screen_hex` and `hex_plan_clip`
+# pull this constant so the projection follows the world scale.
 
-_R = 0.5
+HEX_TILE_RADIUS = 1.0
 
 HEX_CORNERS: dict[str, tuple[float, float]] = {
-    "E":  ( _R,                 0.0),
-    "SE": ( _R / 2,            -_R * math.sqrt(3) / 2),
-    "SW": (-_R / 2,            -_R * math.sqrt(3) / 2),
-    "W":  (-_R,                 0.0),
-    "NW": (-_R / 2,             _R * math.sqrt(3) / 2),
-    "NE": ( _R / 2,             _R * math.sqrt(3) / 2),
+    "E":  ( HEX_TILE_RADIUS,                 0.0),
+    "SE": ( HEX_TILE_RADIUS / 2,            -HEX_TILE_RADIUS * math.sqrt(3) / 2),
+    "SW": (-HEX_TILE_RADIUS / 2,            -HEX_TILE_RADIUS * math.sqrt(3) / 2),
+    "W":  (-HEX_TILE_RADIUS,                 0.0),
+    "NW": (-HEX_TILE_RADIUS / 2,             HEX_TILE_RADIUS * math.sqrt(3) / 2),
+    "NE": ( HEX_TILE_RADIUS / 2,             HEX_TILE_RADIUS * math.sqrt(3) / 2),
 }
 
 # Each named edge → (corner_a, corner_b).  Edge midpoint = mean of corners.

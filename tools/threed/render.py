@@ -35,12 +35,17 @@ Usage in a scene file:
     render(m, HexCamera(),                       out_path="out_hex.png")
 
 Conventions:
-- World axes: +x, +y horizontal; +z up. Tile spans [-0.5, 0.5] in x,y.
+- World axes: +x, +y horizontal; +z up.  Square tile spans [-0.5, 0.5]
+  in x,y (side length 1.0).  Hex tile is bigger in world coords: corners
+  at radius `HEX_TILE_RADIUS` (= 1.0) from origin, picked so the entry-
+  edge length (= R for a regular hex) matches the square tile's side
+  length — so one set of asset widths reads correctly under both
+  projections (`PAVEMENT_HALF_W = 0.5` fills the entry edge in either).
 - Square camera: yaw 45 deg around z, pitch ~29.5 deg above horizontal
   (calibrated against the texture_lightmap flat tile bbox).
 - Hex camera: flat-top, no yaw — world +x is screen-right, world +y is
   screen-up.  Anchored to the engine's `HexGeom` (`tools/threed/hex_synth.py`,
-  mirroring `synth_geometry.h`): the unit hex (radius 0.5 in world)
+  mirroring `synth_geometry.h`): the world hex of radius `HEX_TILE_RADIUS`
   maps onto the engine's W-wide × W/2-tall flat-top silhouette so a 3D
   scene shares one geometry source with the parametric ground bakers.
 - Sun: from south, 60 deg above horizon (pak128 standard, see
@@ -58,6 +63,7 @@ from PIL import Image
 from .hex_synth import (
     DEFAULT_W, HEIGHT_STEP, HexGeom, hash_noise01, hex_height_raster_scale_y
 )
+from .way import HEX_TILE_RADIUS
 
 # --- Camera / projection -----------------------------------------------------
 YAW = np.deg2rad(45.0)
@@ -95,13 +101,12 @@ def world_to_screen(p, screen_center_y=SCREEN_CENTER_Y_GROUND):
 
 
 # --- Hex projection ----------------------------------------------------------
-# Anchored to `HexGeom` (mirror of `synth_geometry.h`).  The unit hex
-# (corners at angles 0,60,...,300 from origin, radius 0.5 in world) projects
-# onto the engine's flat-tile silhouette: world (0.5, 0) → (W-1, mid_y),
-# world (0.25, sqrt(3)/4) ≈ (0.25, 0.433) → (3u, top_y), and so on.  Doing
-# the algebra against E and NE: x-scale = W per world unit, y-scale =
-# W/√3 per world unit (so the hex's y-extent ±sqrt(3)/4 maps to
-# screen-y ± W/4 = ±u).
+# Anchored to `HexGeom` (mirror of `synth_geometry.h`).  The world hex
+# has corners at radius `HEX_TILE_RADIUS` from origin (R = 1.0 by
+# default — see way.py for why).  Projection maps world (R, 0) → screen
+# (W-1, mid_y) and (R/2, R·√3/2) → (3u, top_y), so x-scale =
+# W/(2R) per world unit and y-scale = W/(2R·√3) per world unit (so the
+# hex's y-extent ±R·√3/2 maps to screen-y ± W/4 = ±u).
 #
 # z-lift uses the same scale as square dimetric (PIXELS_PER_UNIT) so a
 # given 3D part has a comparable on-screen height in both projections.
@@ -124,7 +129,8 @@ def engine_z_per_step(height_step: int = 1, w: int = DEFAULT_W) -> float:
     return hex_height_raster_scale_y(height_step * HEIGHT_STEP, w) / HEX_Z_SCALE
 
 
-def hex_plan_clip(wx: np.ndarray, wy: np.ndarray, radius: float = 0.5,
+def hex_plan_clip(wx: np.ndarray, wy: np.ndarray,
+                  radius: float = HEX_TILE_RADIUS,
                   slack: float = 0.5 / 128.0) -> np.ndarray:
     """Boolean mask: which (world_x, world_y) pixels lie inside the
     flat-top hex of the given radius.
@@ -148,15 +154,20 @@ def hex_plan_clip(wx: np.ndarray, wy: np.ndarray, radius: float = 0.5,
 def world_to_screen_hex(p, geom: HexGeom, anchor_y=None):
     p = np.asarray(p, dtype=np.float64)
     x, y, z = p[..., 0], p[..., 1], p[..., 2]
-    sx = geom.w / 2.0 + x * geom.w
-    # y-compression by 1/√3 makes the regular hex (corners at radius 0.5)
-    # land on the engine's flat-tile vertices.  z lifts up the screen.
+    # World hex has corners at radius `HEX_TILE_RADIUS`; map them onto
+    # the engine's flat-tile screen vertices.  x scales so x=±R lands
+    # at sx=0 / sx=w-1 (W / E corners); y compresses by 1/√3 so the
+    # NE/SE corners at world y=±R·√3/2 land at top_y / bot_y.  z lifts
+    # up the screen using the same px-per-world-unit as square dimetric
+    # so deck heights project to comparable on-screen heights.
     # `anchor_y` is the cell-y where world z=0 lands; defaults to the
     # tile's mid_y (correct for ground-level assets).  Bridges anchor
     # below mid_y so the deck lifts off the cell-centre line by the
     # same offset pak128 square achieves via its `,0,32` dat shift.
     base_y = geom.mid_y if anchor_y is None else anchor_y
-    sy = base_y - y * geom.w / np.sqrt(3.0) - z * HEX_Z_SCALE
+    sx = geom.w / 2.0 + x * (geom.w / (2.0 * HEX_TILE_RADIUS))
+    sy = base_y - y * (geom.w / (2.0 * HEX_TILE_RADIUS * np.sqrt(3.0))) \
+                - z * HEX_Z_SCALE
     # Depth: +y (further north in world) is further from the camera; +z
     # is closer (sits on top).  Match this to the y-ordering screen so
     # painter's-algorithm via z-buffer works for tilted quads.
