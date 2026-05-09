@@ -26,7 +26,7 @@ from tools.threed import way_topology as wt
 from tools.threed import way_verify
 from tools.threed.bespoke import bake_atlas
 from tools.threed.render import HexCamera, Model, render
-from tools.threed.way import HEX_ENTRIES, SLOPE_HEX_ENTRIES
+from tools.threed.way import HEX_ENTRIES, SLOPE_HEX_DOUBLE_ENTRIES, SLOPE_HEX_ENTRIES
 
 
 ROADS_DIR = Path(__file__).resolve().parent
@@ -61,6 +61,12 @@ class RoadParams:
     # unchanged) but unambiguous to the depth test.
     sidewalk_top_z: float = 0.008
     carriageway_top_z: float = 0.014
+    # `has_double_slopes=1` opt-in in the tier's .dat.  When True the
+    # bake emits a second 1×6 row in `<name>_hex_slope.png` with the
+    # 0→2 chord climb; the .dat references those cells via
+    # `ImageUp[<axis>_double]`.  Mirrors each tier's pre-port square
+    # `ImageUp2[*]` presence — see commit 1c8c877 in the .dats.
+    has_double_slopes: bool = False
 
 
 # --- Per-tier instances -----------------------------------------------------
@@ -72,6 +78,7 @@ ROAD_040 = RoadParams(
     name="road_040",
     carriageway_color=(97, 91, 72),
     sidewalk_color=(157, 167, 151),
+    has_double_slopes=True,
 )
 
 # road_050 — 50 km/h urban road that reads like asphalt under stone-
@@ -80,6 +87,7 @@ ROAD_050 = RoadParams(
     name="road_050",
     carriageway_color=(86, 80, 68),
     sidewalk_color=(150, 158, 146),
+    has_double_slopes=True,
 )
 
 # road_070 / road_090 / highway_110 — asphalt intercity / trunk.  No
@@ -93,6 +101,7 @@ ROAD_070 = RoadParams(
     pavement_half_w=0.42,
     carriageway_half_w=0.42,
     sidewalk_color=None,
+    has_double_slopes=True,
 )
 ROAD_090 = RoadParams(
     name="road_090",
@@ -100,6 +109,7 @@ ROAD_090 = RoadParams(
     pavement_half_w=0.50,
     carriageway_half_w=0.50,
     sidewalk_color=None,
+    has_double_slopes=True,
 )
 HIGHWAY_110 = RoadParams(
     name="highway_110",
@@ -127,6 +137,7 @@ ROAD_030 = RoadParams(
     carriageway_half_w=0.32,
     sidewalk_color=None,
     carriageway_dither_keep=0.60,
+    has_double_slopes=True,
 )
 
 # road_055 — 55 km/h gravel road, narrow grey-tan path.  Same shape
@@ -138,6 +149,7 @@ ROAD_055 = RoadParams(
     carriageway_half_w=0.34,
     sidewalk_color=None,
     carriageway_dither_keep=0.65,
+    has_double_slopes=True,
 )
 
 # cityroad_030 — same speed/cost as road_030 but with the urban sand
@@ -149,6 +161,7 @@ CITYROAD_030 = RoadParams(
     carriageway_half_w=0.40,
     sidewalk_color=None,
     carriageway_dither_keep=0.65,
+    has_double_slopes=True,
 )
 
 
@@ -205,7 +218,9 @@ def make_tier(params: RoadParams):
     (consumed by `way_verify.verify_square` for the dimetric diff
     against pak128 cells 1.5 / 1.6).  `bake_pakset()` writes
     `<name>_hex.png` (8×8 ribi atlas) and `<name>_hex_slope.png`
-    (1×6 axis-slope atlas) next to the tier's `.dat`.
+    next to the tier's `.dat`.  The slope atlas is 1×6 for
+    single-height-only tiers and 6×2 for `has_double_slopes`
+    tiers (row 0 = single, row 1 = double-height 0→2 chord).
     """
     cs = RoadCrossSection(params)
 
@@ -214,16 +229,25 @@ def make_tier(params: RoadParams):
         cs.paint(m, wt.for_edges_paths(edges))
         return render(m, HexCamera())
 
-    def render_hex_slope_cell(edge):
+    def render_hex_slope_cell(edge, *, steps=1):
         m = Model()
-        wt.lay_axis_slope(cs, m, edge)
+        wt.lay_axis_slope(cs, m, edge, steps=steps)
         return render(m, HexCamera())
 
     def bake_pakset() -> None:
+        slope_entries = [
+            (label, lambda e=edge: render_hex_slope_cell(e))
+            for label, edge in SLOPE_HEX_ENTRIES
+        ]
+        if params.has_double_slopes:
+            slope_entries += [
+                (label, lambda e=edge: render_hex_slope_cell(e, steps=2))
+                for label, edge in SLOPE_HEX_DOUBLE_ENTRIES
+            ]
         bake_atlas(
             out_png=ROADS_DIR / f"{params.name}_hex_slope.png",
-            entries=[(label, lambda e=edge: render_hex_slope_cell(e))
-                     for label, edge in SLOPE_HEX_ENTRIES],
+            entries=slope_entries,
+            cols_per_row=6,
         )
         bake_atlas(
             out_png=ROADS_DIR / f"{params.name}_hex.png",

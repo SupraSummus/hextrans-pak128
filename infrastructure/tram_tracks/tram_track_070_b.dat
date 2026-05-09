@@ -1,4 +1,5 @@
 Obj=way
+has_double_slopes=1
 Name=Tram_Track_070_B
 waytype=track
 copyright=Fabio Gonella

@@ -1,5 +1,6 @@
 #ELEVATED
 obj=way
+has_double_slopes=1
 name=Road_050_Elevated
 waytype=road
 copyright=Fabio Gonella

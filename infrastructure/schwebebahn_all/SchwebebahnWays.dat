@@ -5,6 +5,7 @@
 --------------------------------------------------------------------------------
 
 obj=way
+has_double_slopes=1
 name=Suspended_Monorail_Track
 copyright=yoshi
 
@@ -91,6 +92,7 @@ FrontDiagonal[NW]=schwebebahn_p_front.5.3
 -------------------------------------------------------------------------------
 
 obj=way
+has_double_slopes=1
 name=Schwebebahn_p_ground
 copyright=yoshi
 

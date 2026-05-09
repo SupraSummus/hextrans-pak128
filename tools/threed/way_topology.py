@@ -248,11 +248,20 @@ def for_edges_paths(edges):
     return junction_paths(edges)
 
 
-def lay_axis_slope(cs: CrossSection, model, low_edge: str) -> None:
+def lay_axis_slope(cs: CrossSection, model, low_edge: str,
+                   *, steps: int = 1) -> None:
     """Lay a way segment on an axis-aligned hex slope: paint the
     through-tile chord between the low and high edges, then tilt
-    every vertex's z linearly so the high-edge midpoint sits one
-    engine height step above the low-edge midpoint.
+    every vertex's z linearly so the high-edge midpoint sits
+    `steps` engine height steps above the low-edge midpoint.
+
+    `steps=1` is the single-height ramp baked into `slope_t::*_narrow`
+    / `*_wide`; `steps=2` matches the double-height 012210 ramp baked
+    into `slope_t::*_double`.  The slab itself only models the way
+    surface and its chord climb — the off-axis ground inflection
+    that distinguishes narrow / wide / double on the same axis (the
+    perpendicular side corners' actual height: 0 for narrow, 1 for
+    wide and double) is rendered separately by the ground baker.
 
     Combines the two steps so callers can't forget the tilt.  The
     `engine_z_per_step` import is lazy because `render.py` pulls in
@@ -268,7 +277,7 @@ def lay_axis_slope(cs: CrossSection, model, low_edge: str) -> None:
     high_mx, high_my = edge_midpoint(high_edge)
     chord_dx, chord_dy = high_mx - low_mx, high_my - low_my
     chord_len_sq = chord_dx * chord_dx + chord_dy * chord_dy
-    z_total = engine_z_per_step()
+    z_total = engine_z_per_step(height_step=steps)
     model.verts = [
         (vx, vy, vz + ((vx - low_mx) * chord_dx + (vy - low_my) * chord_dy)
                        / chord_len_sq * z_total)
