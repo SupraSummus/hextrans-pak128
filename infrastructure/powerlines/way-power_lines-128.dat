@@ -6,6 +6,7 @@
 
 ----------------------------------------
 Obj=way
+has_double_slopes=1
 Name=Powerline
 copyright=MHz & Fabio Gonella
 waytype=power
@@ -76,6 +77,7 @@ BackImage[W][1]=-
 FrontImage[W][1]=way-power_lines-128.9.7,0,-42
 ----------------------------------------
 Obj=way
+has_double_slopes=1
 Name=PowerConduits
 copyright=Fabio Gonella
 waytype=power

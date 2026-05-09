@@ -64,6 +64,16 @@ SLOPE_HEX_ENTRIES: list[tuple[str, str]] = [
     ("nw", "NW"),
 ]
 
+# Double-height (012210) slope sprites — same 6 axes as the single-
+# height set above, but the way's chord climbs 0→2 instead of 0→1.
+# `_double`-suffixed labels match `way_writer.cc::slope_keys` slots
+# 12-17 (`slope_t::*_double`).  Pairwise position-aligned with
+# SLOPE_HEX_ENTRIES so a `lay_axis_slope(..., steps=2)` bake lays
+# cell `i` at the same low edge as cell `i` of the single atlas.
+SLOPE_HEX_DOUBLE_ENTRIES: list[tuple[str, str]] = [
+    (f"{label}_double", edge) for label, edge in SLOPE_HEX_ENTRIES
+]
+
 
 # ---- Hex tile geometry ----------------------------------------------------
 # Flat-top hex centred at origin.  Corner order matches `hex_corner_t`

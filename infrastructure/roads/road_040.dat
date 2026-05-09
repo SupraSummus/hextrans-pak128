@@ -5,6 +5,7 @@
 ## Road + Bridge + Elevated + Tunnel
 #ROAD
 obj=way
+has_double_slopes=1
 name=Road_040
 waytype=road
 copyright=Fabio Gonella
@@ -31,12 +32,14 @@ cursor=road_040.0.7,0,-16
 # placeholder still borrows an upstream pak128 square cell (no hex
 # model for "no road laid").
 #
-# Slope sprites (ImageUp[…]):  12 way-buildable hex slopes — 6
-# narrow (2-corner) edge slopes + 6 wide (4-corner) variants.
-# Each of the 6 axis directions has its own cell in
-# road_040_hex_slope.png; narrow and wide of the same direction
-# share a cell because the pavement climbs the same 0→1 path,
-# only the off-axis ground inflection differs.
+# Slope sprites (ImageUp[…]):  18 way-buildable hex slopes — 6
+# narrow (2-corner) edge slopes + 6 wide (4-corner) variants +
+# 6 double-height (012210) variants.  Single-height narrow and
+# wide of the same direction share atlas row 0 (the pavement
+# climbs the same 0→1 path; only the off-axis ground inflection
+# differs); double-height variants live in atlas row 1, baked
+# with `lay_axis_slope(steps=2)` so the chord climbs 0→2 to
+# match `slope_t::*_double`.
 #
 # Single-season: no winter art yet.  The engine treats a way
 # without Image[-][1] as year-round summer; see way_writer.cc.
@@ -116,3 +119,9 @@ ImageUp[se_wide][0]=road_040_hex_slope.0.2
 ImageUp[s_wide][0]=road_040_hex_slope.0.3
 ImageUp[sw_wide][0]=road_040_hex_slope.0.4
 ImageUp[nw_wide][0]=road_040_hex_slope.0.5
+ImageUp[n_double][0]=road_040_hex_slope.1.0
+ImageUp[ne_double][0]=road_040_hex_slope.1.1
+ImageUp[se_double][0]=road_040_hex_slope.1.2
+ImageUp[s_double][0]=road_040_hex_slope.1.3
+ImageUp[sw_double][0]=road_040_hex_slope.1.4
+ImageUp[nw_double][0]=road_040_hex_slope.1.5
