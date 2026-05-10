@@ -92,6 +92,31 @@ variant on the same scene parts (rail: ballast + tie palette swap;
 road: snow-dusted pavement) producing `<asset>_hex_winter.png`
 and re-introducing the `[1]` season block.
 
+**rail_060_tunnel_hex remaining sheet calibration.**  The hex
+deliverable (`rail_060_tunnel_hex.{png,dat}` baked from
+`rail_060_tunnel/scene.py`) ships 12 cells (6 edges × Front/Back)
+and is wired up as a separate `Name=Rail_060_Tunnel_Hex` object
+alongside the legacy upstream tunnel.  Geometry is two cliff
+buttresses + lintel + dark interior, with only the lintel in the
+front layer (occludes the vehicle as it passes under the arch).
+Square verification against pak128 cells 0-1.0..0-1.3 of
+`rail_060_tunnel.png` via `build.py` lands back-layer IoU ~0.40
+(0.53 on camera-facing [N]/[W], 0.27 on [S]/[E]) and front-layer
+IoU ~0.06 — the back is close because the buttresses + dark
+interior recreate the visible-cliff silhouette pak128 paints into
+the back cell, but pak128's front cells carry a separately-shaped
+"near-half cliff wedge" that our lintel-only front can't match.
+Two open improvements: (a) the rectangular opening reads as a
+doorway, not the arched cave mouth pak128 ships — needs curved
+or bevelled top, gating on the renderer accepting non-axis-aligned
+quads (same upgrade unlocks the bridge's X-bracing entry); (b) a
+real depth-clip front-layer split (per-orientation `front_normal`,
+matching the bridge's `Orient` pattern) would carve the cliff
+along the camera-near plane and produce a substantial front cell
+without duplicating geometry — needs `add_box` to grow a "split
+at this plane" option, since axis-aligned boxes cut by an
+arbitrary plane produce non-axis-aligned children.
+
 **X-bracing on rail_060_bridge.** The numpy z-buffer rasterizer
 in `tools/threed/render.py` only supports axis-aligned boxes via
 `add_box`, so the diagonal X-bracing between trestle posts can't

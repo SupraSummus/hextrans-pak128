@@ -1,7 +1,17 @@
 #TUNNEL
+# Baked from `rail_060_tunnel/scene.py::bake_pakset` —
+# `rail_060_tunnel.png` is the 6×2 atlas (6 columns in
+# `hex_keys::edge_names` order {n, s, ne, se, sw, nw}, row 0 =
+# FrontImage, row 1 = BackImage).  Legacy upstream art lives at
+# `rail_060_tunnel/src/` and is no longer packaged.
+#
+# Hex tunnel .dat key contract (engine `tunnel_writer.cc` +
+# `tunnel_desc_t::slope_index`): one Front/Back pair per hex edge,
+# with low-edge naming — `frontimage[n][0]` is the portal whose mouth
+# opens through the N edge (mountain rises south).
 obj=tunnel
 name=Rail_060_Tunnel
-copyright=Gauthier & Fabio
+copyright=Gauthier & Fabio + hextrans
 waytype=track
 way=Rail_060_Tracks
 cost=50000
@@ -11,23 +21,22 @@ intro_year=1810
 intro_month=1
 retire_year=1970
 retire_month=1
-icon=> rail_060_tunnel.0.4
-cursor=rail_060_tunnel.1.4,0,-16
+# Icon + cursor reuse the BackImage[n] cell — a clear portal mouth
+# silhouette suffices for the build menu thumbnail and tile-placement
+# cursor.  Legacy pak128 shipped a dedicated 60-sign icon at cell 0.4
+# of the upstream sheet; that art is in `src/` and not packaged.
+icon=> rail_060_tunnel.1.0
+cursor=rail_060_tunnel.1.0,0,-16
 #SUMMER
-FrontImage[N][0]=rail_060_tunnel.0.0
-BackImage[N][0]=rail_060_tunnel.1.0
-FrontImage[S][0]=rail_060_tunnel.0.2
-BackImage[S][0]=rail_060_tunnel.1.2
-FrontImage[E][0]=rail_060_tunnel.0.3
-BackImage[E][0]=rail_060_tunnel.1.3
-FrontImage[W][0]=rail_060_tunnel.0.1
-BackImage[W][0]=rail_060_tunnel.1.1
-#WINTER
-FrontImage[N][1]=rail_060_tunnel.2.0
-BackImage[N][1]=rail_060_tunnel.3.0
-FrontImage[S][1]=rail_060_tunnel.2.2
-BackImage[S][1]=rail_060_tunnel.3.2
-FrontImage[E][1]=rail_060_tunnel.2.3
-BackImage[E][1]=rail_060_tunnel.3.3
-FrontImage[W][1]=rail_060_tunnel.2.1
-BackImage[W][1]=rail_060_tunnel.3.1
+FrontImage[n][0]=rail_060_tunnel.0.0
+FrontImage[s][0]=rail_060_tunnel.0.1
+FrontImage[ne][0]=rail_060_tunnel.0.2
+FrontImage[se][0]=rail_060_tunnel.0.3
+FrontImage[sw][0]=rail_060_tunnel.0.4
+FrontImage[nw][0]=rail_060_tunnel.0.5
+BackImage[n][0]=rail_060_tunnel.1.0
+BackImage[s][0]=rail_060_tunnel.1.1
+BackImage[ne][0]=rail_060_tunnel.1.2
+BackImage[se][0]=rail_060_tunnel.1.3
+BackImage[sw][0]=rail_060_tunnel.1.4
+BackImage[nw][0]=rail_060_tunnel.1.5
