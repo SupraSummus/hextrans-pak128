@@ -17,6 +17,7 @@ jobs:
 
         - name: build makeobj
           run: |
+            sudo apt-get update
             sudo apt-get -y install libpng-dev autoconf
             git clone --depth 1 https://github.com/suprasummus/hextrans simutrans
             (cd simutrans && autoconf && ./configure)
