@@ -239,6 +239,116 @@ def render_cliff_cell(wall: int, h1: int, h2: int, color,
     return buf
 
 
+# ---- Way-axis geometry (nasyp / way-cut walls) ----------------------------
+#
+# A way running through a hex tile on one of the three axes occupies a
+# chord strip of half-width `WAY_HALF_WIDTH` from one touched edge
+# midpoint to the opposite midpoint, at chord height `h_way`.  Outside
+# the strip is natural ground at the slope's corner heights.  Where
+# they differ, the engine renders a vertical wall along the chord
+# strip's long edge — a *cut* face if natural ground rises above the
+# way (`h_off > h_way`), a *nasyp* (embankment) face if it sinks
+# below (`h_off < h_way`).  Replaces the older per-hex-edge
+# `(wall, h1, h2)` model that put cliffs on the tile boundary instead
+# of along the chord-strip boundary.
+
+WAY_HALF_WIDTH = 0.2
+
+# Tile corner positions in world XY.  Hex circumradius matches
+# `tools/threed/way.py::HEX_TILE_RADIUS = 1.0` so corners sit at
+# distance 1 from origin and 1 world unit = 1 entry-edge length.
+_S3 = math.sqrt(3.0)
+HEX_CORNER_XY = [
+    ( 1.0,        0.0      ),  # E   (0)
+    ( 0.5,       -_S3 / 2.0),  # SE  (1)
+    (-0.5,       -_S3 / 2.0),  # SW  (2)
+    (-1.0,        0.0      ),  # W_C (3)
+    (-0.5,        _S3 / 2.0),  # NW  (4)
+    ( 0.5,        _S3 / 2.0),  # NE  (5)
+]
+
+# Touched-edge corner indices per axis: `((a0, a1), (b0, b1))` where
+# (a0, a1) are the two corners of the first touched edge and (b0, b1)
+# the two corners of the opposite touched edge.  Matches the engine's
+# `slope_t::is_way` axis triples in `dataobj/ribi.h`.
+AXIS_EDGE_CORNERS = {
+    NS:    ((NW,  NE), (SE, SW )),
+    NE_SW: ((NE,  E ), (SW, W_C)),
+    NW_SE: ((W_C, NW), (E,  SE )),
+}
+
+# Off-axis corners per axis: `(off_pos, off_neg)`.  `off_pos` sits on
+# the axis's +perp side (perpendicular obtained by 90° CCW rotation of
+# the axis direction edge1_mp → edge2_mp); `off_neg` on the -perp
+# side.  Hand-verified per axis.
+AXIS_OFF_AXIS_CORNERS = {
+    NS:    (E,  W_C),
+    NE_SW: (SE, NW ),
+    NW_SE: (NE, SW ),
+}
+
+
+def axis_corners(slope: int, axis: int):
+    """Return `(a0, a1, b0, b1)` corner heights for `axis` on `slope`."""
+    ch = decode_corner_heights(slope)
+    (a0_i, a1_i), (b0_i, b1_i) = AXIS_EDGE_CORNERS[axis]
+    return ch[a0_i], ch[a1_i], ch[b0_i], ch[b1_i]
+
+
+def axis_h_way(slope: int, axis: int):
+    """Return `(h_edge1, h_edge2)` for the way's chord on `axis`, or
+    `None` if the axis is not way-buildable on `slope`.
+
+    Both touched edges must be internally level (`a0 == a1` and
+    `b0 == b1`).  This is the "terrain-way height must match at the
+    tile edge" rule from `dataobj/ribi.h::slope_level_edge_h`: a way
+    crossing an edge midpoint must have its chord height match
+    `(a0 + a1) / 2`, which under single-step slopes is integer only
+    when `a0 == a1`.  Mixed-corner edges where one corner equals the
+    chord height but the other doesn't are admitted by the engine's
+    `chord_h_axis` for the placement check ("the way rests on the
+    level corner") but produce a way/terrain step at the edge
+    midpoint that the way_wall renderer can't represent honestly —
+    and the user-facing rendering of those configurations doesn't
+    read right anyway.
+
+    Within the level-edge constraint:
+      * Flat chord when `a0 == b0`, both edges at the same H.
+      * Narrow ramp when `|a0 - b0| == 1`.
+      * Planar double-edge ramp when `|a0 - b0| == 2` (`*_double`
+        slopes only).
+    """
+    a0, a1, b0, b1 = axis_corners(slope, axis)
+    if a0 != a1 or b0 != b1:
+        return None
+    if abs(a0 - b0) <= 2:
+        return a0, b0
+    return None
+
+
+def axis_edge_midpoints(axis: int):
+    """`(mp1, mp2)` for the touched-edge midpoints (world XY)."""
+    (a0_i, a1_i), (b0_i, b1_i) = AXIS_EDGE_CORNERS[axis]
+    mp1 = ((HEX_CORNER_XY[a0_i][0] + HEX_CORNER_XY[a1_i][0]) / 2.0,
+           (HEX_CORNER_XY[a0_i][1] + HEX_CORNER_XY[a1_i][1]) / 2.0)
+    mp2 = ((HEX_CORNER_XY[b0_i][0] + HEX_CORNER_XY[b1_i][0]) / 2.0,
+           (HEX_CORNER_XY[b0_i][1] + HEX_CORNER_XY[b1_i][1]) / 2.0)
+    return mp1, mp2
+
+
+def axis_unit_vector(axis: int):
+    mp1, mp2 = axis_edge_midpoints(axis)
+    dx, dy = mp2[0] - mp1[0], mp2[1] - mp1[1]
+    n = math.sqrt(dx * dx + dy * dy)
+    return (dx / n, dy / n)
+
+
+def axis_perp_vector(axis: int):
+    """Unit perpendicular (90° CCW from the axis direction)."""
+    ux, uy = axis_unit_vector(axis)
+    return (-uy, ux)
+
+
 # ---- Slope validity -------------------------------------------------------
 
 def slope_is_valid(slope: int) -> bool:
