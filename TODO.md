@@ -237,15 +237,3 @@ keeping mean exact.  Both deferred until the deliverable is in-game
 and the cartoon-vs-realistic balance can be judged against the
 rest of the hex tileset.
 
-**Pavement RGB drift between road and sidewalk bakers.**
-`infrastructure/roads/road_params.py` now ships a two-tone road
-(`CARRIAGEWAY_BROWN = (97, 91, 72)`, `SIDEWALK_GREY = (157, 167,
-151)` — both sampled from pak128 cells 1.5/1.6) while
-`landscape/grounds/sidewalk/render.py::BASE_RGB = (138, 136, 130)`
-is still the single-tone city-pavement constant from before the
-two-tone split.  The road slab sits on top of the sidewalk cell, so
-once a road tile borders a sidewalk tile the seam will read as two
-mismatched greys.  Hoist into a shared palette when the second road
-family lands (road_030 / road_050) and reconcile against whichever
-of `BASE_RGB` / `SIDEWALK_GREY` matches the legacy art best.
-

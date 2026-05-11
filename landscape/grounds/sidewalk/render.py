@@ -36,12 +36,21 @@ from tools.threed.hex_synth import (
 )
 
 
-# Pavement palette: warm mid-grey concrete.  `BASE_RGB` is the
-# brightness=256 (1.0×) shade — Lambert darkens it on tilted faces.
-# `NOISE_AMP` scatters per-pixel offsets in `[-NOISE_AMP/2,
-# +NOISE_AMP/2]` for gravel grit; `hash_noise01` keeps the bake
-# byte-stable across runs.
-BASE_RGB = np.array([138, 136, 130], dtype=np.float32)
+# Single source of truth for the city-pavement grey, exported so the
+# road bakers (`infrastructure/roads/road_params.RoadParams.sidewalk_color`)
+# can key their kerb slabs off the same value — a road tile's kerb
+# composites over the sidewalk ground tile under it (dither holes
+# expose the underlay), and the tile-to-tile seam between a city road
+# and a sidewalk-only neighbour reads as one continuous grey only if
+# the two bakers agree.  Value is the median of pak128's upstream
+# `src/sidewalk.png` flat cell — cool green-tinted mid-grey (G > R > B).
+PAVEMENT_RGB: tuple[int, int, int] = (135, 143, 124)
+
+# `BASE_RGB` is the brightness=256 (1.0×) shade — Lambert darkens it
+# on tilted faces.  `NOISE_AMP` scatters per-pixel offsets in
+# `[-NOISE_AMP/2, +NOISE_AMP/2]` for gravel grit; `hash_noise01`
+# keeps the bake byte-stable across runs.
+BASE_RGB = np.array(PAVEMENT_RGB, dtype=np.float32)
 NOISE_AMP = np.float32(50.0)
 
 
