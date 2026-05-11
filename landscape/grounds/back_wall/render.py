@@ -8,15 +8,9 @@ attached to one of the tile's three north-side edges:
   * wall 1 — N  edge (NW -> NE corners)
   * wall 2 — NE edge (NE -> E  corners)
 
-The lower edge of the polygon sits at the unlifted edge in screen
-space; the upper edge is lifted by `h1 * geom.lift` at the first
-endpoint and `h2 * geom.lift` at the second, matching the
-`get_back_image_from_diff` encoding the engine's `grund.cc` produces:
-index 0 = no cliff (not emitted), 1..8 = `(h1, h2)` for
-`h1, h2 in {0, 1, 2}` with `index = h1 + 3*h2`, and 9..10 = the
-middle slopes of double-height stacks (currently rendered as the
-corresponding single-step half-cliffs; see `TODO.md` for the missing
-notch shape).
+Polygon geometry and `(h1, h2)` encoding are shared with way_wall via
+`hex_synth.render_cliff_cell` / `hex_synth.decode_cliff_index`; only
+the per-(artificial, wall) palette lives here.
 
 Style: drab brown for natural cliffs, drab grey for the man-made
 fundament platform; per-wall darkening so adjacent faces read as
@@ -39,15 +33,7 @@ from tools.threed import hex_synth
 
 
 WALL_COUNT = 3
-IMAGE_COUNT = 11   # per-wall image slots; index 0 = "no cliff", not baked
-
-
-# Lower-edge endpoint corners per wall.
-WALL_ENDPOINTS = (
-    (hex_synth.W_C, hex_synth.NW),  # wall 0: NW edge
-    (hex_synth.NW,  hex_synth.NE),  # wall 1: N edge
-    (hex_synth.NE,  hex_synth.E),   # wall 2: NE edge
-)
+IMAGE_COUNT = hex_synth.CLIFF_IMAGE_COUNT
 
 
 # Flat-colour palette, indexed by (artificial, wall).  Wall 0 (NW
@@ -70,20 +56,6 @@ FACE_COLOR = {
 }
 
 
-def _decode_index(index: int) -> tuple[int, int]:
-    """`(h1, h2)` for the cliff polygon's two endpoint lifts.
-
-    Indices 1..8 are the standard `index = h1 + 3*h2` encoding;
-    indices 9 and 10 are placeholder shapes for the legacy
-    double-height notch (see hextrans `TODO.md`).
-    """
-    if index == 10:
-        return 1, 0
-    if index == 9:
-        return 0, 1
-    return index % 3, index // 3
-
-
 def render_back_wall(wall: int, index: int, artificial: bool,
                      geom: hex_synth.HexGeom | None = None) -> np.ndarray:
     """Render one cliff-face cell.
@@ -94,31 +66,9 @@ def render_back_wall(wall: int, index: int, artificial: bool,
     empty cell); other indices with `h1 == h2 == 0` shouldn't occur
     under the encoding but render as empty for safety.
     """
-    if geom is None:
-        geom = hex_synth.HexGeom()
-
-    h1, h2 = _decode_index(index)
-    buf = np.zeros((geom.h, geom.w, 4), dtype=np.uint8)
-    if h1 == 0 and h2 == 0:
-        return buf
-
-    a, b = WALL_ENDPOINTS[wall]
-    ax, ay = geom.vx[a], geom.vy_base[a]
-    bx, by = geom.vx[b], geom.vy_base[b]
-    color = FACE_COLOR[(artificial, wall)]
-
-    # Quad: lower edge a -> b at unlifted edge y; upper edge lifted up
-    # by h2*lift at b and h1*lift at a (y grows down so subtract).
-    xs = [ax, bx, bx,                   ax                  ]
-    ys = [ay, by, by - h2 * geom.lift,  ay - h1 * geom.lift ]
-    hex_synth.fill_polygon(buf, xs, ys, color)
-    # `fill_polygon`'s parity rule skips horizontal edges; close them
-    # explicitly for wall 1 (lower edge horizontal) and for any quad
-    # with `h1 == h2` (upper edge horizontal -- includes the uniform
-    # extension cliffs at indices 4 and 8 the engine reuses for
-    # `get_back_wall_extension_image`).
-    hex_synth.seal_horizontal_edges(buf, xs, ys, color)
-    return buf
+    h1, h2 = hex_synth.decode_cliff_index(index)
+    return hex_synth.render_cliff_cell(wall, h1, h2,
+                                        FACE_COLOR[(artificial, wall)], geom)
 
 
 def main():
