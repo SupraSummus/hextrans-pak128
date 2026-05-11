@@ -9,6 +9,15 @@ Where they differ the engine renders a vertical wall along the strip's
 long edge — a *cut* face if natural ground rises above the way
 (`h_off > h_way`), a *nasyp* face if it sinks below.
 
+Cells ship as **lightmaps**: per-face Lambert grey under
+`hex_synth.LIGHT` in RGB, coverage mask in alpha.  The engine composes
+the final per-climate tile at startup via
+`create_textured_tile(way_wall_lightmap, boden_texture[climate])` so
+the wall surface inherits the ground tile's earth/grass texture and
+the lightmap supplies the slope shading — the same path
+`texture_lightmap` uses for ground tiles, applied to wall geometry.
+See `tools/threed/lightmap.py` for the encoding convention.
+
 The atlas is keyed by `(axis, slope)` and split into two deliverables
 along `hex_synth.front_back_split`:
 
@@ -43,25 +52,53 @@ in `display_boden` before the way draw; `display_way_walls_front` calls
 """
 from __future__ import annotations
 
+import math
 from pathlib import Path
 
 import numpy as np
 
 from tools.threed import hex_synth
+from tools.threed.lightmap import lambert_grey_rgb
 from tools.threed.render import (
+    HEX_Z_SCALE,
     HexCamera,
     Model,
     engine_z_per_step,
     render,
 )
+from tools.threed.way import HEX_TILE_RADIUS
 
 
-# Flat earth / ballast tone for the cliff face.  Distinct from
-# back_wall's drab brown so a way cut into a cliff reads as a separate
-# material from the cliff itself.  Per-axis / cut-vs-nasyp shading is
-# a phase-3 follow-up; v1 keeps a single colour to focus the diff on
-# shape correctness.
-NASYP_RGB = (110, 102, 90)
+def _face_lightmap_rgb(face_pts_world,
+                       geom: hex_synth.HexGeom) -> tuple[int, int, int]:
+    """Lambert grey for one face under hex_synth's `LIGHT`, encoded for
+    `create_textured_tile`.  `face_pts_world` is a list of ≥3 world-
+    space `(x, y, z)` points; only the first non-degenerate triangle's
+    normal is used (faces here are coplanar by construction).
+
+    World coords are mapped into the same pixel-space scaling
+    `world_to_screen_hex` uses (and `region_brightness` mirrors for
+    `texture_lightmap`), so a flat-up face here produces the same
+    grey as a flat ground tile.
+    """
+    scale_x = geom.w / (2.0 * HEX_TILE_RADIUS)
+    scale_y = geom.w / (2.0 * HEX_TILE_RADIUS * math.sqrt(3.0))
+    p = [(x * scale_x, y * scale_y, z * HEX_Z_SCALE)
+         for x, y, z in face_pts_world]
+    p0 = p[0]
+    for k in range(2, len(p)):
+        p1, p2 = p[k - 1], p[k]
+        ax, ay, az = p1[0] - p0[0], p1[1] - p0[1], p1[2] - p0[2]
+        bx, by, bz = p2[0] - p0[0], p2[1] - p0[1], p2[2] - p0[2]
+        nx = ay * bz - az * by
+        ny = az * bx - ax * bz
+        nz = ax * by - ay * bx
+        if nx == 0.0 and ny == 0.0 and nz == 0.0:
+            continue
+        if nz < 0.0:
+            nx, ny, nz = -nx, -ny, -nz
+        return lambert_grey_rgb(nx, ny, nz)
+    return lambert_grey_rgb(0.0, 0.0, 1.0)
 
 
 def _validate_axis_geometry() -> None:
@@ -133,8 +170,9 @@ def _side_layer(axis: int, side_sign: int) -> str:
 
 def _add_side_triangle(model: Model, mp1, mp2, perp, side_sign: int,
                        h_top1: int, h_top2: int, h_bot: int,
-                       z_per_step: float, color, layer: str) -> None:
-    """Append one off-axis-side cliff triangle.
+                       z_per_step: float, geom: hex_synth.HexGeom,
+                       layer: str) -> None:
+    """Append one off-axis-side cliff triangle as a per-face lightmap.
 
     Base along the chord top from `(p_start, h_we1=h_top1)` to
     `(p_end, h_we2=h_top2)`; apex at `(p_mid, h_off=h_bot)`, where
@@ -144,6 +182,11 @@ def _add_side_triangle(model: Model, mp1, mp2, perp, side_sign: int,
     Submitted via `Model.add_quad` with the apex duplicated as the
     fourth vertex; the renderer's second sub-triangle is zero-area
     and skipped by `_draw_triangle`'s denom check.
+
+    The face's Lambert grey comes from `_face_lightmap_rgb` so the
+    rasterised RGB lands on `create_textured_tile`'s multiplier
+    convention — the renderer is run with `ambient=1.0` to keep this
+    grey verbatim.
     """
     if h_top1 == h_bot and h_top2 == h_bot:
         return
@@ -163,14 +206,18 @@ def _add_side_triangle(model: Model, mp1, mp2, perp, side_sign: int,
         pts = [v_start, v_end, v_apex, v_apex]
     else:
         pts = [v_end, v_start, v_apex, v_apex]
+    color = _face_lightmap_rgb(pts[:3], geom)
     model.add_quad(pts, color, layer=layer)
 
 
 def _add_top_quad(model: Model, mp1, mp2, perp,
                   h_top1: int, h_top2: int,
-                  z_per_step: float, color, layer: str = "back") -> None:
+                  z_per_step: float, geom: hex_synth.HexGeom,
+                  layer: str = "back") -> None:
     """Chord-strip top face at `h_way` (CCW from +z).  Always in `"back"`
-    so it sits under the way sprite and any vehicles.
+    so it sits under the way sprite and any vehicles.  Carries the
+    same per-face Lambert grey as the cliff faces — flat chord strips
+    on level axes land on the 1.0× identity multiplier.
     """
     a = (mp1[0] + hex_synth.WAY_HALF_WIDTH * perp[0],
          mp1[1] + hex_synth.WAY_HALF_WIDTH * perp[1],
@@ -184,7 +231,9 @@ def _add_top_quad(model: Model, mp1, mp2, perp,
     d = (mp2[0] + hex_synth.WAY_HALF_WIDTH * perp[0],
          mp2[1] + hex_synth.WAY_HALF_WIDTH * perp[1],
          h_top2 * z_per_step)
-    model.add_quad([a, b, c, d], color, layer=layer)
+    pts = [a, b, c, d]
+    color = _face_lightmap_rgb(pts, geom)
+    model.add_quad(pts, color, layer=layer)
 
 
 def _build_model(axis: int, slope: int, geom: hex_synth.HexGeom) -> Model:
@@ -201,12 +250,12 @@ def _build_model(axis: int, slope: int, geom: hex_synth.HexGeom) -> Model:
 
     model = Model()
     _add_top_quad(model, mp1, mp2, perp, h_we1, h_we2, z_per_step,
-                  NASYP_RGB, layer="back")
+                  geom, layer="back")
     _add_side_triangle(model, mp1, mp2, perp, +1,
-                       h_we1, h_we2, ch[off_pos], z_per_step, NASYP_RGB,
+                       h_we1, h_we2, ch[off_pos], z_per_step, geom,
                        layer=_side_layer(axis, +1))
     _add_side_triangle(model, mp1, mp2, perp, -1,
-                       h_we1, h_we2, ch[off_neg], z_per_step, NASYP_RGB,
+                       h_we1, h_we2, ch[off_neg], z_per_step, geom,
                        layer=_side_layer(axis, -1))
     return model
 
@@ -218,7 +267,11 @@ def _render_layer(axis: int, slope: int, layer: str,
     if hex_synth.axis_h_way(slope, axis) is None:
         return np.zeros((geom.h, geom.w, 4), dtype=np.uint8)
     model = _build_model(axis, slope, geom)
-    return render(model, HexCamera(geom=geom), layer_filter=layer)
+    # `ambient=1.0` so the renderer rasterises the pre-baked per-face
+    # Lambert grey verbatim — its own SUN_DIR-based shading would
+    # double up and drift off the lightmap multiplier convention.
+    return render(model, HexCamera(geom=geom, ambient=1.0),
+                  layer_filter=layer)
 
 
 def render_back_cell(axis: int, slope: int,
@@ -266,6 +319,14 @@ def _iter_entries_for_layer(layer: str):
 HEADER_DOC_BACK = """\
 Intra-tile nasyp / way-cut walls — BACK atlas, keyed by `(axis, slope)`.
 
+Cells are **lightmaps**, not pigmented sprites: RGB carries per-face
+Lambert grey under `hex_synth.LIGHT`, alpha is the coverage mask.
+The engine composes a final tile at startup via
+`create_textured_tile(way_wall_back, boden_texture[climate])` so the
+wall surface shows the same earth/grass texture as the ground tile,
+Lambert-shaded by face normal — see `tools/threed/lightmap.py` for
+the multiplier convention.
+
 Carries the chord-strip top quad plus the off-axis side cliff that's
 on the camera-far half of the axis (per
 `hex_synth.front_back_split`).  Drawn from `grund_t::display_boden`
@@ -286,6 +347,10 @@ Sparsity: {n_entries} populated entries.
 
 HEADER_DOC_FRONT = """\
 Intra-tile nasyp / way-cut walls — FRONT atlas, keyed by `(axis, slope)`.
+
+Cells are lightmaps under the same convention as the BACK atlas
+(`way_wall_back.{{png,dat}}`); the engine composes both against the
+climate texture at startup.
 
 Carries only the off-axis side cliff on the camera-near half of the
 axis (per `hex_synth.front_back_split`).  Drawn AFTER vehicles by
