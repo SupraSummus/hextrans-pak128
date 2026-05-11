@@ -22,6 +22,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+from landscape.grounds.sidewalk.render import PAVEMENT_RGB
 from tools.threed import way_topology as wt
 from tools.threed import way_verify
 from tools.threed.bespoke import bake_atlas
@@ -46,7 +47,7 @@ class RoadParams:
     # pavement_half_w]` per side.
     pavement_half_w: float = 0.5
     carriageway_half_w: float = 0.38
-    sidewalk_color: tuple[int, int, int] | None = (157, 167, 151)
+    sidewalk_color: tuple[int, int, int] | None = PAVEMENT_RGB
     # Dither knobs.  Carriageway < 1.0 lets terrain show through the
     # surface (dirt / gravel tiers); sidewalk dither is the cobble
     # speckle borrowed from pak128's stone-city kerb art.
@@ -77,7 +78,6 @@ class RoadParams:
 ROAD_040 = RoadParams(
     name="road_040",
     carriageway_color=(97, 91, 72),
-    sidewalk_color=(157, 167, 151),
     has_double_slopes=True,
 )
 
@@ -86,7 +86,6 @@ ROAD_040 = RoadParams(
 ROAD_050 = RoadParams(
     name="road_050",
     carriageway_color=(86, 80, 68),
-    sidewalk_color=(150, 158, 146),
     has_double_slopes=True,
 )
 
