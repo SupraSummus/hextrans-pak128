@@ -5,9 +5,10 @@ A way running through a tile on one of the three hex axes occupies a
 chord strip of half-width `hex_synth.WAY_HALF_WIDTH` from one touched
 edge midpoint to the opposite midpoint, at chord height `h_way`.
 Outside the strip is natural ground at the slope's corner heights.
-Where they differ the engine renders a vertical wall along the strip's
-long edge — a *cut* face if natural ground rises above the way
-(`h_off > h_way`), a *nasyp* face if it sinks below.
+Where they differ the engine renders an angled face spanning from the
+strip's long edge at chord height to the off-axis corner at natural
+ground height — a *cut* slope if natural ground rises above the way
+(`h_off > h_way`), a *nasyp* (embankment) slope if it sinks below.
 
 Cells ship as **lightmaps**: per-face Lambert grey under
 `hex_synth.LIGHT` in RGB, coverage mask in alpha.  The engine composes
@@ -34,17 +35,19 @@ along `hex_synth.front_back_split`:
 encoding `texture_lightmap` uses).  Only slopes admitting a way on
 that axis are emitted; others read as `IMG_EMPTY`.
 
-Geometry per cell: one triangle per off-axis side, anchored at the
-chord strip's long edge.  The base follows the chord plane (ramped
-on ramp axes) from `(p_start, h_we1)` to `(p_end, h_we2)`; the apex
-sits at the long edge's midpoint at the off-axis corner's natural
-height `h_off`.  At the touched-edge ends the wall has zero height —
-the level-edge constraint (`axis_h_way`) guarantees natural ground
-is at `h_we` there, so the wall must taper to nothing.  Apex height
-= corner height is exact only at the corner itself; the engine's
-surface triangulation between the long edge and the corner is not
-mirrored here, so the apex slightly over- or under-estimates the
-true ground height at the long edge's midpoint.
+Geometry per cell: one triangle per off-axis side.  The base
+follows the chord plane (ramped on ramp axes) along the chord
+strip's long edge from `(p_start, h_we1)` to `(p_end, h_we2)`; the
+apex sits at the off-axis hex corner `(corner_xy, h_off)`.  At the
+touched-edge ends the slope has zero height — the level-edge
+constraint (`axis_h_way`) guarantees natural ground is at `h_we`
+there, so the face must taper to nothing.  Because the apex lies at
+the corner itself, apex height = corner height is exact: the
+triangle's three vertices all sit on real ground points, so the
+embankment face matches the natural-ground surface at its boundary.
+The face is no longer vertical — its normal tilts toward +z — so
+its Lambert grey reads as a sloped terrain surface (real nasyp /
+cut angle) rather than a wall.
 
 The engine's `grund_t::display_way_walls` calls `get_way_wall_back_image`
 in `display_boden` before the way draw; `display_way_walls_front` calls
@@ -102,32 +105,27 @@ def _face_lightmap_rgb(face_pts_world,
 
 
 def _validate_axis_geometry() -> None:
-    """Module-load asserts on the hex-axis geometry the triangle wall
-    depends on.  Cheap (3 axes × a handful of dot products) and runs
-    once at import; cheap insurance against `hex_synth` changing one
-    of these invariants out from under us.
+    """Module-load asserts on the hex-axis invariants the side-slope
+    triangle depends on.  Cheap insurance against `hex_synth` changing
+    one of these out from under us.
 
     Invariants:
 
-      * The midpoint of `(mp1, mp2)` is the hex centre `(0, 0)` for
-        every axis.  Equivalent: `mp2 == -mp1`, since the touched
-        edges are antipodal across the centre.  This is what makes
-        the long-edge midpoint reduce to `side_sign * WAY_HALF_WIDTH
-        * perp`.
       * `axis_perp_vector(axis)` is parallel (up to sign) to the
-        touched-edge direction.  Equivalent: the chord strip's long
-        edge ends sit on the touched-edge lines of the hex.  Without
-        this, `p_start` and `p_end` wouldn't sit on the touched edges
-        and the wall's "zero height at the ends" claim breaks.
-      * Both off-axis corners project to `t == 0.5` on the axis —
-        i.e. the apex `(p_mid, h_off)` is exactly the long edge's
-        closest point to the off-axis corner.
+        touched-edge direction.  This is what makes `p_start = mp1 +
+        side_sign * WAY_HALF_WIDTH * perp` (and `p_end` from `mp2`)
+        sit on the touched-edge line of the hex.  Combined with
+        `axis_h_way`'s level-edge constraint (both touched-edge
+        corners at `h_we`), it pins the slope's base ends to natural
+        ground — so the triangle tapers to zero height there.
+      * `AXIS_OFF_AXIS_CORNERS[axis] = (off_pos, off_neg)` puts
+        `HEX_CORNER_XY[off_pos]` on the +perp side of the axis and
+        `[off_neg]` on the -perp side.  This is the signed pairing
+        `_build_model` relies on: `side_sign = +1` is fed `corner_pos`
+        so the triangle's three vertices land on the same half-plane
+        of the axis (consistent winding → consistent outward normal).
     """
     for axis in (hex_synth.NS, hex_synth.NE_SW, hex_synth.NW_SE):
-        mp1, mp2 = hex_synth.axis_edge_midpoints(axis)
-        assert abs(mp1[0] + mp2[0]) < 1e-9 and abs(mp1[1] + mp2[1]) < 1e-9, \
-            f"axis {axis}: mp1+mp2 != 0 (mp1={mp1}, mp2={mp2})"
-
         perp = hex_synth.axis_perp_vector(axis)
         (a0_i, a1_i), _ = hex_synth.AXIS_EDGE_CORNERS[axis]
         ca = hex_synth.HEX_CORNER_XY[a0_i]
@@ -138,55 +136,62 @@ def _validate_axis_geometry() -> None:
         assert abs(cross) < 1e-9, \
             f"axis {axis}: perp not parallel to touched edge (cross={cross})"
 
-        d = (mp2[0] - mp1[0], mp2[1] - mp1[1])
-        d_norm_sq = d[0] * d[0] + d[1] * d[1]
         off_pos, off_neg = hex_synth.AXIS_OFF_AXIS_CORNERS[axis]
-        for off_i in (off_pos, off_neg):
+        for off_i, want_sign in ((off_pos, +1), (off_neg, -1)):
             c = hex_synth.HEX_CORNER_XY[off_i]
-            t = ((c[0] - mp1[0]) * d[0] + (c[1] - mp1[1]) * d[1]) / d_norm_sq
-            assert abs(t - 0.5) < 1e-9, \
-                f"axis {axis} off-axis corner {off_i}: t={t}, expected 0.5"
+            dot = c[0] * perp[0] + c[1] * perp[1]
+            assert dot * want_sign > 1e-9, (
+                f"axis {axis} off-axis corner {off_i}: "
+                f"corner·perp={dot}, expected sign {want_sign}")
 
 
 _validate_axis_geometry()
 
 
-def _side_layer(axis: int, side_sign: int) -> str:
-    """Which atlas layer carries the off-axis side cliff at `side_sign`.
+def _side_layer(axis: int, corner_xy) -> str:
+    """Which atlas layer carries the off-axis side slope whose apex is
+    at `corner_xy`.
 
-    The triangle is edge-on in plan view (all three vertices lie on
-    the chord strip's long edge), so its plan-view centroid is the
-    long edge's midpoint `side_sign * WAY_HALF_WIDTH * perp` — the
-    touched-edge midpoints sum to zero by axis symmetry.  We evaluate
-    `front_back_split` at that single point.  `"front"` means the
-    cliff is on the camera-near half — drawn after vehicles so the
+    All three triangle vertices sit on the same half-plane of the axis
+    (the perp-side check in `_validate_axis_geometry`), so any vertex
+    classifies the face identically.  We pick the corner because it's
+    the apex and the cleanest reference point.  `"front"` means the
+    slope is on the camera-near half — drawn after vehicles so the
     train occludes correctly.
     """
-    perp = hex_synth.axis_perp_vector(axis)
-    cx = side_sign * hex_synth.WAY_HALF_WIDTH * perp[0]
-    cy = side_sign * hex_synth.WAY_HALF_WIDTH * perp[1]
-    return "front" if bool(hex_synth.front_back_split(cx, cy, axis)) else "back"
+    return ("front" if bool(hex_synth.front_back_split(corner_xy[0],
+                                                       corner_xy[1], axis))
+            else "back")
 
 
 def _add_side_triangle(model: Model, mp1, mp2, perp, side_sign: int,
+                       corner_xy,
                        h_top1: int, h_top2: int, h_bot: int,
                        z_per_step: float, geom: hex_synth.HexGeom,
                        layer: str) -> None:
-    """Append one off-axis-side cliff triangle as a per-face lightmap.
+    """Append one off-axis-side slope triangle as a per-face lightmap.
 
-    Base along the chord top from `(p_start, h_we1=h_top1)` to
-    `(p_end, h_we2=h_top2)`; apex at `(p_mid, h_off=h_bot)`, where
-    `p_mid` is the long edge's midpoint.  Winding flips with
-    `side_sign` so the outward normal lands on the same side as the
-    original rectangular cliff: toward the way in both cut and nasyp.
-    Submitted via `Model.add_quad` with the apex duplicated as the
-    fourth vertex; the renderer's second sub-triangle is zero-area
-    and skipped by `_draw_triangle`'s denom check.
+    Base along the chord strip's long edge from `(p_start, h_we1=h_top1)`
+    to `(p_end, h_we2=h_top2)`; apex at the off-axis hex corner
+    `(corner_xy, h_off=h_bot)`.  The triangle therefore spans from the
+    strip's edge outward to the natural-ground corner, slanting in z
+    by `h_top - h_bot` — a real nasyp / cut angle rather than a
+    vertical wall.
+
+    Winding flips with `side_sign` so the outward normal lands on
+    the same side as the original rectangular cliff: away from the
+    way in both cut and nasyp.  Submitted via `Model.add_quad` with
+    the apex duplicated as the fourth vertex; the renderer's second
+    sub-triangle is zero-area and skipped by `_draw_triangle`'s
+    denom check.
 
     The face's Lambert grey comes from `_face_lightmap_rgb` so the
     rasterised RGB lands on `create_textured_tile`'s multiplier
     convention — the renderer is run with `ambient=1.0` to keep this
-    grey verbatim.
+    grey verbatim.  With the apex at the corner the face normal is no
+    longer horizontal, so this grey reads as terrain-slope shading
+    (front-side sprite blends with the surrounding ground), not a
+    wall.
     """
     if h_top1 == h_bot and h_top2 == h_bot:
         return
@@ -195,12 +200,10 @@ def _add_side_triangle(model: Model, mp1, mp2, perp, side_sign: int,
                mp1[1] + side_sign * hex_synth.WAY_HALF_WIDTH * perp[1])
     p_end   = (mp2[0] + side_sign * hex_synth.WAY_HALF_WIDTH * perp[0],
                mp2[1] + side_sign * hex_synth.WAY_HALF_WIDTH * perp[1])
-    p_mid   = ((p_start[0] + p_end[0]) / 2.0,
-               (p_start[1] + p_end[1]) / 2.0)
 
-    v_start = (p_start[0], p_start[1], h_top1 * z_per_step)
-    v_end   = (p_end[0],   p_end[1],   h_top2 * z_per_step)
-    v_apex  = (p_mid[0],   p_mid[1],   h_bot  * z_per_step)
+    v_start = (p_start[0],  p_start[1],  h_top1 * z_per_step)
+    v_end   = (p_end[0],    p_end[1],    h_top2 * z_per_step)
+    v_apex  = (corner_xy[0], corner_xy[1], h_bot * z_per_step)
 
     if side_sign > 0:
         pts = [v_start, v_end, v_apex, v_apex]
@@ -244,6 +247,8 @@ def _build_model(axis: int, slope: int, geom: hex_synth.HexGeom) -> Model:
     h_we1, h_we2 = hex_synth.axis_h_way(slope, axis)
     ch = hex_synth.decode_corner_heights(slope)
     off_pos, off_neg = hex_synth.AXIS_OFF_AXIS_CORNERS[axis]
+    corner_pos = hex_synth.HEX_CORNER_XY[off_pos]
+    corner_neg = hex_synth.HEX_CORNER_XY[off_neg]
     mp1, mp2 = hex_synth.axis_edge_midpoints(axis)
     perp = hex_synth.axis_perp_vector(axis)
     z_per_step = engine_z_per_step(1, geom.w)
@@ -251,12 +256,12 @@ def _build_model(axis: int, slope: int, geom: hex_synth.HexGeom) -> Model:
     model = Model()
     _add_top_quad(model, mp1, mp2, perp, h_we1, h_we2, z_per_step,
                   geom, layer="back")
-    _add_side_triangle(model, mp1, mp2, perp, +1,
+    _add_side_triangle(model, mp1, mp2, perp, +1, corner_pos,
                        h_we1, h_we2, ch[off_pos], z_per_step, geom,
-                       layer=_side_layer(axis, +1))
-    _add_side_triangle(model, mp1, mp2, perp, -1,
+                       layer=_side_layer(axis, corner_pos))
+    _add_side_triangle(model, mp1, mp2, perp, -1, corner_neg,
                        h_we1, h_we2, ch[off_neg], z_per_step, geom,
-                       layer=_side_layer(axis, -1))
+                       layer=_side_layer(axis, corner_neg))
     return model
 
 
