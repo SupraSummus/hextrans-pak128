@@ -58,7 +58,7 @@ def _wall_index_entries(artificial: bool):
     def gen(_geom):
         for wall in range(WALL_COUNT):
             for index in range(1, IMAGE_COUNT):
-                h1, h2 = render._decode_index(index)
+                h1, h2 = hex_synth.decode_cliff_index(index)
                 yield wall, index, (wall, index, artificial), \
                       f"wall={wall} h1={h1} h2={h2}"
     return gen
