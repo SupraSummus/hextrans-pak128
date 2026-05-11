@@ -8,8 +8,9 @@ attached to one of the tile's three north-side edges:
   * wall 1 — N  edge (NW -> NE corners)
   * wall 2 — NE edge (NE -> E  corners)
 
-Polygon geometry and `(h1, h2)` encoding are shared with way_wall via
-`hex_synth.render_cliff_cell` / `hex_synth.decode_cliff_index`; only
+Polygon geometry and `(h1, h2)` encoding live in
+`hex_synth.render_cliff_cell` / `hex_synth.decode_cliff_index` so any
+future camera-near cliff baker can reuse the same primitive; only
 the per-(artificial, wall) palette lives here.
 
 Style: drab brown for natural cliffs, drab grey for the man-made

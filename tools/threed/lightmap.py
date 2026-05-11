@@ -13,7 +13,7 @@ black-outs the pixel, `grey5 == 31` is the brightest peak.
 
 This module owns the encoding: `lambert_grey_rgb(nx, ny, nz)` is the
 canonical per-region/per-face Lambert helper that ground bakers
-(texture_lightmap) and bespoke-geometry bakers (way_wall) both feed
+(texture_lightmap) and bespoke-geometry bakers (way_ground) both feed
 their face normals through.  Keeping it here means
 `brightness_to_grey_rgb`'s rounding convention and the reserved-palette
 dodge live in one place.

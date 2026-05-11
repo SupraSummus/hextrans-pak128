@@ -179,22 +179,26 @@ HEX_FRONT_PATH = (E, SE, SW, W_C)
 # A cliff cell is a quad rendered at one of the tile's six hex edges:
 # lower edge at the unlifted vertex y in screen space, upper edge
 # lifted by `h1 * geom.lift` at vertex `a` and `h2 * geom.lift` at
-# vertex `b` (y grows down, lift subtracts).  Shared by inter-tile
-# back-wall (walls 0..2) and intra-tile way-wall (walls 0..5) bakers
-# — same polygon shape, different palette / context.
+# vertex `b` (y grows down, lift subtracts).  Consumed by the
+# inter-tile back-wall baker (walls 0..2 — the three camera-far hex
+# edges that face the camera as a cliff).
 #
 # `(h1, h2)` packs into `index = h1 + 3*h2` for `h1, h2 in {0, 1, 2}`
 # (indices 1..8 = single-step cliffs), with indices 9..10 reserved as
 # placeholder half-cliffs for the legacy double-height notch (one
 # corner at 0, one at 1; see hextrans `TODO.md` for the missing notch
 # shape).  Index 0 = "no cliff" and is not emitted.
+#
+# Six entries kept (one per hex edge) even though only 0..2 have a
+# consumer today, so the (wall ↔ edge) mapping stays topologically
+# complete for any future camera-near cliff baker.
 CLIFF_WALL_ENDPOINTS = (
-    (W_C, NW),  # wall 0: NW edge — back_wall + way_wall
-    (NW,  NE),  # wall 1: N  edge — back_wall + way_wall
-    (NE,  E ),  # wall 2: NE edge — back_wall + way_wall
-    (E,   SE),  # wall 3: SE edge — way_wall only
-    (SE,  SW),  # wall 4: S  edge — way_wall only
-    (SW,  W_C), # wall 5: SW edge — way_wall only
+    (W_C, NW),  # wall 0: NW edge
+    (NW,  NE),  # wall 1: N  edge
+    (NE,  E ),  # wall 2: NE edge
+    (E,   SE),  # wall 3: SE edge
+    (SE,  SW),  # wall 4: S  edge
+    (SW,  W_C), # wall 5: SW edge
 )
 CLIFF_IMAGE_COUNT = 11  # per-wall image slots; index 0 = "no cliff"
 
@@ -239,20 +243,24 @@ def render_cliff_cell(wall: int, h1: int, h2: int, color,
     return buf
 
 
-# ---- Way-axis geometry (nasyp / way-cut walls) ----------------------------
+# ---- Way-axis geometry (nasyp / way-cut) ----------------------------------
 #
 # A way running through a hex tile on one of the three axes occupies a
 # chord strip of half-width `WAY_HALF_WIDTH` from one touched edge
 # midpoint to the opposite midpoint, at chord height `h_way`.  Outside
-# the strip is natural ground at the slope's corner heights.  Where
-# they differ, the engine renders a vertical wall along the chord
-# strip's long edge — a *cut* face if natural ground rises above the
-# way (`h_off > h_way`), a *nasyp* (embankment) face if it sinks
-# below (`h_off < h_way`).  Replaces the older per-hex-edge
-# `(wall, h1, h2)` model that put cliffs on the tile boundary instead
-# of along the chord-strip boundary.
+# the strip is natural ground at the slope's corner heights.  With
+# `WAY_HALF_WIDTH = 0.5` (one edge length wide, matching the touched
+# edge), the strip exactly spans corner-to-corner along the touched
+# edges — i.e. the central rectangle of the hex.  The two off-axis
+# corner triangles of the hex (apex at the off-axis corner, base
+# along the chord strip's long edge) carry natural ground at the
+# slope's corner heights.  Where the chord plane differs from the
+# corner the corner triangle slants — a *cut* if the corner rises
+# above the chord, a *nasyp* (embankment) if it sinks below.  Sized
+# this way so any way fits inside the strip regardless of its own
+# painted width.
 
-WAY_HALF_WIDTH = 0.2
+WAY_HALF_WIDTH = 0.5
 
 # Tile corner positions in world XY.  Hex circumradius matches
 # `tools/threed/way.py::HEX_TILE_RADIUS = 1.0` so corners sit at
@@ -308,7 +316,7 @@ def axis_h_way(slope: int, axis: int):
     chord height but the other doesn't are admitted by the engine's
     `chord_h_axis` for the placement check ("the way rests on the
     level corner") but produce a way/terrain step at the edge
-    midpoint that the way_wall renderer can't represent honestly —
+    midpoint that the way_ground baker can't represent honestly —
     and the user-facing rendering of those configurations doesn't
     read right anyway.
 
