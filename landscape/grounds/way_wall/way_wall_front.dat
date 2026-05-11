@@ -4,6 +4,10 @@
 #
 # Intra-tile nasyp / way-cut walls — FRONT atlas, keyed by `(axis, slope)`.
 #
+# Cells are lightmaps under the same convention as the BACK atlas
+# (`way_wall_back.{png,dat}`); the engine composes both against the
+# climate texture at startup.
+#
 # Carries only the off-axis side cliff on the camera-near half of the
 # axis (per `hex_synth.front_back_split`).  Drawn AFTER vehicles by
 # `grund_t::display_way_walls_front` so a cut wall on the camera-side

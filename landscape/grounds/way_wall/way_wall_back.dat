@@ -4,6 +4,14 @@
 #
 # Intra-tile nasyp / way-cut walls — BACK atlas, keyed by `(axis, slope)`.
 #
+# Cells are **lightmaps**, not pigmented sprites: RGB carries per-face
+# Lambert grey under `hex_synth.LIGHT`, alpha is the coverage mask.
+# The engine composes a final tile at startup via
+# `create_textured_tile(way_wall_back, boden_texture[climate])` so the
+# wall surface shows the same earth/grass texture as the ground tile,
+# Lambert-shaded by face normal — see `tools/threed/lightmap.py` for
+# the multiplier convention.
+#
 # Carries the chord-strip top quad plus the off-axis side cliff that's
 # on the camera-far half of the axis (per
 # `hex_synth.front_back_split`).  Drawn from `grund_t::display_boden`
