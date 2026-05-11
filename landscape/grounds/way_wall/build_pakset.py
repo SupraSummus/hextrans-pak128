@@ -25,12 +25,17 @@ along `hex_synth.front_back_split`:
 encoding `texture_lightmap` uses).  Only slopes admitting a way on
 that axis are emitted; others read as `IMG_EMPTY`.
 
-Geometry per cell: one trapezoid quad per off-axis side, anchored at
-the chord strip's long edge.  Top edge follows the chord plane
-(ramped on ramp axes), bottom edge flat at the off-axis corner's
-natural height.  The trapezoid is an approximation — the true natural
-ground height along the long edge varies according to the slope's
-piecewise-linear surface; the corner-height constant suffices for v1.
+Geometry per cell: one triangle per off-axis side, anchored at the
+chord strip's long edge.  The base follows the chord plane (ramped
+on ramp axes) from `(p_start, h_we1)` to `(p_end, h_we2)`; the apex
+sits at the long edge's midpoint at the off-axis corner's natural
+height `h_off`.  At the touched-edge ends the wall has zero height —
+the level-edge constraint (`axis_h_way`) guarantees natural ground
+is at `h_we` there, so the wall must taper to nothing.  Apex height
+= corner height is exact only at the corner itself; the engine's
+surface triangulation between the long edge and the corner is not
+mirrored here, so the apex slightly over- or under-estimates the
+true ground height at the long edge's midpoint.
 
 The engine's `grund_t::display_way_walls` calls `get_way_wall_back_image`
 in `display_boden` before the way draw; `display_way_walls_front` calls
@@ -59,14 +64,66 @@ from tools.threed.render import (
 NASYP_RGB = (110, 102, 90)
 
 
+def _validate_axis_geometry() -> None:
+    """Module-load asserts on the hex-axis geometry the triangle wall
+    depends on.  Cheap (3 axes × a handful of dot products) and runs
+    once at import; cheap insurance against `hex_synth` changing one
+    of these invariants out from under us.
+
+    Invariants:
+
+      * The midpoint of `(mp1, mp2)` is the hex centre `(0, 0)` for
+        every axis.  Equivalent: `mp2 == -mp1`, since the touched
+        edges are antipodal across the centre.  This is what makes
+        the long-edge midpoint reduce to `side_sign * WAY_HALF_WIDTH
+        * perp`.
+      * `axis_perp_vector(axis)` is parallel (up to sign) to the
+        touched-edge direction.  Equivalent: the chord strip's long
+        edge ends sit on the touched-edge lines of the hex.  Without
+        this, `p_start` and `p_end` wouldn't sit on the touched edges
+        and the wall's "zero height at the ends" claim breaks.
+      * Both off-axis corners project to `t == 0.5` on the axis —
+        i.e. the apex `(p_mid, h_off)` is exactly the long edge's
+        closest point to the off-axis corner.
+    """
+    for axis in (hex_synth.NS, hex_synth.NE_SW, hex_synth.NW_SE):
+        mp1, mp2 = hex_synth.axis_edge_midpoints(axis)
+        assert abs(mp1[0] + mp2[0]) < 1e-9 and abs(mp1[1] + mp2[1]) < 1e-9, \
+            f"axis {axis}: mp1+mp2 != 0 (mp1={mp1}, mp2={mp2})"
+
+        perp = hex_synth.axis_perp_vector(axis)
+        (a0_i, a1_i), _ = hex_synth.AXIS_EDGE_CORNERS[axis]
+        ca = hex_synth.HEX_CORNER_XY[a0_i]
+        cb = hex_synth.HEX_CORNER_XY[a1_i]
+        edge_dx, edge_dy = cb[0] - ca[0], cb[1] - ca[1]
+        # perp ∥ edge ⇔ cross == 0
+        cross = perp[0] * edge_dy - perp[1] * edge_dx
+        assert abs(cross) < 1e-9, \
+            f"axis {axis}: perp not parallel to touched edge (cross={cross})"
+
+        d = (mp2[0] - mp1[0], mp2[1] - mp1[1])
+        d_norm_sq = d[0] * d[0] + d[1] * d[1]
+        off_pos, off_neg = hex_synth.AXIS_OFF_AXIS_CORNERS[axis]
+        for off_i in (off_pos, off_neg):
+            c = hex_synth.HEX_CORNER_XY[off_i]
+            t = ((c[0] - mp1[0]) * d[0] + (c[1] - mp1[1]) * d[1]) / d_norm_sq
+            assert abs(t - 0.5) < 1e-9, \
+                f"axis {axis} off-axis corner {off_i}: t={t}, expected 0.5"
+
+
+_validate_axis_geometry()
+
+
 def _side_layer(axis: int, side_sign: int) -> str:
     """Which atlas layer carries the off-axis side cliff at `side_sign`.
 
-    Quad plan-view centre is at `side_sign * WAY_HALF_WIDTH * perp` (the
-    touched-edge midpoints sum to zero by axis symmetry), so we evaluate
-    `front_back_split` at that single point.  `"front"` means the cliff
-    is on the camera-near half — drawn after vehicles so the train
-    occludes correctly.
+    The triangle is edge-on in plan view (all three vertices lie on
+    the chord strip's long edge), so its plan-view centroid is the
+    long edge's midpoint `side_sign * WAY_HALF_WIDTH * perp` — the
+    touched-edge midpoints sum to zero by axis symmetry.  We evaluate
+    `front_back_split` at that single point.  `"front"` means the
+    cliff is on the camera-near half — drawn after vehicles so the
+    train occludes correctly.
     """
     perp = hex_synth.axis_perp_vector(axis)
     cx = side_sign * hex_synth.WAY_HALF_WIDTH * perp[0]
@@ -74,10 +131,20 @@ def _side_layer(axis: int, side_sign: int) -> str:
     return "front" if bool(hex_synth.front_back_split(cx, cy, axis)) else "back"
 
 
-def _add_side_quad(model: Model, mp1, mp2, perp, side_sign: int,
-                   h_top1: int, h_top2: int, h_bot: int,
-                   z_per_step: float, color, layer: str) -> None:
-    """Append one off-axis-side cliff quad (CCW from outside)."""
+def _add_side_triangle(model: Model, mp1, mp2, perp, side_sign: int,
+                       h_top1: int, h_top2: int, h_bot: int,
+                       z_per_step: float, color, layer: str) -> None:
+    """Append one off-axis-side cliff triangle.
+
+    Base along the chord top from `(p_start, h_we1=h_top1)` to
+    `(p_end, h_we2=h_top2)`; apex at `(p_mid, h_off=h_bot)`, where
+    `p_mid` is the long edge's midpoint.  Winding flips with
+    `side_sign` so the outward normal lands on the same side as the
+    original rectangular cliff: toward the way in both cut and nasyp.
+    Submitted via `Model.add_quad` with the apex duplicated as the
+    fourth vertex; the renderer's second sub-triangle is zero-area
+    and skipped by `_draw_triangle`'s denom check.
+    """
     if h_top1 == h_bot and h_top2 == h_bot:
         return
 
@@ -85,19 +152,17 @@ def _add_side_quad(model: Model, mp1, mp2, perp, side_sign: int,
                mp1[1] + side_sign * hex_synth.WAY_HALF_WIDTH * perp[1])
     p_end   = (mp2[0] + side_sign * hex_synth.WAY_HALF_WIDTH * perp[0],
                mp2[1] + side_sign * hex_synth.WAY_HALF_WIDTH * perp[1])
+    p_mid   = ((p_start[0] + p_end[0]) / 2.0,
+               (p_start[1] + p_end[1]) / 2.0)
 
-    z_top1 = h_top1 * z_per_step
-    z_top2 = h_top2 * z_per_step
-    z_bot  = h_bot  * z_per_step
+    v_start = (p_start[0], p_start[1], h_top1 * z_per_step)
+    v_end   = (p_end[0],   p_end[1],   h_top2 * z_per_step)
+    v_apex  = (p_mid[0],   p_mid[1],   h_bot  * z_per_step)
 
-    pts = [
-        (p_start[0], p_start[1], z_top1),
-        (p_end[0],   p_end[1],   z_top2),
-        (p_end[0],   p_end[1],   z_bot),
-        (p_start[0], p_start[1], z_bot),
-    ]
-    if side_sign < 0:
-        pts = list(reversed(pts))
+    if side_sign > 0:
+        pts = [v_start, v_end, v_apex, v_apex]
+    else:
+        pts = [v_end, v_start, v_apex, v_apex]
     model.add_quad(pts, color, layer=layer)
 
 
@@ -137,12 +202,12 @@ def _build_model(axis: int, slope: int, geom: hex_synth.HexGeom) -> Model:
     model = Model()
     _add_top_quad(model, mp1, mp2, perp, h_we1, h_we2, z_per_step,
                   NASYP_RGB, layer="back")
-    _add_side_quad(model, mp1, mp2, perp, +1,
-                   h_we1, h_we2, ch[off_pos], z_per_step, NASYP_RGB,
-                   layer=_side_layer(axis, +1))
-    _add_side_quad(model, mp1, mp2, perp, -1,
-                   h_we1, h_we2, ch[off_neg], z_per_step, NASYP_RGB,
-                   layer=_side_layer(axis, -1))
+    _add_side_triangle(model, mp1, mp2, perp, +1,
+                       h_we1, h_we2, ch[off_pos], z_per_step, NASYP_RGB,
+                       layer=_side_layer(axis, +1))
+    _add_side_triangle(model, mp1, mp2, perp, -1,
+                       h_we1, h_we2, ch[off_neg], z_per_step, NASYP_RGB,
+                       layer=_side_layer(axis, -1))
     return model
 
 
@@ -229,10 +294,11 @@ correctly occludes the train.  All other geometry (chord-strip top,
 back-side cliff) lives in the companion BACK atlas.
 
 Same `(axis, slope)` keying as the back atlas; populated independently
-because some (axis, slope) pairs have no camera-near cliff to draw
-(e.g. flat-chord on a saddle slope where the camera-near corner is at
-chord height).  Engine treats absent slots as IMG_EMPTY and skips the
-post-vehicle draw.
+because some (axis, slope) pairs have no camera-near cliff to draw —
+either the camera-near corner sits at chord height, or on a double-
+step ramp the off-axis corner sits at the chord-midpoint height so
+the wall triangle collapses to zero area.  Engine treats absent
+slots as IMG_EMPTY and skips the post-vehicle draw.
 
 Sparsity: {n_entries} populated entries.
 """
