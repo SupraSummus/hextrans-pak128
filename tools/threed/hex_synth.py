@@ -781,26 +781,29 @@ def iter_region_polygons(slope: int, geom: HexGeom):
         yield region, xs, ys
 
 
-def region_brightness(region: list[int], slope: int, geom: HexGeom) -> int:
-    """Lambert brightness (256 = 1.0×) for one coplanar region from
-    its first non-degenerate triangle.  Degenerate (fully collinear)
-    regions default to flat-up.
+def face_normal_brightness(pts) -> int:
+    """Lambert brightness (256 = 1.0×) for a polygonal face given its
+    vertices in the engine's Lambert frame — the coord system `LIGHT`
+    is calibrated in, where `+x` is screen-east, `+y` is screen-south
+    with the z-lift folded in (matches `world_to_screen_hex`'s
+    `sy = base_y - y·scale_y - z·HEX_Z_SCALE`), and `+z` is the world-z
+    lift.
 
-    Shared across slope-keyed ground bakers (lightmap, sidewalk, …)
-    that paint per-region constant shade over the silhouette's
-    coplanar partition.
+    Normal taken from the first non-degenerate fan triangle off
+    `pts[0]`; flipped to `+z` before Lambert so winding doesn't
+    matter at call sites.  Fully collinear faces default to flat-up.
+
+    Two callers feed this their own coordinates:
+      * `region_brightness` builds `(geom.vx[i], lifted_vy[i],
+        ch[i]·geom.lift)` from a slope's corner indices.
+      * `way_ground._face_lightmap_rgb` builds the same triple from
+        world coords by mirroring `world_to_screen_hex`.
     """
-    ch = decode_corner_heights(slope)
-    vy = geom.lifted_vy(slope)
-    i0 = region[0]
-    for k in range(2, len(region)):
-        i1, i2 = region[k - 1], region[k]
-        ax = geom.vx[i1] - geom.vx[i0]
-        ay = vy[i1] - vy[i0]
-        az = (ch[i1] - ch[i0]) * geom.lift
-        bx = geom.vx[i2] - geom.vx[i0]
-        by = vy[i2] - vy[i0]
-        bz = (ch[i2] - ch[i0]) * geom.lift
+    p0 = pts[0]
+    for k in range(2, len(pts)):
+        p1, p2 = pts[k - 1], pts[k]
+        ax, ay, az = p1[0] - p0[0], p1[1] - p0[1], p1[2] - p0[2]
+        bx, by, bz = p2[0] - p0[0], p2[1] - p0[1], p2[2] - p0[2]
         nx = ay * bz - az * by
         ny = az * bx - ax * bz
         nz = ax * by - ay * bx
@@ -810,6 +813,19 @@ def region_brightness(region: list[int], slope: int, geom: HexGeom) -> int:
             nx, ny, nz = -nx, -ny, -nz
         return lambert_brightness(nx, ny, nz)
     return lambert_brightness(0.0, 0.0, 1.0)
+
+
+def region_brightness(region: list[int], slope: int, geom: HexGeom) -> int:
+    """Lambert brightness (256 = 1.0×) for one coplanar region.
+
+    Shared across slope-keyed ground bakers (lightmap, sidewalk, …)
+    that paint per-region constant shade over the silhouette's
+    coplanar partition.
+    """
+    ch = decode_corner_heights(slope)
+    vy = geom.lifted_vy(slope)
+    pts = [(geom.vx[i], vy[i], ch[i] * geom.lift) for i in region]
+    return face_normal_brightness(pts)
 
 
 def silhouette_mask(slope: int, geom: HexGeom) -> np.ndarray:
