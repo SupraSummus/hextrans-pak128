@@ -11,16 +11,15 @@ into the matching climate-texture 5-bit channel divided by 16:
 So `grey5 == 16` is the identity multiplier (~1.0×), `grey5 == 0`
 black-outs the pixel, `grey5 == 31` is the brightest peak.
 
-This module owns the encoding: `lambert_grey_rgb(nx, ny, nz)` is the
-canonical per-region/per-face Lambert helper that ground bakers
-(texture_lightmap) and bespoke-geometry bakers (way_ground) both feed
-their face normals through.  Keeping it here means
-`brightness_to_grey_rgb`'s rounding convention and the reserved-palette
-dodge live in one place.
+This module owns the grey encoding.  Lambert math (face normal →
+brightness) lives in `hex_synth`: ground bakers route through
+`region_brightness` and bespoke-geometry bakers route through
+`face_normal_brightness`, then both pass the resulting brightness
+through `brightness_to_grey_rgb` here.  Keeping the encoding in one
+place means the rounding convention and the reserved-palette dodge
+stay in lockstep.
 """
 from __future__ import annotations
-
-from .hex_synth import lambert_brightness
 
 
 # Engine reserved palette (engine `descriptor/image.cc::rgbtab`).  Any
@@ -77,12 +76,3 @@ def brightness_to_grey_rgb(brightness: int) -> tuple[int, int, int]:
     gray5 = max(0, min(brightness // 16, 31))
     gray8 = (gray5 * 255 + 15) // 31
     return safe_face_rgb(gray8)
-
-
-def lambert_grey_rgb(nx: float, ny: float, nz: float) -> tuple[int, int, int]:
-    """One-shot helper: Lambert brightness from an `(nx, ny, nz)` normal
-    (using `hex_synth.LIGHT`), encoded as a grey RGB triple ready to
-    rasterise.  The normal need not be unit-length —
-    `lambert_brightness` normalises internally.
-    """
-    return brightness_to_grey_rgb(lambert_brightness(nx, ny, nz))

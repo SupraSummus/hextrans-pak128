@@ -42,7 +42,7 @@ from pathlib import Path
 import numpy as np
 
 from tools.threed import hex_synth
-from tools.threed.lightmap import lambert_grey_rgb
+from tools.threed.lightmap import brightness_to_grey_rgb
 from tools.threed.render import (
     HEX_Z_SCALE,
     HexCamera,
@@ -55,32 +55,23 @@ from tools.threed.way import HEX_TILE_RADIUS
 
 def _face_lightmap_rgb(face_pts_world,
                        geom: hex_synth.HexGeom) -> tuple[int, int, int]:
-    """Lambert grey for one face under hex_synth's `LIGHT`, encoded for
-    `create_textured_tile`.  World coords are mapped into the same
-    pixel-space scaling `world_to_screen_hex` uses (and
-    `region_brightness` mirrors for `texture_lightmap`), so a flat-up
-    face here produces the same grey as a flat ground tile — a flat
+    """Lambert grey for one face given its vertices in world coords
+    (`+x = east`, `+y = north`, `+z = up`).  Maps each point into the
+    engine's Lambert frame the same way `world_to_screen_hex` does
+    (`sy = base_y - y·scale_y - z·HEX_Z_SCALE`), then defers to
+    `hex_synth.face_normal_brightness` so the cross-product / flip
+    / Lambert convention stays in lockstep with `region_brightness`.
+    Flat-up faces produce `(0, 0, 1)` in this frame, so a flat
     way_ground slot is bit-identical to the flat-slope
     `texture_lightmap` slot once climate-composited.
     """
     scale_x = geom.w / (2.0 * HEX_TILE_RADIUS)
     scale_y = geom.w / (2.0 * HEX_TILE_RADIUS * math.sqrt(3.0))
-    p = [(x * scale_x, y * scale_y, z * HEX_Z_SCALE)
-         for x, y, z in face_pts_world]
-    p0 = p[0]
-    for k in range(2, len(p)):
-        p1, p2 = p[k - 1], p[k]
-        ax, ay, az = p1[0] - p0[0], p1[1] - p0[1], p1[2] - p0[2]
-        bx, by, bz = p2[0] - p0[0], p2[1] - p0[1], p2[2] - p0[2]
-        nx = ay * bz - az * by
-        ny = az * bx - ax * bz
-        nz = ax * by - ay * bx
-        if nx == 0.0 and ny == 0.0 and nz == 0.0:
-            continue
-        if nz < 0.0:
-            nx, ny, nz = -nx, -ny, -nz
-        return lambert_grey_rgb(nx, ny, nz)
-    return lambert_grey_rgb(0.0, 0.0, 1.0)
+    pts = [(x * scale_x,
+            -y * scale_y - z * HEX_Z_SCALE,
+            z * HEX_Z_SCALE)
+           for x, y, z in face_pts_world]
+    return brightness_to_grey_rgb(hex_synth.face_normal_brightness(pts))
 
 
 def _validate_axis_geometry() -> None:
