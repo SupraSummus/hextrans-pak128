@@ -169,9 +169,8 @@ CITYROAD_030 = RoadParams(
 class RoadCrossSection(wt.CrossSection):
     """Carriageway slab + optional kerb slabs, configured by `RoadParams`.
 
-    Default `paint_arc` chord-piece subdivision is sufficient because
-    the bands are uniform along the chord (no tie / dash cadence yet —
-    centre-line dashes are deferred, see `TODO.md`).
+    No cadence yet — uniform bands along every chord and bend leg
+    (centre-line dashes are deferred, see `TODO.md`).
     """
 
     def __init__(self, params: RoadParams) -> None:

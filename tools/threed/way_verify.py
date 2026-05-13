@@ -50,7 +50,7 @@ def lay_square_straight(cs: CrossSection, model: Model, *,
     end = (+length_half * tx, +length_half * ty)
     perp = (-ty, tx)
     cs.paint_straight(model, StraightPath(
-        start=start, end=end, cap_a=perp, cap_b=perp, role="full"))
+        start=start, end=end, cap_a=perp, cap_b=perp))
 
 
 def verify_square(*, scene_mod, sheet_path: Path, here: Path,

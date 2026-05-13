@@ -49,8 +49,8 @@ each other in-game.  Add a `lane_markings` field
 `RoadCrossSection.paint_straight` emit short-`s`-range white slabs
 along the chord centreline when set; cadence keyed off
 `chord_len` from `make_slab_emitter` so dashes line up across
-adjacent tiles regardless of chord length (full-tile vs.
-arc-piece).
+adjacent tiles regardless of chord length (full chord vs. bend
+piece).
 
 **rail_060_bridge bypasses way_topology.**  Mid-segments / ends are
 built directly with `_add_oriented_box` against a `BRIDGE_LEN_HALF`
@@ -66,19 +66,15 @@ re-plumbing length_half.
 
 **Way-baker shared topology.** `tools/threed/way.py` +
 `tools/threed/way_topology.py` carry the asset-agnostic hex topology
-(stub / curve / junction / axis-slope path builders + a
+(stub / chord / V-bend / junction / axis-slope path builders + a
 `CrossSection` painter ABC).  Consumers today:
 `infrastructure/rail_tracks/rail_060_tracks` (ballast + ties + rails
-cross-section, with a `paint_arc` override for radial ties) and the
-road family (`road_030` / `road_040` / `road_050` / `road_055` /
-`road_070` / `road_090` / `cityroad_030` / `highway_110`, all
-sharing the parameterised `RoadCrossSection` in
+cross-section) and the road family (`road_030` / `road_040` /
+`road_050` / `road_055` / `road_070` / `road_090` / `cityroad_030` /
+`highway_110`, all sharing the parameterised `RoadCrossSection` in
 `infrastructure/roads/road_params.py`) — every one bakes the full
 63-cell hex set into `<asset>_hex.png` plus a 6-cell axis-slope
-atlas.  Open work: 3+ way junctions are placeholder "stub-per-edge"
-geometry — a pass should promote any 60°-apart pair inside a
-junction to an arc (through-route) and leave the remaining edges as
-branching stubs; rail also wants a buffer-stop short beam at the
+atlas.  Open work: rail wants a buffer-stop short beam at the
 centre end of single-edge stubs (currently a clean cut reads as
 "track ending mid-air"); the no-way `Image[-]` placeholder still
 borrows an upstream pak128 square cell on every baker.

@@ -3,8 +3,9 @@
 Cross-section (per `RailCrossSection`): banded ballast bed (3 dither
 densities), evenly-spaced cross-ties, twin rails — emitted into the
 chord+caps frame supplied by `tools/threed/way_topology.py::make_slab_emitter`.
-The asset-agnostic topology (stub / curve / junction / axis-slope) lives
-in `way_topology` and dispatches into `paint_straight` / `paint_arc`.
+The asset-agnostic topology (stub / chord / V-bend / junction /
+axis-slope) lives in `way_topology` and dispatches into
+`paint_straight`.
 
 Hex deliverable: `rail_060_tracks_hex.png` (8×8 atlas, 63 ribi cells)
 plus `rail_060_tracks_hex_slope.png` (1×6 axis slopes), referenced
@@ -22,7 +23,6 @@ Tracks ship no per-image dat offset (unlike `rail_060_bridge`'s `,0,32`),
 so we render with world z=0 at the default ground anchor sy=96 (=
 IMG_SIZE/2 + 32, the flat-tile bbox midpoint).
 """
-import math
 from pathlib import Path
 
 from tools.threed import way_topology as wt
@@ -56,20 +56,11 @@ BALLAST_BANDS = [
 
 
 class RailCrossSection(wt.CrossSection):
-    """Ballast bed + cross-ties + twin rails on top.
-
-    `paint_straight` reads `path.role` to pick a tie count: a full
-    through-tile chord gets `N_TIES`; a half-tile stub gets
-    `N_TIES // 2`; an arc-piece (subdivision inside `paint_arc`) gets
-    none, since `paint_arc` lays radial ties separately at a cadence
-    scaled by arc length.
-    """
-
-    _ROLE_TIE_COUNT = {
-        "full": N_TIES,
-        "half": N_TIES // 2,
-        "arc_piece": 0,
-    }
+    """Ballast bed + cross-ties + twin rails on top.  Tie count is
+    proportional to the segment's chord length so density stays
+    uniform — N_TIES across a through-tile chord (`STRAIGHT_CHORD`),
+    N_TIES/2 across a stub, ~3 across a V-bend leg, all the same
+    ties-per-world-unit."""
 
     def paint_straight(self, model, path: wt.StraightPath) -> None:
         add_slab, chord_len = wt.make_slab_emitter(model, path)
@@ -85,7 +76,7 @@ class RailCrossSection(wt.CrossSection):
         #    world units; convert to the s-parameter.  Ties span the
         #    chord from a margin in (so the angled caps don't clip them
         #    off-tile).
-        n_ties = self._ROLE_TIE_COUNT[path.role]
+        n_ties = round(N_TIES * chord_len / STRAIGHT_CHORD)
         if n_ties > 0:
             tie_half_along_s = 0.025 / chord_len
             margin_s = 1.5 * tie_half_along_s
@@ -102,67 +93,16 @@ class RailCrossSection(wt.CrossSection):
             add_slab(0.0, 1.0, x - RAIL_HALF_W, x + RAIL_HALF_W,
                      TIE_TOP_Z, RAIL_TOP_Z, RAIL_GREY)
 
-    def paint_arc(self, model, path: wt.ArcPath) -> None:
-        # super() emits ballast+rails per chord piece (role="arc_piece"
-        # → 0 ties).  Lay radial ties here at a per-length cadence so
-        # density matches the straight chord ties.
-        super().paint_arc(model, path)
-        arc_len = abs(path.delta) * path.radius
-        n_ties_arc = max(1, round(N_TIES * arc_len / STRAIGHT_CHORD))
-        for i in range(n_ties_arc):
-            s = (i + 0.5) / n_ties_arc
-            _add_radial_tie(model, path.cx, path.cy, path.radius,
-                            path.az_start + path.delta * s)
-
 
 CS = RailCrossSection()
 
 
-def _add_radial_tie(model: Model, arc_cx: float, arc_cy: float,
-                    radius: float, angle: float) -> None:
-    """Lay one cross-tie at `radius` and `angle` around arc centre
-    `(arc_cx, arc_cy)`.
-
-    The tie is a small radial slab: short along the local arc tangent
-    (its "thickness", same 0.05 world units the straight ties use) and
-    wide across the rails (`±TIE_HALF_W` along the radial direction).
-    Built as 5 outward-facing quads.  Local axes are picked so
-    `tangent × radial = +ẑ` (right-handed, matching `Model.add_box`'s
-    x×y=z convention) — using +tangent = (-sin t, cos t) (the CCW arc
-    direction) as `u` and +radial = (cos t, sin t) as `v` gives
-    u×v = +ẑ, so the same quad enumeration as `add_box` produces
-    outward-facing normals.
-    """
-    cos_t, sin_t = math.cos(angle), math.sin(angle)
-    ux, uy = -sin_t, cos_t          # +tangent (along rails)
-    vx, vy = cos_t, sin_t           # +radial  (across rails)
-    cx, cy = arc_cx + radius * cos_t, arc_cy + radius * sin_t
-
-    U = 0.025                       # half-thickness along tangent
-    V = TIE_HALF_W                  # half-width along radial
-    z0, z1 = BALLAST_TOP_Z, TIE_TOP_Z
-
-    def c(su, sv, z):
-        return (cx + su * U * ux + sv * V * vx,
-                cy + su * U * uy + sv * V * vy,
-                z)
-
-    pts = [c(-1, -1, z0), c(+1, -1, z0), c(+1, +1, z0), c(-1, +1, z0),
-           c(-1, -1, z1), c(+1, -1, z1), c(+1, +1, z1), c(-1, +1, z1)]
-
-    kw = {"layer": "back", "dither_keep": 0.75}
-    model.add_quad([pts[4], pts[5], pts[6], pts[7]], TIE_BROWN, **kw)  # top
-    model.add_quad([pts[0], pts[1], pts[5], pts[4]], TIE_BROWN, **kw)  # -v side
-    model.add_quad([pts[2], pts[3], pts[7], pts[6]], TIE_BROWN, **kw)  # +v side
-    model.add_quad([pts[1], pts[2], pts[6], pts[5]], TIE_BROWN, **kw)  # +u side
-    model.add_quad([pts[0], pts[4], pts[7], pts[3]], TIE_BROWN, **kw)  # -u side
-
-
 def render_hex_cell(edges):
     """Build a fresh Model with one hex sprite and render it through
-    the hex camera.  Single edge → stub; two edges → straight or
-    curve; 3+ edges → junction (placeholder one-stub-per-edge "frog
-    blob").  Returns the (h, w, 4) uint8 RGBA array."""
+    the hex camera.  Single edge → stub; two edges → straight chord
+    (120°/180° pair) or V-bend (60° pair); 3+ edges → junction as
+    the union of all `C(N,2)` pairwise connections.  Returns the
+    (h, w, 4) uint8 RGBA array."""
     m = Model()
     CS.paint(m, wt.for_edges_paths(edges))
     return render(m, HexCamera())

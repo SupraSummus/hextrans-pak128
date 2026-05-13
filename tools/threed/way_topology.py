@@ -1,17 +1,16 @@
 """Hex way topology builders parameterised on a `CrossSection`.
 
 Splits the asset-agnostic topology (where on the hex tile a stub /
-curve / junction / axis-slope segment goes) from the asset-specific
-cross-section (rail's ballast bands + ties + rails; road's pavement
-slab; tram's pavement + rails; …).  Each builder calls back into the
-asset's `CrossSection` for the actual geometry emission, so adding a
-new way family is "subclass `CrossSection`, override two methods".
+chord / V-bend / junction / axis-slope segment goes) from the
+asset-specific cross-section (rail's ballast bands + ties + rails;
+road's pavement slab; tram's pavement + rails; …).  Each builder
+calls back into the asset's `CrossSection.paint_straight` for the
+actual geometry emission, so adding a new way family is "subclass
+`CrossSection`, override one method".
 
-The builders here used to live as private `_add_*_segment` /
-`_build_arc_curve` / `build_curve` / `build_stub` / `build_junction` /
-`build_axis_slope` functions in `rail_060_tracks/scene.py`, then got
-verbatim-copied into `road_040/scene.py` when the second consumer
-arrived.  The duplication signal said it was time to graduate.
+All topology resolves to straight chord pieces — 60° bends are
+two-leg V-bends, not arcs, so the cross-section never sees a
+curved primitive.
 """
 from __future__ import annotations
 
@@ -30,17 +29,36 @@ def make_slab_emitter(model, path: "StraightPath"):
     """Return `(add_slab, chord_len)` for one straight segment.
 
     `add_slab(s0, s1, perp0, perp1, z0, z1, color, dither_keep=1.0,
-    layer="back")` emits a 5-quad slab in the chord+caps frame:
-    `s` ∈ [0, 1] runs from `path.start` to `path.end`; `perp` is the
-    signed perpendicular distance from the chord centerline; cap
-    direction is interpolated linearly between `path.cap_a` (s=0) and
-    `path.cap_b` (s=1) so the slab's end faces meet the local edge
-    direction at the path's two ends — adjacent tiles' segments meet
-    flush across non-axis hex edges (mitred ends).
+    layer="back")` emits a slab in the chord+caps frame: `s` ∈ [0, 1]
+    runs from `path.start` to `path.end`; `perp` is the signed
+    perpendicular distance from the chord centerline.
 
-    The closure is shared by every cross-section's `paint_straight`;
-    rail also reads `chord_len` to lay ties at fixed world-unit
-    spacing along the chord.
+    Each end-cap (`path.cap_a` at s=0, `path.cap_b` at s=1) sets the
+    lateral shear of that end face — the cap line, not the cap
+    direction, is what matters: the slab's perp boundary at s=0
+    runs along `cap_a` through `path.start`, the boundary at s=1
+    runs along `cap_b` through `path.end`, and each perp boundary
+    is the straight line between those two end corners.  In code:
+    we precompute the per-cap unit-perp lateral offsets and
+    interpolate the OFFSETS linearly along s (which yields a
+    straight slab edge for any perp).  Interpolating the cap
+    *directions* and re-normalising — what we did until the V-bend
+    pieces arrived — hits a 1/(cap · left_perp) singularity when
+    the interpolated direction lands parallel to the chord (every
+    60° V-bend leg with cap_a along an edge and cap_b along the
+    apex bisector crosses chord-parallel at s≈0.5).
+
+    Top face and both perpendicular side faces are always emitted.
+    Chord-end side faces at s=s0 / s=s1 are suppressed by
+    `path.skip_cap_a` / `path.skip_cap_b`, used for V-bend legs
+    that meet at an interior apex with a coplanar opposing-normal
+    cap.  Caller must pass caps whose dot with the chord's left
+    perpendicular is non-zero — i.e. cap_a / cap_b not parallel to
+    the chord direction; the assertion below catches mistakes.
+
+    `chord_len` is returned so cross-sections can scale per-length
+    cadence (rail ties, road centre dashes) without duplicating
+    the hypot.
     """
     sx, sy = path.start
     ex, ey = path.end
@@ -49,25 +67,25 @@ def make_slab_emitter(model, path: "StraightPath"):
     cux, cuy = cx_ / chord_len, cy_ / chord_len
     pux, puy = -cuy, cux  # left perpendicular
 
-    cap_a = path.cap_a
-    cap_b = path.cap_b
+    def _unit_offset(cap):
+        dot = cap[0] * pux + cap[1] * puy
+        assert abs(dot) > 1e-9, (
+            f"cap {cap} is parallel to chord ({cux:.3f}, {cuy:.3f}) — "
+            "perp boundaries would be undefined")
+        return cap[0] / dot, cap[1] / dot
 
-    def cap_for(s, perp_amount):
-        cdx = (1 - s) * cap_a[0] + s * cap_b[0]
-        cdy = (1 - s) * cap_a[1] + s * cap_b[1]
-        cdn = math.hypot(cdx, cdy) or 1.0
-        cdx, cdy = cdx / cdn, cdy / cdn
-        dot = cdx * pux + cdy * puy
-        if abs(dot) < 1e-6:
-            dot = 1e-6 if dot >= 0 else -1e-6
-        scale = perp_amount / dot
-        return cdx * scale, cdy * scale
+    ox_a, oy_a = _unit_offset(path.cap_a)
+    ox_b, oy_b = _unit_offset(path.cap_b)
 
     def world(s, perp, z):
         bx = (1 - s) * sx + s * ex
         by = (1 - s) * sy + s * ey
-        ox, oy = cap_for(s, perp)
+        ox = ((1 - s) * ox_a + s * ox_b) * perp
+        oy = ((1 - s) * oy_a + s * oy_b) * perp
         return (bx + ox, by + oy, z)
+
+    skip_a = path.skip_cap_a
+    skip_b = path.skip_cap_b
 
     def add_slab(s0, s1, perp0, perp1, z0, z1, color,
                  dither_keep=1.0, layer="back"):
@@ -81,8 +99,10 @@ def make_slab_emitter(model, path: "StraightPath"):
         model.add_quad([corners[4], corners[5], corners[6], corners[7]], color, **kw)
         model.add_quad([corners[0], corners[1], corners[5], corners[4]], color, **kw)
         model.add_quad([corners[2], corners[3], corners[7], corners[6]], color, **kw)
-        model.add_quad([corners[1], corners[2], corners[6], corners[5]], color, **kw)
-        model.add_quad([corners[0], corners[4], corners[7], corners[3]], color, **kw)
+        if not skip_b:
+            model.add_quad([corners[1], corners[2], corners[6], corners[5]], color, **kw)
+        if not skip_a:
+            model.add_quad([corners[0], corners[4], corners[7], corners[3]], color, **kw)
 
     return add_slab, chord_len
 
@@ -91,87 +111,44 @@ def make_slab_emitter(model, path: "StraightPath"):
 
 @dataclass
 class StraightPath:
-    """One straight chord between two midpoints, with cap directions
-    at each end.  `role` is a hint to the cross-section about how
-    much "cadence" content (rail ties, road centre dashes, …) belongs
-    on this segment relative to the asset's full-tile reference:
+    """One straight chord between two points, with cap directions at
+    each end.  Cross-sections with per-length cadence (rail ties,
+    road centre dashes) scale their content off `chord_len` from
+    `make_slab_emitter` so density stays uniform across stubs,
+    full chords, and V-bend legs without a discrete role enum.
 
-      "full"      — through-tile chord (between opposite edge midpoints)
-      "half"      — half-tile chord (centre to one edge midpoint)
-      "arc_piece" — short chord piece inside an arc subdivision
-
-    Cross-sections that don't have cadence (road's plain pavement)
-    ignore the role.
+    `skip_cap_a` / `skip_cap_b` suppress the chord-end side faces at
+    s=0 / s=1 respectively.  Used for V-bend legs whose apex caps
+    meet the matching leg's cap on the same plane with opposing
+    normals — drawing both produces z-fighting that flickers between
+    the bright sun-lit face and the dark ambient-only face.
     """
     start: tuple[float, float]
     end: tuple[float, float]
     cap_a: tuple[float, float]
     cap_b: tuple[float, float]
-    role: str = "full"
-
-
-@dataclass
-class ArcPath:
-    """Curved path along a circular arc, centred on `(cx, cy)` with the
-    given radius, sweeping `delta` radians from `az_start`.  The
-    cross-section decides how to render — typically subdivides into
-    chord pieces and overlays per-arc cadence elements (rail's radial
-    ties).  Roads paint plain chord pieces and stop there."""
-    cx: float
-    cy: float
-    radius: float
-    az_start: float
-    delta: float
+    skip_cap_a: bool = False
+    skip_cap_b: bool = False
 
 
 class CrossSection:
     """Asset-specific painter — owns the cross-section geometry that
-    the topology builders compose into stubs / curves / junctions.
-
-    Subclasses must override `paint_straight`.  `paint_arc` defaults
-    to subdividing the arc into `arc_segments` chord pieces (each
-    routed back through `paint_straight` with `role="arc_piece"`);
-    assets with extra per-arc cadence (rail's radial ties) override
-    `paint_arc` to call `super().paint_arc()` and then add their
-    overlay — Python's dynamic dispatch resolves the chord-piece
-    `paint_straight` calls to the subclass, so the override gets
-    the right cross-section for free.
+    the topology builders compose into stubs / curves / V-bends /
+    junctions.  Subclasses override `paint_straight`; the topology
+    layer only emits `StraightPath`s, so that's the single dispatch
+    point.
     """
-
-    # 12 chord pieces over a 120° arc gives ~10° per piece — fine
-    # enough that the polyline reads as a smooth curve at 128 px,
-    # coarse enough to keep rendering cheap.  Per-asset subclasses
-    # can raise it for finer arcs (none do today).
-    arc_segments: int = 12
 
     def paint_straight(self, model, path: StraightPath) -> None:
         raise NotImplementedError
 
-    def paint_arc(self, model, path: ArcPath) -> None:
-        for i in range(self.arc_segments):
-            t0 = path.az_start + path.delta * (i / self.arc_segments)
-            t1 = path.az_start + path.delta * ((i + 1) / self.arc_segments)
-            p0 = (path.cx + path.radius * math.cos(t0),
-                  path.cy + path.radius * math.sin(t0))
-            p1 = (path.cx + path.radius * math.cos(t1),
-                  path.cy + path.radius * math.sin(t1))
-            cap0 = (math.cos(t0), math.sin(t0))
-            cap1 = (math.cos(t1), math.sin(t1))
-            self.paint_straight(model, StraightPath(
-                start=p0, end=p1, cap_a=cap0, cap_b=cap1, role="arc_piece"))
-
     def paint(self, model, paths) -> None:
-        """Walk a heterogeneous path list, dispatching each path to
-        the matching painter.  Used by `render_hex_cell` to consume
-        whatever `for_edges_paths` / `axis_slope_paths` returned
-        without the asset having to enumerate path types itself."""
+        """Walk a path list, dispatching each path to `paint_straight`.
+        Used by `render_hex_cell` to consume whatever
+        `for_edges_paths` / `axis_slope_paths` returned without the
+        asset having to enumerate types itself."""
         for p in paths:
-            if isinstance(p, StraightPath):
-                self.paint_straight(model, p)
-            elif isinstance(p, ArcPath):
-                self.paint_arc(model, p)
-            else:
-                raise TypeError(f"unknown path: {type(p).__name__}")
+            self.paint_straight(model, p)
 
 
 # ---- Path builders --------------------------------------------------------
@@ -185,56 +162,67 @@ def between_edges_paths(edge_a: str, edge_b: str) -> list[StraightPath]:
     tiles' ways meet flush at the shared edge midpoint."""
     return [StraightPath(
         start=edge_midpoint(edge_a), end=edge_midpoint(edge_b),
-        cap_a=edge_unit_dir(edge_a), cap_b=edge_unit_dir(edge_b),
-        role="full")]
+        cap_a=edge_unit_dir(edge_a), cap_b=edge_unit_dir(edge_b))]
 
 
-def arc_curve_paths(edge_a: str, edge_b: str) -> list[ArcPath]:
-    """Curved path between two 60°-apart hex edges, centred on the
-    shared corner.  Radius = R/2 = corner-to-edge-midpoint distance,
-    so the arc crosses each edge perpendicular to it at the
-    midpoint."""
+def bend_curve_paths(edge_a: str, edge_b: str) -> list[StraightPath]:
+    """V-bend between two 60°-apart hex edges sharing one corner.
+    The apex sits on the radial through the shared corner at half
+    the hex radius — i.e. at `corner / 2` — and the apex miter cap
+    is the unit vector toward the corner (which is the bisector of
+    the two edge directions there, since the corner is equidistant
+    from both edges by hex symmetry).  Each leg is therefore a
+    piece of an off-axis through-tile chord: leg A from M_a to the
+    apex, parallel to edge_b; leg B from the apex to M_b, parallel
+    to edge_a.  Apex caps are suppressed (they're internal and
+    would z-fight against each other)."""
     corner = shared_corner(edge_a, edge_b)
-    cx, cy = HEX_CORNERS[corner]
-    a_mid = edge_midpoint(edge_a)
-    b_mid = edge_midpoint(edge_b)
-    radius = math.hypot(a_mid[0] - cx, a_mid[1] - cy)
-    a_az = math.atan2(a_mid[1] - cy, a_mid[0] - cx)
-    b_az = math.atan2(b_mid[1] - cy, b_mid[0] - cx)
-    delta = (b_az - a_az + math.pi) % (2 * math.pi) - math.pi
-    return [ArcPath(cx=cx, cy=cy, radius=radius,
-                    az_start=a_az, delta=delta)]
+    cx, cy = HEX_CORNERS[corner]                       # unit vector
+    apex = (cx / 2.0, cy / 2.0)
+    apex_cap = (cx, cy)
+    return [
+        StraightPath(start=edge_midpoint(edge_a), end=apex,
+                     cap_a=edge_unit_dir(edge_a), cap_b=apex_cap,
+                     skip_cap_b=True),
+        StraightPath(start=apex, end=edge_midpoint(edge_b),
+                     cap_a=apex_cap, cap_b=edge_unit_dir(edge_b),
+                     skip_cap_a=True),
+    ]
 
 
 def curve_paths(edge_a: str, edge_b: str):
     """Two-edge connection: 60°-apart pairs (sharing a corner) →
-    arc; 120° / 180° pairs → mitred chord."""
+    V-bend (two off-axis chord pieces); 120° / 180° pairs → mitred
+    through-tile chord."""
     if set(HEX_EDGES[edge_a]) & set(HEX_EDGES[edge_b]):
-        return arc_curve_paths(edge_a, edge_b)
+        return bend_curve_paths(edge_a, edge_b)
     return between_edges_paths(edge_a, edge_b)
 
 
 def stub_paths(edge: str) -> list[StraightPath]:
     """Half-tile chord from the hex centre to one edge midpoint.
     Edge end mitred along the local edge direction; centre end gets a
-    perpendicular cut.  `role="half"` so cross-sections with cadence
-    can scale their content by half."""
-    start = (0.0, 0.0)
+    perpendicular cut."""
     end = edge_midpoint(edge)
-    cap_edge = edge_unit_dir(edge)
-    cdx, cdy = end[0] - start[0], end[1] - start[1]
-    n = math.hypot(cdx, cdy)
-    cap_centre = (-cdy / n, cdx / n)
-    return [StraightPath(start=start, end=end,
-                         cap_a=cap_centre, cap_b=cap_edge, role="half")]
+    n = math.hypot(end[0], end[1])
+    cap_centre = (-end[1] / n, end[0] / n)
+    return [StraightPath(start=(0.0, 0.0), end=end,
+                         cap_a=cap_centre, cap_b=edge_unit_dir(edge))]
 
 
-def junction_paths(edges) -> list[StraightPath]:
-    """3+ way junction as one stub per active edge — the placeholder
-    "frog blob" shape both rail and road currently use.  Cross-sections
-    overlap at the centre; correct silhouette, no real intersection
-    geometry yet."""
-    return [path for edge in edges for path in stub_paths(edge)]
+def junction_paths(edges):
+    """N≥3 way junction as the union of all `C(N,2)` pairwise edge
+    connections, each routed via `curve_paths` — so 60°-apart pairs
+    become V-bends and 120° / 180° pairs become mitred through-tile
+    chords.  An asymmetric 3-way like {N, NE, S} reads as one
+    straight (N↔S) plus one V-bend (N↔NE) plus one 120° chord
+    (NE↔S), instead of three stubs meeting at the centre.
+    Through-routes therefore continue as real chords across the
+    junction tile."""
+    return [path
+            for i, a in enumerate(edges)
+            for b in edges[i + 1:]
+            for path in curve_paths(a, b)]
 
 
 def for_edges_paths(edges):
