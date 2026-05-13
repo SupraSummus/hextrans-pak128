@@ -7,11 +7,12 @@ The asset-agnostic topology (stub / chord / V-bend / junction /
 axis-slope) lives in `way_topology` and dispatches into
 `paint_straight`.
 
-Hex deliverable: `rail_060_tracks_hex.png` (8×8 atlas, 63 ribi cells)
-plus `rail_060_tracks_hex_slope.png` (1×6 axis slopes), referenced
-from the sibling `rail_060_tracks.dat`.  Square verification: `build.py`
-lays straights via `way_verify` and diffs against pak128 cells
-1.5 / 1.6 (the upstream dimetric NS / EW straight art).
+Hex deliverable: three atlases written by
+`tools.threed.way_bake.bake_way_atlases` next to the sibling
+`rail_060_tracks.dat` — see that module for shape details.  Square
+verification: `build.py` lays straights via `way_verify` and diffs
+against pak128 cells 1.5 / 1.6 (the upstream dimetric NS / EW
+straight art).
 
 Coordinate system matches `render.py` and `rail_060_bridge/scene.py`:
 world +x = east (lower-right onscreen in square dimetric, screen-right
@@ -26,9 +27,8 @@ IMG_SIZE/2 + 32, the flat-tile bbox midpoint).
 from pathlib import Path
 
 from tools.threed import way_topology as wt
-from tools.threed.bespoke import bake_atlas
-from tools.threed.render import HexCamera, Model, render
-from tools.threed.way import HEX_ENTRIES, SLOPE_HEX_ENTRIES, STRAIGHT_CHORD
+from tools.threed.way import STRAIGHT_CHORD
+from tools.threed.way_bake import bake_way_atlases
 
 # Track-family parameters (cross-section, colours) live in a sibling
 # module so other rail assets (rail_060_bridge, future rail_060_*)
@@ -97,39 +97,8 @@ class RailCrossSection(wt.CrossSection):
 CS = RailCrossSection()
 
 
-def render_hex_cell(edges):
-    """Build a fresh Model with one hex sprite and render it through
-    the hex camera.  Single edge → stub; two edges → straight chord
-    (120°/180° pair) or V-bend (60° pair); 3+ edges → junction as
-    the union of all `C(N,2)` pairwise connections.  Returns the
-    (h, w, 4) uint8 RGBA array."""
-    m = Model()
-    CS.paint(m, wt.for_edges_paths(edges))
-    return render(m, HexCamera())
-
-
-def render_hex_slope_cell(low_edge: str):
-    """One axis-aligned slope sprite for the given low edge."""
-    m = Model()
-    wt.lay_axis_slope(CS, m, low_edge)
-    return render(m, HexCamera())
-
-
 def bake_pakset() -> None:
-    bake_atlas(
-        out_png=HERE.parent / "rail_060_tracks_hex_slope.png",
-        entries=[(label, lambda e=edge: render_hex_slope_cell(e))
-                 for label, edge in SLOPE_HEX_ENTRIES],
-    )
-    # 8×8 grid (63 cells, last slot empty) — a single 63-wide row is
-    # ~8000 px wide and unhelpful to scroll.  Per-row mapping: i//8 →
-    # row, i%8 → col, in HEX_ENTRIES order.
-    bake_atlas(
-        out_png=HERE.parent / "rail_060_tracks_hex.png",
-        entries=[(ribi, lambda edges=edges: render_hex_cell(edges))
-                 for ribi, edges in HEX_ENTRIES],
-        cols_per_row=8,
-    )
+    bake_way_atlases(CS, out_dir=HERE.parent, name="rail_060_tracks")
 
 
 if __name__ == "__main__":

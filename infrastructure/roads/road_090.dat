@@ -122,3 +122,47 @@ ImageUp[se_double][0]=road_090_hex_slope.1.2
 ImageUp[s_double][0]=road_090_hex_slope.1.3
 ImageUp[sw_double][0]=road_090_hex_slope.1.4
 ImageUp[nw_double][0]=road_090_hex_slope.1.5
+# Half-slope stubs - way terminates on the slope's low / high edge,
+# sprite covers only the half of the tile near that edge.  Baked by
+# scene.py's bake_pakset() into road_090_hex_slope_half.png: 6x2 (or 6x4 if
+# has_double_slopes) grid following SLOPE_HEX_HALF_ENTRIES order
+# (row 0 low halves, row 1 high halves, then rows 2-3 for the
+# double-height variants).  Narrow and wide share cells exactly
+# like the full crossing atlas above.
+
+ImageUp[n_low_half][0]=road_090_hex_slope_half.0.0
+ImageUp[n_wide_low_half][0]=road_090_hex_slope_half.0.0
+ImageUp[ne_low_half][0]=road_090_hex_slope_half.0.1
+ImageUp[ne_wide_low_half][0]=road_090_hex_slope_half.0.1
+ImageUp[se_low_half][0]=road_090_hex_slope_half.0.2
+ImageUp[se_wide_low_half][0]=road_090_hex_slope_half.0.2
+ImageUp[s_low_half][0]=road_090_hex_slope_half.0.3
+ImageUp[s_wide_low_half][0]=road_090_hex_slope_half.0.3
+ImageUp[sw_low_half][0]=road_090_hex_slope_half.0.4
+ImageUp[sw_wide_low_half][0]=road_090_hex_slope_half.0.4
+ImageUp[nw_low_half][0]=road_090_hex_slope_half.0.5
+ImageUp[nw_wide_low_half][0]=road_090_hex_slope_half.0.5
+ImageUp[n_high_half][0]=road_090_hex_slope_half.1.0
+ImageUp[n_wide_high_half][0]=road_090_hex_slope_half.1.0
+ImageUp[ne_high_half][0]=road_090_hex_slope_half.1.1
+ImageUp[ne_wide_high_half][0]=road_090_hex_slope_half.1.1
+ImageUp[se_high_half][0]=road_090_hex_slope_half.1.2
+ImageUp[se_wide_high_half][0]=road_090_hex_slope_half.1.2
+ImageUp[s_high_half][0]=road_090_hex_slope_half.1.3
+ImageUp[s_wide_high_half][0]=road_090_hex_slope_half.1.3
+ImageUp[sw_high_half][0]=road_090_hex_slope_half.1.4
+ImageUp[sw_wide_high_half][0]=road_090_hex_slope_half.1.4
+ImageUp[nw_high_half][0]=road_090_hex_slope_half.1.5
+ImageUp[nw_wide_high_half][0]=road_090_hex_slope_half.1.5
+ImageUp[n_double_low_half][0]=road_090_hex_slope_half.2.0
+ImageUp[ne_double_low_half][0]=road_090_hex_slope_half.2.1
+ImageUp[se_double_low_half][0]=road_090_hex_slope_half.2.2
+ImageUp[s_double_low_half][0]=road_090_hex_slope_half.2.3
+ImageUp[sw_double_low_half][0]=road_090_hex_slope_half.2.4
+ImageUp[nw_double_low_half][0]=road_090_hex_slope_half.2.5
+ImageUp[n_double_high_half][0]=road_090_hex_slope_half.3.0
+ImageUp[ne_double_high_half][0]=road_090_hex_slope_half.3.1
+ImageUp[se_double_high_half][0]=road_090_hex_slope_half.3.2
+ImageUp[s_double_high_half][0]=road_090_hex_slope_half.3.3
+ImageUp[sw_double_high_half][0]=road_090_hex_slope_half.3.4
+ImageUp[nw_double_high_half][0]=road_090_hex_slope_half.3.5

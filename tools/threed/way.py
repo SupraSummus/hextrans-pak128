@@ -75,6 +75,31 @@ SLOPE_HEX_DOUBLE_ENTRIES: list[tuple[str, str]] = [
 ]
 
 
+# Half-slope sprites — way terminates on the slope (single-bit ribi
+# on the slope's ramp axis).  12 cells per height: 6 axis low edges
+# × 2 halves ({low edge stub, high edge stub}).  Narrow and wide
+# share each cell exactly like the full crossing atlas (the way's
+# chord geometry is identical; only off-axis terrain differs), so
+# the `.dat` points both `n_low_half` and `n_wide_low_half` at the
+# matching atlas cell.  `lay_axis_slope_half(cs, model, low_edge,
+# steps=1|2, high_half=…)` bakes one cell.
+#
+# Tuple shape `(label, low_edge, high_half)`.  Order mirrors
+# SLOPE_HEX_ENTRIES: 6 low-half cells (clockwise from north), then
+# 6 high-half cells in the same axis order.
+def _half_entries(double: bool) -> list[tuple[str, str, bool]]:
+    mid = "_double" if double else ""
+    return [
+        (f"{label}{mid}_{'high' if high else 'low'}_half", edge, high)
+        for high in (False, True)
+        for label, edge in SLOPE_HEX_ENTRIES
+    ]
+
+
+SLOPE_HEX_HALF_ENTRIES:        list[tuple[str, str, bool]] = _half_entries(double=False)
+SLOPE_HEX_HALF_DOUBLE_ENTRIES: list[tuple[str, str, bool]] = _half_entries(double=True)
+
+
 # ---- Hex tile geometry ----------------------------------------------------
 # Flat-top hex centred at origin.  Corner order matches `hex_corner_t`
 # in `dataobj/ribi.h`; edge naming matches the EDGE convention

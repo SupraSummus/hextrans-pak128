@@ -199,14 +199,27 @@ def curve_paths(edge_a: str, edge_b: str):
     return between_edges_paths(edge_a, edge_b)
 
 
+# Fraction of the centre-to-edge-midpoint distance the stub body
+# covers, measured from the edge midpoint inward.  Stubs visibly
+# "end on the tile" rather than running flush to the centre — used
+# both for flat-ground single-ribi cells and for half-slope stubs
+# on ramp tiles.  0.5 = stub covers the outer half of the radial.
+STUB_LENGTH_FRACTION = 0.5
+
+
 def stub_paths(edge: str) -> list[StraightPath]:
-    """Half-tile chord from the hex centre to one edge midpoint.
-    Edge end mitred along the local edge direction; centre end gets a
-    perpendicular cut."""
+    """Short chord from the edge midpoint inward toward the tile centre.
+    Length is `STUB_LENGTH_FRACTION` of the centre-to-edge-midpoint
+    radial — the stub stops well short of the centre so a single-
+    ribi cell visibly terminates inside the tile rather than running
+    to its centre.  Edge end mitred along the local edge direction;
+    inner end gets a perpendicular cut."""
     end = edge_midpoint(edge)
     n = math.hypot(end[0], end[1])
     cap_centre = (-end[1] / n, end[0] / n)
-    return [StraightPath(start=(0.0, 0.0), end=end,
+    start = (end[0] * (1.0 - STUB_LENGTH_FRACTION),
+             end[1] * (1.0 - STUB_LENGTH_FRACTION))
+    return [StraightPath(start=start, end=end,
                          cap_a=cap_centre, cap_b=edge_unit_dir(edge))]
 
 
@@ -236,6 +249,26 @@ def for_edges_paths(edges):
     return junction_paths(edges)
 
 
+def _tilt_ramp(model, low_edge: str, *, steps: int) -> None:
+    """Linear-tilt every vertex along the slope's chord axis so the
+    high-edge midpoint sits `steps` engine height steps above the
+    low-edge midpoint.  Pure transform: callers paint the geometry
+    first, then call this to lift it onto the ramp."""
+    from .render import engine_z_per_step
+
+    high_edge = HEX_OPPOSITE_EDGE[low_edge]
+    low_mx, low_my = edge_midpoint(low_edge)
+    high_mx, high_my = edge_midpoint(high_edge)
+    chord_dx, chord_dy = high_mx - low_mx, high_my - low_my
+    chord_len_sq = chord_dx * chord_dx + chord_dy * chord_dy
+    z_total = engine_z_per_step(height_step=steps)
+    model.verts = [
+        (vx, vy, vz + ((vx - low_mx) * chord_dx + (vy - low_my) * chord_dy)
+                       / chord_len_sq * z_total)
+        for vx, vy, vz in model.verts
+    ]
+
+
 def lay_axis_slope(cs: CrossSection, model, low_edge: str,
                    *, steps: int = 1) -> None:
     """Lay a way segment on an axis-aligned hex slope: paint the
@@ -256,18 +289,22 @@ def lay_axis_slope(cs: CrossSection, model, low_edge: str,
     numpy; topology callers that don't need slopes shouldn't pay
     the import cost.
     """
-    from .render import engine_z_per_step
-
     high_edge = HEX_OPPOSITE_EDGE[low_edge]
     cs.paint(model, between_edges_paths(low_edge, high_edge))
+    _tilt_ramp(model, low_edge, steps=steps)
 
-    low_mx, low_my = edge_midpoint(low_edge)
-    high_mx, high_my = edge_midpoint(high_edge)
-    chord_dx, chord_dy = high_mx - low_mx, high_my - low_my
-    chord_len_sq = chord_dx * chord_dx + chord_dy * chord_dy
-    z_total = engine_z_per_step(height_step=steps)
-    model.verts = [
-        (vx, vy, vz + ((vx - low_mx) * chord_dx + (vy - low_my) * chord_dy)
-                       / chord_len_sq * z_total)
-        for vx, vy, vz in model.verts
-    ]
+
+def lay_axis_slope_half(cs: CrossSection, model, low_edge: str,
+                        *, steps: int = 1, high_half: bool = False) -> None:
+    """Lay a half-tile way stub on an axis-aligned hex slope.  Paints a
+    stub from the tile centre to the low (`high_half=False`) or high
+    (`high_half=True`) edge of the slope's ramp axis, then applies the
+    same linear z-tilt as `lay_axis_slope` — so the half geometry
+    matches the surface a full crossing would render on this slope,
+    just clipped to one half.  Used by the engine's
+    `imageup[<edge>_low_half]` / `imageup[<edge>_high_half]` slope
+    image slots for ways that terminate on a slope (single-bit ribi on
+    the slope's ramp axis)."""
+    edge = HEX_OPPOSITE_EDGE[low_edge] if high_half else low_edge
+    cs.paint(model, stub_paths(edge))
+    _tilt_ramp(model, low_edge, steps=steps)
