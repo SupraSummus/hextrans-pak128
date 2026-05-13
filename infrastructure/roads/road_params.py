@@ -25,9 +25,7 @@ from pathlib import Path
 from landscape.grounds.sidewalk.render import PAVEMENT_RGB
 from tools.threed import way_topology as wt
 from tools.threed import way_verify
-from tools.threed.bespoke import bake_atlas
-from tools.threed.render import HexCamera, Model, render
-from tools.threed.way import HEX_ENTRIES, SLOPE_HEX_DOUBLE_ENTRIES, SLOPE_HEX_ENTRIES
+from tools.threed.way_bake import bake_way_atlases
 
 
 ROADS_DIR = Path(__file__).resolve().parent
@@ -214,45 +212,17 @@ def make_tier(params: RoadParams):
 
     The returned `CS` is the per-tier `RoadCrossSection` instance
     (consumed by `way_verify.verify_square` for the dimetric diff
-    against pak128 cells 1.5 / 1.6).  `bake_pakset()` writes
-    `<name>_hex.png` (8×8 ribi atlas) and `<name>_hex_slope.png`
-    next to the tier's `.dat`.  The slope atlas is 1×6 for
-    single-height-only tiers and 6×2 for `has_double_slopes`
-    tiers (row 0 = single, row 1 = double-height 0→2 chord).
+    against pak128 cells 1.5 / 1.6).  `bake_pakset()` delegates to
+    `tools.threed.way_bake.bake_way_atlases`, which writes the three
+    standard hex atlases (`_hex.png`, `_hex_slope.png`,
+    `_hex_slope_half.png`) next to the tier's `.dat` — see that
+    module for the atlas shapes.
     """
     cs = RoadCrossSection(params)
 
-    def render_hex_cell(edges):
-        m = Model()
-        cs.paint(m, wt.for_edges_paths(edges))
-        return render(m, HexCamera())
-
-    def render_hex_slope_cell(edge, *, steps=1):
-        m = Model()
-        wt.lay_axis_slope(cs, m, edge, steps=steps)
-        return render(m, HexCamera())
-
     def bake_pakset() -> None:
-        slope_entries = [
-            (label, lambda e=edge: render_hex_slope_cell(e))
-            for label, edge in SLOPE_HEX_ENTRIES
-        ]
-        if params.has_double_slopes:
-            slope_entries += [
-                (label, lambda e=edge: render_hex_slope_cell(e, steps=2))
-                for label, edge in SLOPE_HEX_DOUBLE_ENTRIES
-            ]
-        bake_atlas(
-            out_png=ROADS_DIR / f"{params.name}_hex_slope.png",
-            entries=slope_entries,
-            cols_per_row=6,
-        )
-        bake_atlas(
-            out_png=ROADS_DIR / f"{params.name}_hex.png",
-            entries=[(ribi, lambda edges=edges: render_hex_cell(edges))
-                     for ribi, edges in HEX_ENTRIES],
-            cols_per_row=8,
-        )
+        bake_way_atlases(cs, out_dir=ROADS_DIR, name=params.name,
+                         has_double_slopes=params.has_double_slopes)
 
     return cs, bake_pakset
 

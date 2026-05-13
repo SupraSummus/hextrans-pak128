@@ -112,3 +112,35 @@ ImageUp[se_wide][0]=rail_060_tracks_hex_slope.0.2
 ImageUp[s_wide][0]=rail_060_tracks_hex_slope.0.3
 ImageUp[sw_wide][0]=rail_060_tracks_hex_slope.0.4
 ImageUp[nw_wide][0]=rail_060_tracks_hex_slope.0.5
+# Half-slope stubs - way terminates on the slope's low / high edge,
+# sprite covers only the half of the tile near that edge.  Baked by
+# scene.py::bake_pakset() into rail_060_tracks_hex_slope_half.png:
+# 6x2 grid, row 0 = low halves, row 1 = high halves, columns in
+# SLOPE_HEX_HALF_ENTRIES axis order (n, ne, se, s, sw, nw).  Narrow
+# and wide share cells exactly like the full crossing atlas above
+# (the way's chord geometry is identical; off-axis terrain differs).
+# No `_double` keys: rail_060 ships no double-slope art today.
+ImageUp[n_low_half][0]=rail_060_tracks_hex_slope_half.0.0
+ImageUp[ne_low_half][0]=rail_060_tracks_hex_slope_half.0.1
+ImageUp[se_low_half][0]=rail_060_tracks_hex_slope_half.0.2
+ImageUp[s_low_half][0]=rail_060_tracks_hex_slope_half.0.3
+ImageUp[sw_low_half][0]=rail_060_tracks_hex_slope_half.0.4
+ImageUp[nw_low_half][0]=rail_060_tracks_hex_slope_half.0.5
+ImageUp[n_wide_low_half][0]=rail_060_tracks_hex_slope_half.0.0
+ImageUp[ne_wide_low_half][0]=rail_060_tracks_hex_slope_half.0.1
+ImageUp[se_wide_low_half][0]=rail_060_tracks_hex_slope_half.0.2
+ImageUp[s_wide_low_half][0]=rail_060_tracks_hex_slope_half.0.3
+ImageUp[sw_wide_low_half][0]=rail_060_tracks_hex_slope_half.0.4
+ImageUp[nw_wide_low_half][0]=rail_060_tracks_hex_slope_half.0.5
+ImageUp[n_high_half][0]=rail_060_tracks_hex_slope_half.1.0
+ImageUp[ne_high_half][0]=rail_060_tracks_hex_slope_half.1.1
+ImageUp[se_high_half][0]=rail_060_tracks_hex_slope_half.1.2
+ImageUp[s_high_half][0]=rail_060_tracks_hex_slope_half.1.3
+ImageUp[sw_high_half][0]=rail_060_tracks_hex_slope_half.1.4
+ImageUp[nw_high_half][0]=rail_060_tracks_hex_slope_half.1.5
+ImageUp[n_wide_high_half][0]=rail_060_tracks_hex_slope_half.1.0
+ImageUp[ne_wide_high_half][0]=rail_060_tracks_hex_slope_half.1.1
+ImageUp[se_wide_high_half][0]=rail_060_tracks_hex_slope_half.1.2
+ImageUp[s_wide_high_half][0]=rail_060_tracks_hex_slope_half.1.3
+ImageUp[sw_wide_high_half][0]=rail_060_tracks_hex_slope_half.1.4
+ImageUp[nw_wide_high_half][0]=rail_060_tracks_hex_slope_half.1.5
