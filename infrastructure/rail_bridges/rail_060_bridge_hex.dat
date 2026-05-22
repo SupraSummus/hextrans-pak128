@@ -2,19 +2,19 @@
 # Hex deliverable for rail_060_bridge.  Modeled cells (baked from
 # `rail_060_bridge/scene.py::bake_pakset` -> `rail_060_bridge_hex.png`):
 #
-#   row 0 col 0  BackImage[ns][0]
-#   row 0 col 1  FrontImage[ns][0]
+#   row 0 col 0  BackImage[n_s][0]
+#   row 0 col 1  FrontImage[n_s][0]
 #   row 0 col 2  BackImage[ne_sw][0]
 #   row 0 col 3  FrontImage[ne_sw][0]
 #   row 0 col 4  BackImage[nw_se][0]
 #   row 0 col 5  FrontImage[nw_se][0]
-#   row 0 col 6  backPillar[ns][0]
+#   row 0 col 6  backPillar[n_s][0]
 #   row 0 col 7  backPillar[ne_sw][0]
 #   row 0 col 8  backPillar[nw_se][0]
 #   rows 1-4    ramps, starts, and start2 entries for n/s/ne/se/sw/nw
 #
 # Hex bridge .dat key contract (engine `bridge_desc_t::img_t`):
-# 3 way axes for segments / pillars (`ns`, `ne_sw`, `nw_se`) and 6 hex
+# 3 way axes for segments / pillars (`n_s`, `ne_sw`, `nw_se`) and 6 hex
 # edges for starts / ramps (`n`, `s`, `ne`, `se`, `sw`, `nw`).  All
 # entries are baked from the same end-tile builder, with front/back
 # tagging from the engine-spec depth clip plane.
@@ -35,13 +35,13 @@ pillar_asymmetric=1
 icon=> rail_060_bridge.0.6
 cursor=rail_060_bridge.0.7,0,-16
 #SUMMER
-BackImage[ns][0]=rail_060_bridge_hex.0.0
-FrontImage[ns][0]=rail_060_bridge_hex.0.1
+BackImage[n_s][0]=rail_060_bridge_hex.0.0
+FrontImage[n_s][0]=rail_060_bridge_hex.0.1
 BackImage[ne_sw][0]=rail_060_bridge_hex.0.2
 FrontImage[ne_sw][0]=rail_060_bridge_hex.0.3
 BackImage[nw_se][0]=rail_060_bridge_hex.0.4
 FrontImage[nw_se][0]=rail_060_bridge_hex.0.5
-backPillar[ns][0]=rail_060_bridge_hex.0.6
+backPillar[n_s][0]=rail_060_bridge_hex.0.6
 backPillar[ne_sw][0]=rail_060_bridge_hex.0.7
 backPillar[nw_se][0]=rail_060_bridge_hex.0.8
 BackRamp[n][0]=rail_060_bridge_hex.1.0

@@ -529,13 +529,13 @@ def main() -> None:
 # build as the square renders — only the `Orient` and the projection
 # differ.  Pillars carry single-layer.
 HEX_ENTRIES: list[tuple[str, callable]] = [
-    ("BackImage[ns][0]",     lambda: render_segment(ORIENT_NS,    "hex")[0]),
-    ("FrontImage[ns][0]",    lambda: render_segment(ORIENT_NS,    "hex")[1]),
+    ("BackImage[n_s][0]",     lambda: render_segment(ORIENT_NS,    "hex")[0]),
+    ("FrontImage[n_s][0]",    lambda: render_segment(ORIENT_NS,    "hex")[1]),
     ("BackImage[ne_sw][0]",  lambda: render_segment(ORIENT_NE_SW, "hex")[0]),
     ("FrontImage[ne_sw][0]", lambda: render_segment(ORIENT_NE_SW, "hex")[1]),
     ("BackImage[nw_se][0]",  lambda: render_segment(ORIENT_NW_SE, "hex")[0]),
     ("FrontImage[nw_se][0]", lambda: render_segment(ORIENT_NW_SE, "hex")[1]),
-    ("backPillar[ns][0]",    lambda: render_pillar(ORIENT_NS,    "hex")),
+    ("backPillar[n_s][0]",    lambda: render_pillar(ORIENT_NS,    "hex")),
     ("backPillar[ne_sw][0]", lambda: render_pillar(ORIENT_NE_SW, "hex")),
     ("backPillar[nw_se][0]", lambda: render_pillar(ORIENT_NW_SE, "hex")),
 ]
