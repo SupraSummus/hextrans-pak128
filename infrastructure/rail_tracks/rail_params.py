@@ -168,6 +168,42 @@ RAIL_140 = RailParams(
     rail_color=(248, 226, 188),
 )
 
+# rail_160 — grey gravel, pale rails, pale grey ties.
+RAIL_160 = RailParams(
+    name="rail_160_tracks",
+    ballast_bands=_bed(_GRAVEL_PROFILE,
+                       (146, 139, 131), (145, 140, 130), (167, 163, 151)),
+    tie_color=(158, 156, 149),
+    rail_color=(235, 222, 200),
+)
+
+# rail_180 — bed and rails like rail_160's, paler ties.
+RAIL_180 = RailParams(
+    name="rail_180_tracks",
+    ballast_bands=_bed(_GRAVEL_PROFILE,
+                       (145, 138, 129), (145, 140, 130), (167, 163, 151)),
+    tie_color=(188, 187, 177),
+    rail_color=(235, 222, 200),
+)
+
+# rail_200 — light-grey gravel, steel-grey rails, dark-grey ties.
+RAIL_200 = RailParams(
+    name="rail_200_tracks",
+    ballast_bands=_bed(_GRAVEL_PROFILE,
+                       (180, 176, 168), (180, 178, 168), (197, 195, 186)),
+    tie_color=(126, 125, 118),
+    rail_color=(215, 217, 221),
+)
+
+# rail_240 — bed and rails like rail_200's, ties paler than the bed.
+RAIL_240 = RailParams(
+    name="rail_240_tracks",
+    ballast_bands=_bed(_GRAVEL_PROFILE,
+                       (180, 177, 168), (180, 178, 168), (197, 195, 186)),
+    tie_color=(181, 181, 174),
+    rail_color=(215, 217, 221),
+)
+
 
 # --- Cross-section painter --------------------------------------------------
 
