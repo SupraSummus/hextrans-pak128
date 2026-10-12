@@ -17,6 +17,11 @@ HERE = Path(__file__).resolve().parent
 PARAMS = RAIL_060_BRIDGE
 bake_pakset = make_tier(PARAMS)
 
+# Imported by the rail_060 tunnel, which shares the pillar stone and the
+# edge frames so a tunnel approach composes with a bridge end.
+STONE_GREY = PARAMS.pillar.color
+ORIENT_HEX_EDGE = br.ORIENT_HEX_EDGE
+
 
 def main() -> None:
     br.write_square_outputs(PARAMS, HERE)
