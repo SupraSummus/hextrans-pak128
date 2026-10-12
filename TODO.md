@@ -52,6 +52,23 @@ along the chord centreline when set; cadence keyed off
 adjacent tiles regardless of chord length (full chord vs. bend
 piece).
 
+**Rail tie length, cadence and colours of rail_060.**  `RAIL_060`
+(`infrastructure/rail_tracks/rail_params.py`) predates
+`measure_tier.py` and differs from what the tool reads off the
+pak128 cells 1.5 / 1.6 of `rail_060_tracks.png`.  Ties: the tool
+finds them about 0.18 long (half-length 0.09) at a pitch of 0.063
+(15.9 per world unit) in every wood-tie tier, against `tie_half_w =
+0.16` and 12 per chord (6.9 per unit) in the model.  Colours as
+model colours: rail head (193, 177, 147) against `RAIL_060`'s
+(140, 140, 130), ties (63, 44, 28) against (100, 70, 45); the
+ballast colour agrees.  Every later tier takes the measured colours
+and inherits the 0.16 / 12 defaults, so rail_060 reads greyer and
+lighter-tied than rail_080 and up.  Next move: decide whether the hex
+tie length and cadence should follow pak128 (the hex pixel pitch
+differs from the square one, so the cadence is a visual call, not a
+unit conversion), then set `RAIL_060`'s colours from `measure_tier`
+output and re-bake `rail_060_tracks` and `rail_060_bridge`.
+
 **rail_060_bridge bypasses way_topology.**  Mid-segments / ends are
 built directly with `_add_oriented_box` against a `BRIDGE_LEN_HALF`
 constant rather than the `StraightPath` chord that `rail_060_tracks`
