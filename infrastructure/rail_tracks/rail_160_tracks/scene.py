@@ -1,10 +1,11 @@
-"""3D model of the rail_160 160 km/h rail track (one tile, mid-segment).
+"""3D model of the rail_160 track (160 km/h): one tile, mid-segment.
 
-Cross-section: pale grey ties on grey gravel under pale rails, matching pak128 cells 1.5 / 1.6 in
-`rail_160_tracks.png`.  All tier-specific values live in
-`infrastructure/rail_tracks/rail_params.RAIL_160`.
+Cross-section: pale grey ties on grey gravel under pale rails, matching
+pak128 cells 1.5 / 1.6 in `rail_160_tracks.png`.  All tier-specific
+values live in `infrastructure/rail_tracks/rail_params.RAIL_160`.
 
-Hex deliverable: `rail_160_tracks_hex.png` + `rail_160_tracks_hex_slope.png` +
+Hex deliverable: the three atlases `rail_160_tracks_hex.png`,
+`rail_160_tracks_hex_slope.png` and
 `rail_160_tracks_hex_slope_half.png`, referenced from the sibling
 `rail_160_tracks.dat`.
 """

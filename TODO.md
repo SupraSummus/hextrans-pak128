@@ -52,22 +52,24 @@ along the chord centreline when set; cadence keyed off
 adjacent tiles regardless of chord length (full chord vs. bend
 piece).
 
-**Rail tie length, cadence and colours of rail_060.**  `RAIL_060`
-(`infrastructure/rail_tracks/rail_params.py`) predates
-`measure_tier.py` and differs from what the tool reads off the
-pak128 cells 1.5 / 1.6 of `rail_060_tracks.png`.  Ties: the tool
-finds them about 0.18 long (half-length 0.09) at a pitch of 0.063
-(15.9 per world unit) in every wood-tie tier, against `tie_half_w =
-0.16` and 12 per chord (6.9 per unit) in the model.  Colours as
-model colours: rail head (193, 177, 147) against `RAIL_060`'s
-(140, 140, 130), ties (63, 44, 28) against (100, 70, 45); the
-ballast colour agrees.  Every later tier takes the measured colours
-and inherits the 0.16 / 12 defaults, so rail_060 reads greyer and
-lighter-tied than rail_080 and up.  Next move: decide whether the hex
-tie length and cadence should follow pak128 (the hex pixel pitch
-differs from the square one, so the cadence is a visual call, not a
-unit conversion), then set `RAIL_060`'s colours from `measure_tier`
-output and re-bake `rail_060_tracks` and `rail_060_bridge`.
+**RAIL_060 predates measure_tier.**  The hand-set values of `RAIL_060`
+(`infrastructure/rail_tracks/rail_params.py`) differ from what
+`measure_tier.py` reads off cells 1.5 / 1.6 of `rail_060_tracks.png`.
+Ties: about 0.18 long (half-length 0.09) at a pitch of 0.063 (15.9
+per world unit) in every wood-tie tier, against `tie_half_w = 0.16`
+and 12 per chord (6.9 per unit).  Colours as model colours: rail
+(193, 177, 147) against (140, 140, 130), ties (63, 44, 28) against
+(100, 70, 45).  Bed: three bands out to 0.30 at keep 0.95 / 0.72 /
+0.30 against out to 0.22 at 0.85 / 0.55 / 0.22, the gravel colour
+within about 10 %.  Every later tier takes the measured colours and
+bed and inherits the 0.16 / 12 tie defaults, so rail_060 has greyer
+rails, lighter ties and a sparser, narrower bed than rail_080 and up,
+though pak128 draws the same rails and ties in 060, 080 and 100.
+Next move: decide whether the hex tie length and cadence should
+follow pak128 (the hex pixel pitch differs from the square one, so
+the cadence is a visual call, not a unit conversion), then set
+`RAIL_060` from `measure_tier` output and re-bake `rail_060_tracks`
+and `rail_060_bridge`, whose deck reads the same instance.
 
 **rail_060_bridge bypasses way_topology.**  Mid-segments / ends are
 built directly with `_add_oriented_box` against a `BRIDGE_LEN_HALF`
