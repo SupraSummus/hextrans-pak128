@@ -6,7 +6,7 @@ Why this exists: eyeballing "rails look about N pixels apart" mixes up
 horizontal screen distance with the perpendicular gauge — they differ
 by a factor of √(1 + slope²) for the dimetric projection's diagonal
 rails.  This script does the conversion once, against the actual
-reference, so `track_params.RAIL_GAUGE_HALF` is set from data rather
+reference, so `RailParams.rail_gauge_half` is set from data rather
 than from a sibling asset's calibration.
 
 Pipeline:

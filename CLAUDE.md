@@ -112,7 +112,7 @@ Common reflexes:
 A scene is code that emits geometry — apply the usual code
 hygiene.  DRY: a constant or helper used by two assets belongs in
 a shared module (track cross-section in
-`rail_tracks/rail_060_tracks/track_params.py`, atlas plumbing in
+`rail_tracks/rail_params.py`, atlas plumbing in
 `tools/threed/bespoke.py`), not duplicated.  Separation of concerns:
 per-asset `scene.py` owns geometry + the `(label, render_fn)`
 entry list; `tools/threed/` owns rendering, atlas composition,
