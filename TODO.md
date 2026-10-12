@@ -94,31 +94,62 @@ sampled by running `measure_tier` on those winter straights; road:
 snow-dusted pavement) producing `<asset>_hex_winter.png` and
 re-introducing the `[1]` season block.
 
-**rail_060_tunnel remaining sheet calibration.**  The hex deliverable
-(`rail_060_tunnel.{png,dat}` baked from `rail_060_tunnel/scene.py`
-through `TunnelParams`) ships 12 cells (6 edges × Front/Back) as
-`name=Rail_060_Tunnel`, replacing the legacy upstream tunnel, which is
-kept in `rail_060_tunnel/src/`.  Geometry is two cliff
-buttresses + lintel + dark interior, with only the lintel in the
-front layer (occludes the vehicle as it passes under the arch).
-Square verification against the legacy cells via `build.py` pairs
-each legacy key, which names the high edge, with the candidate whose
-portal opens the other way; back-layer IoU is 0.12-0.15 and
-front-layer IoU 0.24-0.32.  The back cell cannot score higher with
-this geometry: pak128 paints the trench and track in front of the
-portal into it, where the model has only the cliff behind the face.
-pak128's front cells carry a separately-shaped "near-half cliff
-wedge" that our lintel-only front can't match either.
-Two open improvements: (a) the rectangular opening reads as a
-doorway, not the arched cave mouth pak128 ships — needs curved
-or bevelled top, gating on the renderer accepting non-axis-aligned
-quads (same upgrade unlocks the bridge's X-bracing entry); (b) a
-real depth-clip front-layer split (per-orientation `front_normal`,
-matching the bridge's `Orient` pattern) would carve the cliff
-along the camera-near plane and produce a substantial front cell
-without duplicating geometry — needs `add_box` to grow a "split
-at this plane" option, since axis-aligned boxes cut by an
-arbitrary plane produce non-axis-aligned children.
+**Tunnels still legacy: highway_110 and road_070.**  Their .dats still
+key `FrontImage[N]` and friends, so under the hex engine they compile
+with unknown-key warnings and show no portal on the map.  The other
+rail and road tunnels are `TunnelParams` instances
+(`infrastructure/tunnel_params.py`) measured by
+`infrastructure/measure_tunnel.py`, whose docstring says how.  These
+two were left out because their wing walls and trim run past the face,
+so the face's top corners cannot be read off the cell.  Next move: pick
+a convention for the front panel between the wings (the left and right
+columns and the top-edge line of the panel), add `Marks` entries and
+check them with `--overlay`, then do for each what the migrated
+tunnels got: instance, `scene.py` / `build.py` / `__init__.py` /
+`statsignore.conf`, legacy sheet and .dat moved to `<name>/src/`, .dat
+rewritten to the 6x2 layout of `rail_060_tunnel.dat`.
+
+**Tunnel portal fidelity.**  A portal is two buttresses, a lintel and a
+dark opening; the retaining wings, ring and reveal, trench and the
+ground-top of the legacy cells are not modelled, and the opening is a
+rectangle the size of the arch's span and crest, measured to about
+0.03.  `build.py`'s square diff against the legacy cells therefore
+scores low (back-layer IoU about 0.4 and front-layer 0.15 for the
+measured tunnels, 0.12 to 0.15 back for the hand-set rail_060) because
+pak128 paints the trench and the mountain top into the cell; read it as
+a regression check.  Three improvements: (a) arched openings, gated on the renderer
+accepting non-axis-aligned quads (the same upgrade unlocks the bridge's
+X-bracing entry): `opening_top_z` and `opening_half_w` already are the
+crest and the span, a springline height would be the one new field;
+(b) a depth-clip front layer, which carves the cliff along the
+camera-near plane (per-orientation `front_normal`, as the bridge's
+`Orient` does) and needs `add_box` to grow a "split at this plane"
+option; (c) the interior is a closed box through the whole mass, so the
+`n`, `ne` and `nw` cells, whose portal faces away from the camera, show
+its far end as a dark rectangle: end the interior short of the mass's
+back face and close the slot with a wall-coloured slab in
+`build_portal`, which re-bakes every tunnel, `rail_060_tunnel` included.
+
+**rail_060_tunnel predates measure_tunnel.**  `RAIL_060_TUNNEL` keeps
+the hand-set defaults of `TunnelParams` (opening half width 0.10 and
+height 0.22), while every measured tunnel has openings from 0.17 half
+width and 0.38 high up.  The legacy rail_060 sheet has its own layout
+(`rail_060_tunnel/src/`: portal cell 1.0, wing wedge 0.0).  Next move:
+add a `MARKS` entry for it, take the measured values into
+`RAIL_060_TUNNEL`, and re-bake.
+
+**Tunnel icons and winter art.**  The hex tunnel .dats point `icon`
+and `cursor` at the portal's `BackImage[n]` cell (as `rail_060_tunnel`
+did), so the build menu no longer shows pak128's speed-sign icon, cell
+0.6 of each legacy sheet (cursor: 0.7), in `<name>/src/`.  Next move:
+have `make_tunnel`'s bake append a row of those two cells copied from
+the legacy sheet and point `icon` / `cursor` at it.  The tunnels are
+single-season; the legacy winter cells are row 2 of each
+`<name>/src/<name>_tunnel.png` (rows 2 and 3 for rail_060: Front, then
+Back), laid out like the summer cells.  Hex winter art lands as a
+colour variant of the same portal (a snow-capped top on `wall_color`)
+baked to `<name>_winter.png` and a `[1]` season block in the .dat, with
+the way winter art above.
 
 **X-bracing on rail_060_bridge.** The numpy z-buffer rasterizer
 in `tools/threed/render.py` only supports axis-aligned boxes via
