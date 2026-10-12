@@ -14,9 +14,8 @@ pak128 convention).
 The bed (colour, width, density) and the tie and rail colours differ
 from tier to tier and are the required fields; rail gauge, tie length,
 tie cadence and the z-stack are the same in every tier and sit in the
-dataclass defaults.  The values of rail_080 and up are sampled from
-each tier's pak128 cells 1.5 / 1.6 by `measure_tier.py`, never tuned by
-eye.
+dataclass defaults.  Every value is sampled from the tier's pak128
+cells 1.5 / 1.6 by `measure_tier.py`, never tuned by eye.
 
 Perpendicular distances are in world units, 1 unit = 1 entry-edge
 length = 1 square-tile side = 1 hex-edge length
@@ -67,12 +66,13 @@ class RailParams:
     tie_color: RGB
     rail_color: RGB
     # Family constants, the same in every tier.  `measure_tier.py`
-    # finds the half-gauge at 0.0474 in every tier's pak128 cells; keep
-    # it working, and re-run it after a pak128 refresh, rather than
-    # tweaking the number by eye.  The tie length and cadence are
-    # rail_060's hex choices, not the pak128 values `measure_tier.py`
-    # reads (TODO.md, "RAIL_060 predates measure_tier").
-    tie_half_w: float = 0.16
+    # finds the half-gauge at 0.0474 and ties 0.18 long in every tier
+    # whose ties it can read; keep it working, and re-run it after a
+    # pak128 refresh, rather than tweaking the numbers by eye.  The tie
+    # cadence is not pak128's 15.9 per unit (about 27 per chord): at the
+    # hex cell's pixel pitch that many ties merge into one band, so the
+    # family keeps 12 per chord.
+    tie_half_w: float = 0.09
     rail_half_w: float = 0.008       # rail head thickness (perpendicular)
     rail_gauge_half: float = 0.0474  # half the rail-to-rail spacing
     # Stack heights above ground (z=0).  Bridge scenes lift these onto
@@ -86,32 +86,24 @@ class RailParams:
 
 # --- Per-tier instances -----------------------------------------------------
 
-# rail_060 — timber track on a thin dithered gravel bed.  The bed is
-# laid as concentric bands whose dither-keep tapers from dense near the
-# rails to sparse at the outer edge; distances are |x| from the
-# centreline.  Reference cell 1.5 shows this taper as a gradient:
-# nearly opaque between the rails, fading into pure speckle at the
-# shoulders.  These values predate `measure_tier.py` and are hand-set;
-# they stay as they are so the committed art is unchanged (TODO.md,
-# "RAIL_060 predates measure_tier").
-_GRAVEL_060 = (130, 110, 85)
+# Every value is `measure_tier.py` output for the tier's pak128 cells
+# (`python3 -m infrastructure.rail_tracks.measure_tier rail_080_tracks`),
+# colours as model colours (observed / top-face shade).
+
+# rail_060 — timber ties on a thin dithered gravel bed, the same rails
+# and ties pak128 draws for rail_080 and rail_100; the bed is sparser.
 RAIL_060 = RailParams(
     name="rail_060_tracks",
     ballast_bands=(
-        BallastBand(0.000, 0.105, 0.85, _GRAVEL_060),  # between & under the rails
-        BallastBand(0.105, 0.155, 0.55, _GRAVEL_060),  # inside the cross-tie footprint
-        BallastBand(0.155, 0.220, 0.22, _GRAVEL_060),  # shoulders fading into terrain
+        BallastBand(0.000, 0.090, 0.95, (117, 97, 72)),
+        BallastBand(0.090, 0.195, 0.72, (123, 102, 76)),
+        BallastBand(0.195, 0.300, 0.30, (110, 91, 69)),
     ),
-    tie_color=(100, 70, 45),
-    rail_color=(140, 140, 130),
+    tie_color=(63, 44, 28),
+    rail_color=(193, 177, 147),
 )
 
 
-# Tiers rail_080 .. rail_400: every value is `measure_tier.py` output
-# for the tier's pak128 cells (`python3 -m
-# infrastructure.rail_tracks.measure_tier rail_080_tracks`), colours as
-# model colours (observed / top-face shade).
-#
 # Ballast silhouette.  The pak128 bed is one ragged shape shared by
 # tiers 080..240: opaque out to 0.22 off the axis, then a taper to
 # nothing by 0.30.  Three bands of (inner, outer, keep) follow.
