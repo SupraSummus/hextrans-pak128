@@ -11,6 +11,12 @@ The bed is a stack of concentric bands, each with its own colour and
 dither density: dense near the rails, fading to a ragged shoulder (the
 pak128 convention).
 
+Per-tier values are sampled from each tier's pak128 cells 1.5 / 1.6 by
+`measure_tier.py`, never tuned by eye: the bed (colour, width, density)
+and the tie and rail colours differ from tier to tier and are the
+required fields; rail gauge, tie length, tie cadence and the z-stack
+are the same in every tier and sit in the dataclass defaults.
+
 Perpendicular distances are in world units, 1 unit = 1 entry-edge
 length = 1 square-tile side = 1 hex-edge length
 (`tools/threed/way.py::HEX_TILE_RADIUS`), so 0.5 fills the entry edge
@@ -59,13 +65,12 @@ class RailParams:
     ballast_bands: tuple[BallastBand, ...]
     tie_color: RGB
     rail_color: RGB
-    # Family constants.  The gauge is calibrated against pak128 cells
-    # 1.5 / 1.6 of `rail_060_tracks.png` by `rail_060_tracks/
-    # measure_gauge.py`, which fits a line to the rail-head pixels of
-    # each rail and inverts the dimetric projection's perpendicular
-    # px-per-world factor; both cells land on 0.04744.  Keep
-    # `measure_gauge.py` working (and re-run it after a pak128
-    # refresh) rather than tweaking this number by eye.
+    # Family constants, the same in every tier.  `measure_tier.py`
+    # finds the half-gauge at 0.0474 in every tier's pak128 cells; keep
+    # it working, and re-run it after a pak128 refresh, rather than
+    # tweaking the number by eye.  The tie length and cadence are
+    # rail_060's hex choices, not the pak128 values `measure_tier.py`
+    # reads (TODO.md, "Rail tie length, cadence and colours of rail_060").
     tie_half_w: float = 0.16
     rail_half_w: float = 0.008       # rail head thickness (perpendicular)
     rail_gauge_half: float = 0.0474  # half the rail-to-rail spacing
