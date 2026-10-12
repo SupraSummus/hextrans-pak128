@@ -20,15 +20,16 @@ enough that someone else can pick it up cold.
 **Way .dat migration to hex ribi keys.** The engine's `way_writer`
 now reads a 64-slot flat-image table keyed by hex ribi names
 (`Image[se]`, `Image[se_nw]`, …; `_` separator).  Migrated today:
-`rail_060_tracks` and the single-layer road family (road_030 /
+the rail tracks rail_060 / rail_080 / rail_080b / rail_100 (a
+`RailParams` instance in `infrastructure/rail_tracks/rail_params.py`
+fed through `make_tier`) and the single-layer road family (road_030 /
 road_040 / road_050 / road_055 / road_070 / road_090 /
-cityroad_030 / highway_110), each shipping a parameterised hex
-bake whose tier `scene.py` reduces to a `RoadParams` instance fed
-through `make_tier`.  Still legacy: rail_080..rail_400, trams,
-runways, kanals, narrowgauge, monorails, maglevs, all elevated /
+cityroad_030 / highway_110, each a `RoadParams` instance), each
+shipping a parameterised hex bake.  Still legacy: rail_120..rail_400,
+trams, runways, kanals, narrowgauge, monorails, maglevs, all elevated /
 catenary variants, and the two front-layer highways.  These
-compile without fatal but every connectivity except `Image[-]`
-resolves to `IMG_EMPTY` at runtime, so those ways will be
+compile with unknown-key warnings and every connectivity except
+`Image[-]` resolves to `IMG_EMPTY` at runtime, so those ways will be
 invisible on the map.  Two paths to migrate per family: a
 cell-repoint (pak `N` = hex NE etc.) leaves third-axis combos
 invisible; a 3D bake of the family's cross-section through the
