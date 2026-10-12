@@ -396,7 +396,7 @@ landscape/grounds/<name>/                # parametric pipeline.
                                          # current bakers: texture_lightmap,
                                          # borders, marker, water_ani,
                                          # texture_shore, texture_slope,
-                                         # back_wall. each dir listed in
+                                         # back_wall, fence. each dir listed in
                                          # Makefile DIRS128.
 
 infrastructure/<class>/<name>/           # bespoke pipeline. upstream
@@ -468,7 +468,7 @@ For the parametric pipeline, `landscape/grounds/texture_lightmap/`
 is the canonical reference: per-slope `render_cell()` plus a
 `build_pakset.py` that calls `hex_synth.bake_pakset`. The other
 ground bakers (borders, marker, water_ani, texture_shore,
-texture_slope, back_wall) are variations on the same shape and
+texture_slope, back_wall, fence) are variations on the same shape and
 each is worth a glance for the part you're working on (atlas
 axis, alpha key, .dat header).
 

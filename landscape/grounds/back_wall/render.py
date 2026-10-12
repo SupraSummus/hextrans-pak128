@@ -33,7 +33,7 @@ from PIL import Image
 from tools.threed import hex_synth
 
 
-WALL_COUNT = 3
+WALL_COUNT = hex_synth.BACK_WALL_COUNT
 IMAGE_COUNT = hex_synth.CLIFF_IMAGE_COUNT
 
 

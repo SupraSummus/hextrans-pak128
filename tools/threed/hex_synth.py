@@ -202,6 +202,13 @@ CLIFF_WALL_ENDPOINTS = (
 )
 CLIFF_IMAGE_COUNT = 11  # per-wall image slots; index 0 = "no cliff"
 
+# Walls 0..2 are the engine's back-wall slots (`grund_t::BACK_WALL_COUNT`,
+# `back_wall_geometry` in `ground/grund.cc`): the screen-up edges shared
+# with the NW, N and NE neighbours.  Cliff faces and fences are both
+# keyed per back wall.
+BACK_WALL_COUNT = 3
+BACK_WALL_EDGE_NAMES = ("NW", "N", "NE")
+
 
 def decode_cliff_index(index: int) -> tuple[int, int]:
     """`(h1, h2)` for a cliff cell's two endpoint lifts.
