@@ -52,17 +52,16 @@ along the chord centreline when set; cadence keyed off
 adjacent tiles regardless of chord length (full chord vs. bend
 piece).
 
-**rail_060_bridge bypasses way_topology.**  Mid-segments / ends are
-built directly with `_add_oriented_box` against a `BRIDGE_LEN_HALF`
-constant rather than the `StraightPath` chord that `rail_060_tracks`
-uses.  This is why `build_segment` / `build_end` had to grow a
-`length_half` parameter and why `render_segment` picks the value
-per projection (chord = 1.0 in square, √3 in hex with
-`HEX_TILE_RADIUS = 1.0`) — way_topology hides that scale inside the
-chord it builds from `edge_midpoint`s.  Port the bridge to drive its
-deck / posts / ties off a `StraightPath` (or a shared "build along
-this chord" helper) so the next rail bridge variant lands without
-re-plumbing length_half.
+**Bridge generator bypasses way_topology.**
+`tools/threed/bridge.py` builds every part along a `length_half`
+picked per projection (`length_half()`: chord 1.0 in square, √3 in hex
+with `HEX_TILE_RADIUS = 1.0`)
+instead of the `StraightPath` chord that the track bakers get from
+`way_topology`, which hides that scale inside the chord it builds from
+`edge_midpoint`s.
+Port `build_segment` / `build_end` to take a `StraightPath` (or a
+shared "build along this chord" helper) and derive the length from it,
+so square and hex stop needing a separate constant.
 
 **Way-baker shared topology.** `tools/threed/way.py` +
 `tools/threed/way_topology.py` carry the asset-agnostic hex topology
@@ -151,42 +150,57 @@ colour variant of the same portal (a snow-capped top on `wall_color`)
 baked to `<name>_winter.png` and a `[1]` season block in the .dat, with
 the way winter art above.
 
-**X-bracing on rail_060_bridge.** The numpy z-buffer rasterizer
-in `tools/threed/render.py` only supports axis-aligned boxes via
-`add_box`, so the diagonal X-bracing between trestle posts can't
-be modelled cleanly. Two options: extend `Scene.add_quad` with
-explicit non-axis-aligned corners (a thin plate in the y-z plane,
-rendered double-sided), or switch this asset class to Blender.
-Defer until other rail bridge variants are in flight so the fix
-applies once across the family.
+**Diagonal members in the bridge generator.**
+`Model.add_quad` already takes four arbitrary world corners
+and the rasterizer does no back-face culling,
+so diagonals need no renderer change, only a part helper:
+a `beam(p0, p1, half_w, half_h)` in `tools/threed/bridge.py`
+that emits the four long faces and two caps of a prism between two
+NS-frame points, each face ordered so its normal points outward
+(the shading reads the normal from the vertex order),
+rotated and Front/Back-tagged like `_add_oriented_box`.
+It unlocks rail_060's trestle X-bracing,
+the lattice and truss webs of the steel tiers,
+the inclined end posts of rail_100
+and the vault facets of rail_400
+(TODO "Rail bridge tiers still legacy").
 
-**rail_060_bridge remaining sheet calibration.** Mid-segments
-(NS/EW back+front), ramps, starts, start2, and pillars are now
-modelled and bake into both the square verification renders
-(`build.py` refs table) and the hex atlas.  Ramps/starts are still
-first-pass geometry — coherent with the 60 bridge model, but not yet
-closely fitted to the upstream pak128 cells.  Pillar geometry is also
-a first-pass stub — a single
-stone box from z=PILLAR_BOTTOM_Z to deck-bottom; it doesn't match
-the reference's wider cross-section or the asymmetric face that
-`pillar_asymmetric=1` implies (alpha_iou ≈ 0.15 per the diff).
-Winter variants of every entry remain entirely deferred — should
-plug in as a colour/material variant on the same parts once the
-summer set reads right.
+**rail_060_bridge remaining sheet calibration.**
+Mid-segments, ramps, starts, start2 and pillars are modelled
+(`RAIL_060_BRIDGE` in `infrastructure/rail_bridges/rail_bridge_params.py`)
+and `rail_060_bridge/build.py` diffs the square renders against the
+pak128 cells.
+Ramps and starts are first-pass geometry, not yet fitted to those cells,
+and the pillar is a single stone box (`BoxPillar`) where pak128 draws
+two rows of timber posts (alpha_iou ≈ 0.15);
+replace it with a bent pillar part
+and keep the box for the masonry tiers.
+Winter is not baked:
+the pak128 snow cells are rows 5..8 of `rail_060_bridge.png`,
+in the same order as the summer rows 1..4
+(the pre-hex `rail_060_bridge.dat`, git history);
+add them as a colour variant of the same parts
+(`<name>_hex_winter.png` plus the `[1]` season keys)
+once the summer set reads right.
 
-**rail_060_bridge_hex end-entry calibration.**  Engine
-`bridge_desc_t::img_t` is the hex layout — 3 way
-axes for segments / pillars (`ns`, `ne_sw`, `nw_se`) and 6 hex edges
-for starts / ramps (`n`, `s`, `ne`, `se`, `sw`, `nw`); the writer
-reads keys at those names (`bridge_writer.cc`).  The hex dat now
-covers the full summer set: segments + pillars via the axis
-orientations, and ramps / starts / start2 via edge orientations.
-Next pass should tune the ramp grade, landward cut, and front railing
-placement against the square reference diffs before cloning the
-material variant for winter.
+**Bridge end-entry calibration.**
+Ramps, starts and start2 bake on all 6 hex edges
+(`EndProfile` in `tools/threed/bridge.py`),
+with rail_060's first-pass ramp grade, landward cut and support depths
+as family constants (`RAMP_FOOT_Z`, `START_SUPPORT_Z`,
+`START2_SUPPORT_Z`).
+Tune them against the square reference diffs of `rail_060_bridge/build.py`.
+The ramp profile interpolates the deck *bottom* from `RAMP_FOOT_Z`,
+so a tier with a thicker deck than rail_060's 0.03
+(the masonry and concrete tiers)
+would start its ramp correspondingly higher;
+interpolate the deck top instead
+when the first such tier lands
+(it moves rail_060's ramp cells by float rounding at most, so re-bake
+and check).
 
-**rail_060_bridge_hex deep supports clip at the image bottom.**
-`PILLAR_BOTTOM_Z = -0.55` projects to screen-y ≈ 156 under the hex
+**Bridge deep supports clip at the image bottom.**
+rail_060's `BoxPillar.bottom_z = -0.55` projects to screen-y ≈ 156 under the hex
 camera (`hex_anchor_y=106 + 0.55 × HEX_Z_SCALE`), but the hex output
 is 128 tall, so all three pillar cells land y_max=127.  Pillar
 accessible depth tops out at z ≈ -0.23 — about a third of the
@@ -202,6 +216,61 @@ composite time; hex may want the same contract), or extend the hex
 output buffer vertically (give the cell a bottom-pad analogous to
 HexGeom's existing top_pad for slope room).  Tracks don't hit this
 because they sit at z ≥ 0.
+
+**Rail bridge tiers still legacy.**
+Only rail_060 is migrated
+(`RAIL_060_BRIDGE` in `infrastructure/rail_bridges/rail_bridge_params.py`).
+The other 14 `rail_*_bridge.dat` still key their cells
+`[NS]/[EW]` and `[N|S|E|W]` with a season suffix,
+so `bridge_writer` reads none of them and the bridges are invisible.
+By structure (contact sheet of the NS segment, ramp, start and pillar
+cells):
+steel deck girder, lattice girders under an open-tie deck
+(rail_060b, rail_080, whose Image2 is a deeper X-braced girder);
+steel through girder, lattice sides above the deck (rail_080b);
+steel through truss, X-braced panels
+(rail_100 with inclined end posts, rail_120b parallel chords
+with top bracing);
+masonry or concrete arch viaduct with a ballasted deck and parapet
+posts with railing panels
+(rail_120 stone, rail_140 brick, rail_160 concrete, rail_180 slim
+concrete);
+steel deck with lattice parapet girders on a ballasted deck (rail_200);
+large lattice through truss (rail_240);
+concrete trough with parapet walls (rail_280),
+the walls pierced by arched windows (rail_320),
+closed over by a vault (rail_400).
+Pillars: wall piers across the deck (080, 080b, 100, 120b and the
+masonry and concrete tiers), lattice leg pairs (060b, 200, 240).
+Next move, per group:
+add the parts to `tools/threed/bridge.py` —
+`Girder` (chords plus Warren web over a z range, below or above the
+deck), `Truss` (chords, verticals, X diagonals, optional inclined end
+posts), `Arch` (spandrel strips along the length whose bottoms follow
+the arch curve, ring band, solid abutment on the end tiles),
+`Parapet` / `Wall` (posts with infill panels, solid wall with
+openings), a ballasted `RailTrack` variant, `TwinPillar`
+and an `Abutment` block at the landward end of starts —
+the diagonals through the beam helper
+(TODO "Diagonal members in the bridge generator").
+Then measure each tier with `measure_bridge.py`,
+which reads the pak128 cells pinned in `LEGACY_CELLS`
+and prints material colours and the pillar box;
+wire its plane helpers into `report`
+(deck half-width on the deck plane from the bed class,
+side z range on the side plane from the FrontImage cell,
+girder bottom from the Back cell's lower envelope,
+arch crown and span from the opening in the viewer-side spandrel).
+Two measurement facts found so far:
+the pillar face-step picks rail_160's buttress instead of the wall end,
+so take the rightmost strong step, not the largest;
+060b and 080 share one NS segment cell.
+Each tier then gets `<tier>/scene.py` as `make_tier(<TIER>)`,
+the deck track from the matching `RailParams` (060b on RAIL_060),
+and its .dat rewritten to the rail_060 key layout
+with every non-image property kept;
+the legacy winter cells sit in the rows after the summer block
+of each `rail_*_bridge.png`.
 
 **rail_060_bridge silhouette y mismatch — remaining structural
 question after the deck-anchor shift.**  The 6-px-too-high

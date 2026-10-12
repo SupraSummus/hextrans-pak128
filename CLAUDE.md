@@ -476,10 +476,11 @@ For the bespoke pipeline, `infrastructure/rail_tracks/rail_060_tracks/`
 is the worked example for shipping hex output today (single-layer,
 one `scene.py` emitting both square + hex via `bake_pakset()`).
 `infrastructure/rail_bridges/rail_060_bridge/` is the worked example
-for multi-view supervision against pak128 sheet entries (multi-layer
-square; hex bake of NS Back/Front via `bake_pakset()` →
-`rail_060_bridge_hex.{png,dat}` — partial coverage of the bridge
-sheet, see `TODO.md`).
+for multi-view supervision against pak128 sheet entries (multi-layer:
+Back/Front per hex axis and edge).  Its structure is a `BridgeParams`
+instance (`rail_bridges/rail_bridge_params.py`) built by the bridge
+family generator `tools/threed/bridge.py`; the bake writes
+`rail_060_bridge_hex.png`, keyed by `rail_060_bridge.dat`.
 
 Per-asset state — what's done, what's blocked, what's coming next —
 lives in `git log` and `TODO.md`, not here.

@@ -5,6 +5,7 @@ Date: 0000-00-00
     - Added hex-grid sprites for the 60 to 400 km/h rail tracks
     - Added hex-grid portals for the 60 to 400 km/h rail tunnels, the 40, 50 and 90 km/h road
       tunnels and the 130 km/h highway tunnel
+    - Added hex-grid sprites for the 60 km/h timber rail bridge
   Changed:
     - Replaced the square-era fences with generated hex fences for all edge combinations of natural
       and building ground
