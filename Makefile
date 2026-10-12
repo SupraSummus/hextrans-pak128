@@ -65,6 +65,7 @@ DIRS128 += landscape/groundobj_static
 DIRS128 += landscape/grounds
 DIRS128 += landscape/grounds/back_wall
 DIRS128 += landscape/grounds/borders
+DIRS128 += landscape/grounds/fence
 DIRS128 += landscape/grounds/marker
 DIRS128 += landscape/grounds/sidewalk
 DIRS128 += landscape/grounds/texture_lightmap
