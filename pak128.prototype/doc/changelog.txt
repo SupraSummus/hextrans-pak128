@@ -1,6 +1,8 @@
 ---------------------------------------------------------------------------------------------------
 Version: 2.11
 Date: 0000-00-00
+  Added:
+    - Added hex-grid sprites for the 60 to 400 km/h rail tracks
   Changed:
     - Changed retirement dates of 120b/160/180kph bridges, tunnels, and elevated tracks to match
       their normal way counterparts
