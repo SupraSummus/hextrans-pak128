@@ -24,7 +24,7 @@ in either projection.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import NamedTuple
 
@@ -101,6 +101,44 @@ RAIL_060 = RailParams(
     ),
     tie_color=(100, 70, 45),
     rail_color=(140, 140, 130),
+)
+
+
+# Tiers rail_080 .. rail_400: every value is `measure_tier.py` output
+# for the tier's pak128 cells (`python3 -m
+# infrastructure.rail_tracks.measure_tier rail_080_tracks`), colours as
+# model colours (observed / top-face shade).
+#
+# Ballast silhouette.  The pak128 bed is one ragged shape shared by
+# tiers 080..240: opaque out to 0.22 off the axis, then a taper to
+# nothing by 0.30.  Three bands of (inner, outer, keep) follow.
+_GRAVEL_PROFILE = ((0.00, 0.22, 0.99), (0.22, 0.26, 0.65), (0.26, 0.30, 0.14))
+
+
+def _bed(profile, *colors: RGB) -> tuple[BallastBand, ...]:
+    """Bands of `profile` coloured `colors` (core, shoulder, fringe)."""
+    return tuple(BallastBand(lo, hi, keep, color)
+                 for (lo, hi, keep), color in zip(profile, colors))
+
+
+# rail_080 / rail_100 — timber ties on brown gravel.  The two tiers'
+# pak128 cells measure identically.
+RAIL_080 = RailParams(
+    name="rail_080_tracks",
+    ballast_bands=_bed(_GRAVEL_PROFILE,
+                       (130, 113, 92), (130, 117, 93), (178, 155, 122)),
+    tie_color=(68, 51, 34),
+    rail_color=(193, 177, 147),
+)
+RAIL_100 = replace(RAIL_080, name="rail_100_tracks")
+
+# rail_080b — lighter rails, redder gravel.
+RAIL_080B = RailParams(
+    name="rail_080b_tracks",
+    ballast_bands=_bed(_GRAVEL_PROFILE,
+                       (120, 100, 74), (117, 98, 74), (166, 129, 84)),
+    tie_color=(90, 63, 38),
+    rail_color=(232, 220, 198),
 )
 
 
