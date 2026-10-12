@@ -94,20 +94,21 @@ sampled by running `measure_tier` on those winter straights; road:
 snow-dusted pavement) producing `<asset>_hex_winter.png` and
 re-introducing the `[1]` season block.
 
-**rail_060_tunnel_hex remaining sheet calibration.**  The hex
-deliverable (`rail_060_tunnel_hex.{png,dat}` baked from
-`rail_060_tunnel/scene.py`) ships 12 cells (6 edges × Front/Back)
-and is wired up as a separate `Name=Rail_060_Tunnel_Hex` object
-alongside the legacy upstream tunnel.  Geometry is two cliff
+**rail_060_tunnel remaining sheet calibration.**  The hex deliverable
+(`rail_060_tunnel.{png,dat}` baked from `rail_060_tunnel/scene.py`
+through `TunnelParams`) ships 12 cells (6 edges × Front/Back) as
+`name=Rail_060_Tunnel`, replacing the legacy upstream tunnel, which is
+kept in `rail_060_tunnel/src/`.  Geometry is two cliff
 buttresses + lintel + dark interior, with only the lintel in the
 front layer (occludes the vehicle as it passes under the arch).
-Square verification against pak128 cells 0-1.0..0-1.3 of
-`rail_060_tunnel.png` via `build.py` lands back-layer IoU ~0.40
-(0.53 on camera-facing [N]/[W], 0.27 on [S]/[E]) and front-layer
-IoU ~0.06 — the back is close because the buttresses + dark
-interior recreate the visible-cliff silhouette pak128 paints into
-the back cell, but pak128's front cells carry a separately-shaped
-"near-half cliff wedge" that our lintel-only front can't match.
+Square verification against the legacy cells via `build.py` pairs
+each legacy key, which names the high edge, with the candidate whose
+portal opens the other way; back-layer IoU is 0.12-0.15 and
+front-layer IoU 0.24-0.32.  The back cell cannot score higher with
+this geometry: pak128 paints the trench and track in front of the
+portal into it, where the model has only the cliff behind the face.
+pak128's front cells carry a separately-shaped "near-half cliff
+wedge" that our lintel-only front can't match either.
 Two open improvements: (a) the rectangular opening reads as a
 doorway, not the arched cave mouth pak128 ships — needs curved
 or bevelled top, gating on the renderer accepting non-axis-aligned
