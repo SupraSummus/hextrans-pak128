@@ -11,11 +11,12 @@ The bed is a stack of concentric bands, each with its own colour and
 dither density: dense near the rails, fading to a ragged shoulder (the
 pak128 convention).
 
-Per-tier values are sampled from each tier's pak128 cells 1.5 / 1.6 by
-`measure_tier.py`, never tuned by eye: the bed (colour, width, density)
-and the tie and rail colours differ from tier to tier and are the
-required fields; rail gauge, tie length, tie cadence and the z-stack
-are the same in every tier and sit in the dataclass defaults.
+The bed (colour, width, density) and the tie and rail colours differ
+from tier to tier and are the required fields; rail gauge, tie length,
+tie cadence and the z-stack are the same in every tier and sit in the
+dataclass defaults.  The values of rail_080 and up are sampled from
+each tier's pak128 cells 1.5 / 1.6 by `measure_tier.py`, never tuned by
+eye.
 
 Perpendicular distances are in world units, 1 unit = 1 entry-edge
 length = 1 square-tile side = 1 hex-edge length
@@ -90,7 +91,9 @@ class RailParams:
 # rails to sparse at the outer edge; distances are |x| from the
 # centreline.  Reference cell 1.5 shows this taper as a gradient:
 # nearly opaque between the rails, fading into pure speckle at the
-# shoulders.
+# shoulders.  These values predate `measure_tier.py` and are hand-set;
+# they stay as they are so the committed art is unchanged (TODO.md,
+# "Rail tie length, cadence and colours of rail_060").
 _GRAVEL_060 = (130, 110, 85)
 RAIL_060 = RailParams(
     name="rail_060_tracks",
