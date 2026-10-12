@@ -20,21 +20,20 @@ enough that someone else can pick it up cold.
 **Way .dat migration to hex ribi keys.** The engine's `way_writer`
 now reads a 64-slot flat-image table keyed by hex ribi names
 (`Image[se]`, `Image[se_nw]`, …; `_` separator).  Migrated today:
-the rail tracks rail_060 .. rail_240 (a
-`RailParams` instance in `infrastructure/rail_tracks/rail_params.py`
-fed through `make_tier`) and the single-layer road family (road_030 /
-road_040 / road_050 / road_055 / road_070 / road_090 /
-cityroad_030 / highway_110, each a `RoadParams` instance), each
-shipping a parameterised hex bake.  Still legacy: rail_280 / rail_320 / rail_400,
-trams, runways, kanals, narrowgauge, monorails, maglevs, all elevated /
-catenary variants, and the two front-layer highways.  These
-compile with unknown-key warnings and every connectivity except
-`Image[-]` resolves to `IMG_EMPTY` at runtime, so those ways will be
-invisible on the map.  Two paths to migrate per family: a
-cell-repoint (pak `N` = hex NE etc.) leaves third-axis combos
-invisible; a 3D bake of the family's cross-section through the
-shared topology produces the full 63-cell set.  highway_130 /
-highway_200 additionally need a `FrontImage` block —
+every rail track tier, rail_060 .. rail_400 (each a `RailParams`
+instance in `infrastructure/rail_tracks/rail_params.py`), and the
+single-layer road family (road_030 / road_040 / road_050 / road_055 /
+road_070 / road_090 / cityroad_030 / highway_110, each a `RoadParams`
+instance), every tier a parameterised hex bake fed through
+`make_tier`.  Still legacy: trams, runways, kanals, narrowgauge,
+monorails, maglevs, all elevated / catenary variants, and the two
+front-layer highways.  These compile with unknown-key warnings and
+every connectivity except `Image[-]` resolves to `IMG_EMPTY` at
+runtime, so those ways will be invisible on the map.  Two paths to
+migrate per family: a cell-repoint (pak `N` = hex NE etc.) leaves
+third-axis combos invisible; a 3D bake of the family's cross-section
+through the shared topology produces the full 63-cell set.
+highway_130 / highway_200 additionally need a `FrontImage` block —
 `bespoke.bake_atlas` only writes a single back atlas today, so a
 second-layer pass needs adding before those tiers can migrate.
 
@@ -98,14 +97,19 @@ centre end of single-edge stubs (currently a clean cut reads as
 "track ending mid-air"); the no-way `Image[-]` placeholder still
 borrows an upstream pak128 square cell on every baker.
 
-**Way winter art.** `rail_060_tracks.dat` and the migrated road
-family (road_030 / road_040 / road_050 / road_055 / road_070 /
-road_090 / cityroad_030 / highway_110) are all single-season now
-— engine treats `Image[-][1]` absent as year-round summer.  Hex
+**Way winter art.** Every rail track tier (rail_060 .. rail_400) and
+the migrated road family (road_030 / road_040 / road_050 / road_055 /
+road_070 / road_090 / cityroad_030 / highway_110) are single-season
+now — engine treats `Image[-][1]` absent as year-round summer.  The
+rail tiers' legacy .dats had a full `#WINTER` block, dropped by the
+migration; the pak128 snow art it pointed at is still in
+`rail_*_tracks.png`: rows 5..8, or rows 6..10 for rail_280 and up,
+with the NS / EW straights at cells 5.5 / 5.6 (6.5 / 6.6).  Hex
 winter art is deferred per family; lands as a colour/material
-variant on the same scene parts (rail: ballast + tie palette swap;
-road: snow-dusted pavement) producing `<asset>_hex_winter.png`
-and re-introducing the `[1]` season block.
+variant on the same scene parts (rail: ballast + tie palette swap,
+sampled by running `measure_tier` on those winter straights; road:
+snow-dusted pavement) producing `<asset>_hex_winter.png` and
+re-introducing the `[1]` season block.
 
 **rail_060_tunnel_hex remaining sheet calibration.**  The hex
 deliverable (`rail_060_tunnel_hex.{png,dat}` baked from

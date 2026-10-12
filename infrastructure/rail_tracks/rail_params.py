@@ -204,6 +204,44 @@ RAIL_240 = RailParams(
     rail_color=(215, 217, 221),
 )
 
+# Tiers 280 and up: a wider bed, the taper starting near the tile edge
+# (0.44) instead of at 0.22.
+_WIDE_PROFILE = ((0.00, 0.44, 1.00), (0.44, 0.47, 0.68), (0.47, 0.50, 0.32))
+
+# rail_280 — pale gravel out to the tile edge, white rails, dark-grey ties.
+RAIL_280 = RailParams(
+    name="rail_280_tracks",
+    ballast_bands=_bed(_WIDE_PROFILE,
+                       (203, 198, 192), (202, 199, 192), (212, 211, 206)),
+    tie_color=(127, 126, 120),
+    rail_color=(255, 255, 255),
+)
+
+# rail_320 — rail_280 on a concrete slab: flat cool grey out to 0.18 off
+# the axis (the bed's colour spread is 3..5 there against 9+ in the
+# gravel beside it).
+RAIL_320 = RailParams(
+    name="rail_320_tracks",
+    ballast_bands=(
+        BallastBand(0.00, 0.18, 1.00, (209, 210, 210)),
+        BallastBand(0.18, 0.44, 1.00, (201, 196, 190)),
+        BallastBand(0.44, 0.47, 0.68, (201, 193, 188)),
+        BallastBand(0.47, 0.50, 0.32, (208, 205, 199)),
+    ),
+    tie_color=(135, 135, 135),
+    rail_color=(255, 255, 255),
+)
+
+# rail_400 — slab track: concrete across the whole tile.
+RAIL_400 = RailParams(
+    name="rail_400_tracks",
+    ballast_bands=(
+        BallastBand(0.00, 0.50, 1.00, (209, 210, 210)),
+    ),
+    tie_color=(135, 135, 135),
+    rail_color=(255, 255, 255),
+)
+
 
 # --- Cross-section painter --------------------------------------------------
 
