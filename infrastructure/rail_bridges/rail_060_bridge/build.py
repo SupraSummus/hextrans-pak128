@@ -6,7 +6,8 @@ Mirrors `infrastructure/rail_tracks/rail_060_tracks/build.py` so the
 two assets share one DX shape: refs table → crop → render → diff →
 JSON metrics.
 
-Pak128 layout (from rail_060_bridge.dat):
+Pak128 layout of `rail_060_bridge.png` (from the pre-hex
+`rail_060_bridge.dat`, see git history):
 
   row 1:  BackImage[NS][0]    .1.0  FrontImage[NS][0]   .1.1
           BackImage[EW][0]    .1.2  FrontImage[EW][0]   .1.3

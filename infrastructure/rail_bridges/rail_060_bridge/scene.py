@@ -2,7 +2,7 @@
 family generator (`tools/threed/bridge.py`).
 
 `bake_pakset()` writes the hex atlas `../rail_060_bridge_hex.png`
-(layout in `rail_060_bridge_hex.dat`); `main()` additionally writes the
+(layout in `rail_060_bridge.dat`); `main()` additionally writes the
 square verification renders that `build.py` diffs against the pak128
 cells of `rail_060_bridge.png`.
 """
