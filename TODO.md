@@ -68,8 +68,9 @@ re-plumbing length_half.
 `tools/threed/way_topology.py` carry the asset-agnostic hex topology
 (stub / chord / V-bend / junction / axis-slope path builders + a
 `CrossSection` painter ABC).  Consumers today:
-`infrastructure/rail_tracks/rail_060_tracks` (ballast + ties + rails
-cross-section) and the road family (`road_030` / `road_040` /
+the rail family (ballast + ties + rails cross-section,
+`RailCrossSection` in `infrastructure/rail_tracks/rail_params.py`) and
+the road family (`road_030` / `road_040` /
 `road_050` / `road_055` / `road_070` / `road_090` / `cityroad_030` /
 `highway_110`, all sharing the parameterised `RoadCrossSection` in
 `infrastructure/roads/road_params.py`) — every one bakes the full

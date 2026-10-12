@@ -1,7 +1,7 @@
 """Road-family parameters and the shared cross-section painter.
 
-Parallel to `infrastructure/rail_tracks/rail_060_tracks/track_params.py`
-for the rail family — every road tier (road_030 ... road_090,
+Parallel to `infrastructure/rail_tracks/rail_params.py` for the rail
+family — every road tier (road_030 ... road_090,
 cityroad_030, highway_*) reduces to a `RoadParams` instance plus a
 short scene file that pipes it into the shared `RoadCrossSection`.
 

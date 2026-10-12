@@ -81,13 +81,20 @@ from tools.threed.hex_synth import (
 )
 from tools.threed.render import HexCamera, Model, SquareCamera, render
 
-# Track-family parameters live next to rail_060_tracks; the bridge
+# Track-family parameters live in `rail_params.RAIL_060`; the bridge
 # pulls them in so its deck-top track lines up with the joining
 # standalone track.
-from infrastructure.rail_tracks.rail_060_tracks.track_params import (
-    BALLAST_TOP_Z, N_TIES, RAIL_GAUGE_HALF, RAIL_GREY, RAIL_HALF_W,
-    RAIL_TOP_Z, TIE_BROWN, TIE_HALF_W, TIE_TOP_Z,
-)
+from infrastructure.rail_tracks.rail_params import RAIL_060 as _TRACK
+
+BALLAST_TOP_Z = _TRACK.ballast_top_z
+TIE_TOP_Z = _TRACK.tie_top_z
+RAIL_TOP_Z = _TRACK.rail_top_z
+TIE_HALF_W = _TRACK.tie_half_w
+RAIL_HALF_W = _TRACK.rail_half_w
+RAIL_GAUGE_HALF = _TRACK.rail_gauge_half
+N_TIES = _TRACK.n_ties
+TIE_BROWN = _TRACK.tie_color
+RAIL_GREY = _TRACK.rail_color
 
 
 HERE = Path(__file__).resolve().parent
