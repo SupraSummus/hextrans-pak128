@@ -60,7 +60,7 @@ import json
 import math
 import re
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 import numpy as np
@@ -130,6 +130,136 @@ class TunnelParams:
 RAIL_060_TUNNEL = TunnelParams(
     name="rail_060_tunnel",
     wall_color=STONE_GREY,
+)
+
+# Every other tunnel is `python3 -m infrastructure.measure_tunnel
+# <name>` output on its legacy cell (the method, and its precision of
+# about 0.03, are in that module's docstring).  Colours are model
+# colours; the pale concretes all sit at the top of the range because
+# pak128 paints them brighter than this lighting can render.  The ring,
+# reveal and wing walls the legacy art has beside the opening are left
+# out: the model is a face with a hole in it.  Against the hand-set
+# rail_060, the measured openings are mostly wider (0.17 .. 0.44 half
+# width against 0.10) and taller (0.38 .. 0.54 against 0.22).
+#
+# highway_110 and road_070 are not measured yet (TODO.md).
+
+# rail_080 — stone arch.  The same portal model, and so the same opening and face, as rail_080b.
+RAIL_080_TUNNEL = TunnelParams(
+    name="rail_080_tunnel",
+    wall_color=(218, 200, 166),
+    face_half_w=0.312, opening_half_w=0.203,
+    face_top_z=0.444, opening_top_z=0.387,
+)
+
+# rail_080b — concrete arch between stepped wing walls.
+RAIL_080B_TUNNEL = TunnelParams(
+    name="rail_080b_tunnel",
+    wall_color=(247, 251, 255),
+    face_half_w=0.312, opening_half_w=0.203,
+    face_top_z=0.444, opening_top_z=0.387,
+)
+
+# rail_100 — brick, stone-ringed arch; the opening is rail_080's, the brick wall wider.
+RAIL_100_TUNNEL = TunnelParams(
+    name="rail_100_tunnel",
+    wall_color=(255, 227, 192),
+    face_half_w=0.391, opening_half_w=0.203,
+    face_top_z=0.432, opening_top_z=0.387,
+)
+
+# rail_120 — stone arch with a grey ring; the portal model of rail_140.
+RAIL_120_TUNNEL = TunnelParams(
+    name="rail_120_tunnel",
+    wall_color=(246, 245, 230),
+    face_half_w=0.391, opening_half_w=0.188,
+    face_top_z=0.5, opening_top_z=0.436,
+)
+
+# rail_120b — concrete arch, the wall wider than rail_080b's.
+RAIL_120B_TUNNEL = TunnelParams(
+    name="rail_120b_tunnel",
+    wall_color=(249, 251, 255),
+    face_half_w=0.414, opening_half_w=0.203,
+    face_top_z=0.429, opening_top_z=0.387,
+)
+
+# rail_140 — brick, ringed arch; rail_120's portal model.
+RAIL_140_TUNNEL = TunnelParams(
+    name="rail_140_tunnel",
+    wall_color=(255, 233, 207),
+    face_half_w=0.391, opening_half_w=0.188,
+    face_top_z=0.5, opening_top_z=0.436,
+)
+
+# rail_160 — concrete block spanning the tile, round-topped opening.
+RAIL_160_TUNNEL = TunnelParams(
+    name="rail_160_tunnel",
+    wall_color=(252, 252, 255),
+    face_half_w=0.492, opening_half_w=0.219,
+    face_top_z=0.51, opening_top_z=0.43,
+)
+
+# rail_180 — rail_160's block with a narrower, lower opening.
+RAIL_180_TUNNEL = TunnelParams(
+    name="rail_180_tunnel",
+    wall_color=(252, 252, 255),
+    face_half_w=0.492, opening_half_w=0.172,
+    face_top_z=0.447, opening_top_z=0.424,
+)
+
+# rail_200 — concrete box, a wider opening than any arch.
+RAIL_200_TUNNEL = TunnelParams(
+    name="rail_200_tunnel",
+    wall_color=(250, 251, 255),
+    face_half_w=0.5, opening_half_w=0.312,
+    face_top_z=0.556, opening_top_z=0.467,
+)
+
+# rail_240 — concrete box.  rail_280, rail_320 and rail_400 share its geometry and its pale concrete: the legacy cells differ only in details the model does not draw.
+RAIL_240_TUNNEL = TunnelParams(
+    name="rail_240_tunnel",
+    wall_color=(255, 255, 255),
+    face_half_w=0.5, opening_half_w=0.289,
+    face_top_z=0.537, opening_top_z=0.42,
+)
+
+RAIL_280_TUNNEL = replace(RAIL_240_TUNNEL, name="rail_280_tunnel")
+
+RAIL_320_TUNNEL = replace(RAIL_240_TUNNEL, name="rail_320_tunnel")
+
+RAIL_400_TUNNEL = replace(RAIL_240_TUNNEL, name="rail_400_tunnel")
+
+# highway_130 — concrete tube across the whole tile edge; the ring is thin, so the buttresses are slivers.
+HIGHWAY_130_TUNNEL = TunnelParams(
+    name="highway_130_tunnel",
+    wall_color=(250, 251, 255),
+    face_half_w=0.492, opening_half_w=0.438,
+    face_top_z=0.604, opening_top_z=0.543,
+)
+
+# road_040 — brick wall with an arch under a road deck.
+ROAD_040_TUNNEL = TunnelParams(
+    name="road_040_tunnel",
+    wall_color=(255, 222, 190),
+    face_half_w=0.5, opening_half_w=0.359,
+    face_top_z=0.422, opening_top_z=0.384,
+)
+
+# road_050 — concrete version of road_040's wall.
+ROAD_050_TUNNEL = TunnelParams(
+    name="road_050_tunnel",
+    wall_color=(252, 252, 255),
+    face_half_w=0.5, opening_half_w=0.359,
+    face_top_z=0.422, opening_top_z=0.384,
+)
+
+# road_090 — concrete tube, highway_130's portal narrower.
+ROAD_090_TUNNEL = TunnelParams(
+    name="road_090_tunnel",
+    wall_color=(253, 252, 255),
+    face_half_w=0.492, opening_half_w=0.414,
+    face_top_z=0.585, opening_top_z=0.515,
 )
 
 
