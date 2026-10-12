@@ -40,8 +40,8 @@ in the front-image cell; the model doesn't try to match that.
 Reproducing it would mean either duplicating most of the cliff into the
 front layer (game-broken: vehicle would render under the entire cliff)
 or carving the cliff at a per-orientation depth-clip plane (needs the
-renderer to support split boxes, see TODO.md).  The current asymmetry —
-back IoU ≈ 0.5, front IoU low — is the honest trade.
+renderer to support split boxes, see TODO.md), so the front layer is the
+lintel alone and its square diff against the legacy cells stays low.
 
 The portal is built once in the canonical NS frame (low edge = N, low
 end at world +y), then rotated to the target edge / direction.  The
@@ -111,14 +111,14 @@ class TunnelParams:
     # Half-width of the cliff face along the chord perpendicular, and
     # of the opening in it.  The face is built from two buttresses
     # `opening_half_w .. face_half_w` either side of the opening.
+    # (`measure_tunnel.py` reads both off the legacy cell.)
     face_half_w: float = 0.32
     opening_half_w: float = 0.10
-    # Heights above the (flat) tile ground.  `face_top_z` is
-    # back-solved against pak128 `rail_060_tunnel.png` cell 1.0: the
-    # cliff reaches ~60 px above its base in screen-y, which at the
-    # dimetric world-z scale of sin(60°) · 90.5 ≈ 78 px per world unit
-    # lands around 0.45 once the cliff's y-depth eats some of the
-    # rise.  `opening_top_z` is the underside of the lintel.
+    # Heights above the (flat) tile ground; `opening_top_z` is the
+    # underside of the lintel.  The defaults are rail_060's hand-set
+    # values (`face_top_z` back-solved against the legacy cell: the
+    # cliff reaches ~60 px above its base in screen-y, about 0.45 at
+    # 78 px per world unit once its depth eats some of the rise).
     face_top_z: float = 0.45
     opening_top_z: float = 0.22
 
