@@ -141,6 +141,33 @@ RAIL_080B = RailParams(
     rail_color=(232, 220, 198),
 )
 
+# rail_120 — grey gravel, bright cream rails.
+RAIL_120 = RailParams(
+    name="rail_120_tracks",
+    ballast_bands=_bed(_GRAVEL_PROFILE,
+                       (143, 137, 128), (145, 140, 130), (167, 163, 151)),
+    tie_color=(68, 51, 36),
+    rail_color=(248, 226, 188),
+)
+
+# rail_120b — brown gravel like rail_080's under pale rails, lighter ties.
+RAIL_120B = RailParams(
+    name="rail_120b_tracks",
+    ballast_bands=_bed(_GRAVEL_PROFILE,
+                       (132, 115, 92), (130, 117, 93), (178, 155, 122)),
+    tie_color=(93, 66, 39),
+    rail_color=(235, 222, 200),
+)
+
+# rail_140 — bed and rails like rail_120's, lighter ties.
+RAIL_140 = RailParams(
+    name="rail_140_tracks",
+    ballast_bands=_bed(_GRAVEL_PROFILE,
+                       (143, 136, 128), (145, 140, 130), (167, 163, 151)),
+    tie_color=(92, 66, 40),
+    rail_color=(248, 226, 188),
+)
+
 
 # --- Cross-section painter --------------------------------------------------
 
