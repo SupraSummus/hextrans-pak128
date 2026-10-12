@@ -71,7 +71,7 @@ class RailParams:
     # it working, and re-run it after a pak128 refresh, rather than
     # tweaking the number by eye.  The tie length and cadence are
     # rail_060's hex choices, not the pak128 values `measure_tier.py`
-    # reads (TODO.md, "Rail tie length, cadence and colours of rail_060").
+    # reads (TODO.md, "RAIL_060 predates measure_tier").
     tie_half_w: float = 0.16
     rail_half_w: float = 0.008       # rail head thickness (perpendicular)
     rail_gauge_half: float = 0.0474  # half the rail-to-rail spacing
@@ -93,7 +93,7 @@ class RailParams:
 # nearly opaque between the rails, fading into pure speckle at the
 # shoulders.  These values predate `measure_tier.py` and are hand-set;
 # they stay as they are so the committed art is unchanged (TODO.md,
-# "Rail tie length, cadence and colours of rail_060").
+# "RAIL_060 predates measure_tier").
 _GRAVEL_060 = (130, 110, 85)
 RAIL_060 = RailParams(
     name="rail_060_tracks",

@@ -1,10 +1,12 @@
-"""3D model of the rail_280 280 km/h rail track (one tile, mid-segment).
+"""3D model of the rail_280 track (280 km/h): one tile, mid-segment.
 
-Cross-section: a wide pale gravel bed out to the tile edge under white rails, matching pak128 cells 1.5 / 1.6 in
-`rail_280_tracks.png`.  All tier-specific values live in
+Cross-section: a wide pale gravel bed out to the tile edge under white
+rails, matching pak128 cells 1.5 / 1.6 in `rail_280_tracks.png`.  All
+tier-specific values live in
 `infrastructure/rail_tracks/rail_params.RAIL_280`.
 
-Hex deliverable: `rail_280_tracks_hex.png` + `rail_280_tracks_hex_slope.png` +
+Hex deliverable: the three atlases `rail_280_tracks_hex.png`,
+`rail_280_tracks_hex_slope.png` and
 `rail_280_tracks_hex_slope_half.png`, referenced from the sibling
 `rail_280_tracks.dat`.
 """

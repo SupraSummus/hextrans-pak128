@@ -295,7 +295,7 @@ MIN_PX = 30  # fewer ballast pixels than this: no colour estimate
 # Slab test.  A concrete slab is nearly one colour (spread = median
 # per-pixel max-channel deviation from the median colour, about 4
 # against 7+ for gravel), so it is the flat core of the bed out to
-# where the spread at least FLAT_JUMPs.
+# where the spread rises to FLAT_JUMP times the core's.
 FLAT_SPREAD = 5.5
 FLAT_JUMP = 1.6
 
