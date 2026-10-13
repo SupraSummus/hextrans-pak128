@@ -489,6 +489,9 @@ through a per-quad `shader` in `render.py`.
 `tools/threed/way_preview.py` lays tiers out as a small network
 next to their pak128 cells;
 `devdocs/hex-road-style.md` says what tells the tiers apart.
+`infrastructure/road_stops/hex_stops/scene.py` is the worked example
+for a family of 3D buildings from one parameterised scene,
+including rewriting the image block of each `.dat`.
 
 Per-asset state — what's done, what's blocked, what's coming next —
 lives in `git log` and `TODO.md`, not here.

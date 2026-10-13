@@ -46,6 +46,18 @@ Next move: in junction cells, lay the setts on one fixed grid
 keyed to plan coordinates along the hex axis nearest the through
 route, and keep per-leg courses only outside the core.
 
+**Road stops still legacy: terminus, loadbay, parking.**
+`infrastructure/road_stops/hex_stops/scene.py` bakes every through
+stop (bus stops, mailbox, cargo dock) for the three hex axes.
+`terminus.dat` and `player-loadbay-128.dat` are 4-layout terminal
+stops, and the engine folds the NE and SW dead ends onto N and S
+(`building_desc_t::adjust_layout`), so a terminal has no NE/SW image
+to bake into.  Next move: let `tool_station_aux` accept a 6-layout
+terminal (layouts 0..5 per `ribi_t::layout_to_ribi`) in the engine,
+then add a terminal kit to `hex_stops` (one platform, buffer at the
+dead end).  `parking.dat` is a 2-layout extension building and can
+go through the same scene as a through layout once the rest is in.
+
 **Bridge generator bypasses way_topology.**
 `tools/threed/bridge.py` builds every part along a `length_half`
 picked per projection (`length_half()`: chord 1.0 in square, √3 in hex
