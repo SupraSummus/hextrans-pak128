@@ -500,6 +500,10 @@ with one layout per hex side (`Dims=1,1,6`, layouts 0..5 facing S, SE, N, NW, NE
 `infrastructure/road_stops/hex_terminals/scene.py` places their parts
 along the six edges counted round from the exit,
 and puts a part on the camera side of the tile centre into `FrontImage`.
+A 1x1 townhall is founded facing a road on any side,
+so it takes a layout per side too
+(`special_buildings/townhalls/hex_small/scene.py`,
+baked with `building_kit.bake_rotations`).
 Through stops have 12 layouts, `4 * axis + ends`,
 and one-sided platforms 24, `12 * side + 4 * axis + ends`,
 side 0 left of the track looking from its S, SE or SW end.

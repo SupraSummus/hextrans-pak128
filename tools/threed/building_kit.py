@@ -263,6 +263,22 @@ def bake_tiles(model: Model, dims, out_png: Path, *, levels: int = 4
             for z in range(len(tiles[(x, y)]))]
 
 
+def bake_rotations(models: list[Model], out_png: Path) -> list[str]:
+    """Write the atlas of a 1x1 building with one model per layout, a
+    column per layout and a row per height; return the `.dat` image
+    lines (`BackImage` only: nothing on the tile drives under it)."""
+    stacks = [render_tiles(m, (1, 1), ambient=AMBIENT)[(0, 0)]
+              for m in models]
+    rows = max(len(s) for s in stacks)
+    blank = np.zeros_like(stacks[0][0])
+    entries = [(f"[{lo}][{z}]",
+                lambda c=(s[z] if z < len(s) else blank): c)
+               for z in range(rows) for lo, s in enumerate(stacks)]
+    bake_atlas(out_png=out_png, entries=entries, cols_per_row=len(models))
+    return [f"BackImage[{lo}][0][0][{z}][0][0]={out_png.stem}.{z}.{lo}"
+            for lo, s in enumerate(stacks) for z in range(len(s))]
+
+
 def bake_layers(cells: list[dict[str, np.ndarray]], out_png: Path
                 ) -> list[str]:
     """Write the back and front cell of each layout of a 1x1 building

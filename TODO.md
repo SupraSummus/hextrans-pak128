@@ -78,16 +78,6 @@ with `Dims=1,1,6` as `set_six_layouts` writes.
 `depot_train_1936` and the ship depot are 2-layout through depots,
 which wait on the engine's 3-axis through depot.
 
-**Townhalls still legacy: the desert set and the two 1-tile ones.**
-`special_buildings/townhalls/hex_townhalls/scene.py` bakes 01..05_CITY.
-`01_CITY_1`..`04_CITY_1` are `Dims=2,2` too,
-in white plaster with blue domes (`city-townhall-2-128.png`);
-`rmax-townhall.dat` and `desert-townhall.dat` are 1×1.
-Next move: a style switch on `TownhallParams`
-(plaster walls, flat roofs with domes, palms for conifers)
-on the same triangle-plus-forecourt layout,
-and a 1-tile variant without the forecourt.
-
 **The water bridge is still square art.**
 `water_bridge` in `infrastructure/water_all/Canals.dat`
 draws pak128's square aqueduct over hex canals.

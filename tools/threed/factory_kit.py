@@ -304,6 +304,21 @@ def pumpjack(model, fr: Frame, s, p, *, tilt=0.15, color=(40, 40, 44),
     add_frustum(model, fr, s + 0.23, p, 0.03, 0.03, 0.0, 0.06, base, n=8)
 
 
+def palm(model, fr: Frame, s, p, h=0.7, *, lean=(0.05, 0.03),
+         frond=(70, 120, 50), trunk=(126, 98, 70)):
+    """A palm: a leaning trunk and a crown of drooping fronds."""
+    top = fr.world(s + lean[0], p + lean[1], h)
+    add_beam(model, fr.world(s, p, 0.0), top, 0.035, trunk)
+    for k in range(7):
+        a = 2 * math.pi * k / 7 + 0.3
+        tip = (top[0] + math.cos(a) * h * 0.38,
+               top[1] + math.sin(a) * h * 0.38, h * 0.82)
+        mid = (top[0] + math.cos(a) * h * 0.2,
+               top[1] + math.sin(a) * h * 0.2, h * 1.03)
+        add_beam(model, top, mid, 0.05, frond)
+        add_beam(model, mid, tip, 0.04, frond)
+
+
 # --- Smoke --------------------------------------------------------------------
 
 def smoke_lines(mouth, dims) -> list[str]:
