@@ -13,5 +13,5 @@ intro_year = 1989
 intro_month = 10
 cursor=airport1990_small_postoffice.1.2
 icon=> airport1990_small_postoffice.1.1
-BackImage[0][0][0][0][0]=airport1990_small_postoffice.1.0
+BackImage[0][0][0][0][0][0]=airport1990_small_postoffice_hex.0.0
 

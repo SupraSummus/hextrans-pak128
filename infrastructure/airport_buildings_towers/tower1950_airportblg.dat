@@ -19,6 +19,6 @@ Level=11
 icon=> tower1950_airportblg.1.1
 cursor=tower1950_airportblg.1.2
 
-BackImage[0][0][0][0][0]=tower1950_airportblg.2.0
-BackImage[0][0][0][1][0]=tower1950_airportblg.1.0
+BackImage[0][0][0][0][0][0]=tower1950_airportblg_hex.0.0
+BackImage[0][0][0][1][0][0]=tower1950_airportblg_hex.1.0
 

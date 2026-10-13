@@ -23,18 +23,16 @@ Level=10
 icon=> bigterminal1950_airportblg_s.1.4
 cursor=bigterminal1950_airportblg_s.2.4
 
-BackImage[0][0][0][1][0]=-
-# empty: bigterminal1950_airportblg_s.1.0
-BackImage[0][0][0][0][0]=bigterminal1950_airportblg_s.2.0
+BackImage[0][0][0][0][0][0]=bigterminal1950_airportblg_s_hex.0.0
+BackImage[0][0][0][1][0][0]=bigterminal1950_airportblg_s_hex.1.0
+BackImage[1][0][0][0][0][0]=bigterminal1950_airportblg_s_hex.0.1
+BackImage[1][0][0][1][0][0]=bigterminal1950_airportblg_s_hex.1.1
+BackImage[2][0][0][0][0][0]=bigterminal1950_airportblg_s_hex.0.2
+BackImage[2][0][0][1][0][0]=bigterminal1950_airportblg_s_hex.1.2
+BackImage[3][0][0][0][0][0]=bigterminal1950_airportblg_s_hex.0.3
+BackImage[3][0][0][1][0][0]=bigterminal1950_airportblg_s_hex.1.3
 
-BackImage[1][0][0][1][0]=bigterminal1950_airportblg_s.1.1
-BackImage[1][0][0][0][0]=bigterminal1950_airportblg_s.2.1
 
-BackImage[2][0][0][1][0]=bigterminal1950_airportblg_s.1.2
-BackImage[2][0][0][0][0]=bigterminal1950_airportblg_s.2.2
 
-BackImage[3][0][0][1][0]=-
-# empty: bigterminal1950_airportblg_s.1.3
-BackImage[3][0][0][0][0]=bigterminal1950_airportblg_s.2.3
 
 # EOF

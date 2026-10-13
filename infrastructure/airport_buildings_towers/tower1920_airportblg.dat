@@ -14,5 +14,5 @@ retire_month = 2
 Level=4
 cursor=tower1920_airportblg.1.2
 icon=> tower1920_airportblg.1.1
-BackImage[0][0][0][0][0]=tower1920_airportblg.1.0
+BackImage[0][0][0][0][0][0]=tower1920_airportblg_hex.0.0
 
