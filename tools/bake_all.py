@@ -7,7 +7,8 @@ file paths into dotted module names.
 
 Discovery is by glob, matching the conventions in CLAUDE.md:
   - `landscape/grounds/<name>/build_pakset.py` for parametric atlases.
-  - `infrastructure/<class>/<asset>/scene.py` for bespoke ones, whose
+  - `infrastructure/<class>/<asset>/scene.py` and
+    `special_buildings/<class>/<asset>/scene.py` for bespoke ones, whose
     `if __name__ == "__main__"` block calls `bake_pakset()`.
 
 `runpy.run_module(..., run_name="__main__")` mirrors `python -m`'s
@@ -23,6 +24,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 PATTERNS = [
     "landscape/grounds/*/build_pakset.py",
     "infrastructure/*/*/scene.py",
+    "special_buildings/*/*/scene.py",
 ]
 
 
