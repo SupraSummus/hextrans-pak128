@@ -7,7 +7,7 @@ copyright=Raven
 Level=5
 intro_year = 1810
 NoInfo=1
-BackImage[0][0][0][0][0]=avila_warehouse_stationblg.1.0
+BackImage[0][0][0][0][0][0]=avila_warehouse_stationblg_hex.0.0
 icon=> avila_warehouse_stationblg.1.1
 cursor=avila_warehouse_stationblg.1.2
 

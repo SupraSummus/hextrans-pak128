@@ -9,7 +9,7 @@ copyright=MHz
 intro_year = 1887
 intro_month = 1
 NoInfo=1
-BackImage[0][0][0][0][0]=control_stationblg.1.0
+BackImage[0][0][0][0][0][0]=control_stationblg_hex.0.0
 icon=> control_stationblg.1.1
 cursor=control_stationblg.1.2
 

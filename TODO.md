@@ -93,6 +93,16 @@ which waits on the same layout decision as the `Dims=3,3` factories.
 Next move: a central hexagon for the hall, the rhombus corners as apron,
 once that decision is made.
 
+**Station buildings: the multi-tile ones are still legacy.**
+`infrastructure/station_buildings/hex_station_buildings/scene.py` bakes
+the fifteen one-tile station buildings from `tools/threed/blocks.py`.
+VictorianStation, CunnersdorfStopBlg, the two large post offices,
+`modern_warehouse_big`, `hall_extended_station` and the container cranes
+are `Dims=2,1` and larger, cut from square art.
+Next move: `Block`s placed across a `Dims` footprint
+(the per-tile slicing of `building.render_tiles`, a frame per layout),
+starting with the `Dims=2,1` ones, whose two tiles are hex neighbours.
+
 **Factories still legacy, except those baked below.**
 `factories/hex_mines/scene.py` bakes both shaft coal mines,
 `factories/hex_wood/scene.py` the sawmill, furniture factory, paper mill

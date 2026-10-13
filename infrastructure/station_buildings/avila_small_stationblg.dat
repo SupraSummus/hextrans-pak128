@@ -8,7 +8,8 @@ Level=9
 copyright=Raven
 intro_year = 1810
 NoInfo=1
-BackImage[0][0][0][0][0]=avila_small_stationblg.1.0
+BackImage[0][0][0][0][0][0]=avila_small_stationblg_hex.0.0
+BackImage[0][0][0][1][0][0]=avila_small_stationblg_hex.1.0
 icon=> avila_small_stationblg.1.1
 cursor=avila_small_stationblg.1.2
 
