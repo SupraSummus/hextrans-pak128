@@ -95,14 +95,16 @@ Next move: a `BridgeParams` for it in `tools/threed/bridge.py`,
 a stone trough on arches,
 with the deck surface painted by `hex_canals/scene.py`'s `CanalSurface`.
 
-**Factories still legacy, except the mines and the wood chain.**
+**Factories still legacy, except those baked below.**
 `factories/hex_mines/scene.py` bakes both shaft coal mines,
 `factories/hex_wood/scene.py` the sawmill, furniture factory, paper mill
-and printing works, from the parts in `tools/threed/factory_kit.py`.
+and printing works,
+`factories/hex_industry/scene.py` the cement mill, glass works and textile mill,
+all from the parts in `tools/threed/factory_kit.py`.
 Every other factory is square art cut into `Dims` tiles,
 which falls apart on the hex rhombus as the townhalls did.
 Next move: the other early `Dims=2,2` factories
-(Cementmill, Oelfeld, dairy, textile_factory, Glass_factory)
+(Oelfeld, dairy)
 on the same triangle-plus-yard layout,
 one scene per family as `hex_wood` is.
 `Dims=3,3` and larger are 9-hex and bigger rhombi, about 1.7 times as long as wide;
