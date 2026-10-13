@@ -28,15 +28,14 @@ Needs_Ground=1
 intro_year=1700
 # build forever, right now is the only all-climate coal producer
 
-BackImage[0][0][0][0][0]=shaft_coal_mine.2.1
-# first tile is virtual - one pixel
-BackImage[0][1][1][0][0]=shaft_coal_mine.2.0
-# the only separated piece
-BackImage[0][1][0][0][0]=shaft_coal_mine.1.0
-BackImage[0][0][1][0][0]=shaft_coal_mine.1.1
-# lower parts
-BackImage[0][1][0][1][0]=shaft_coal_mine.0.0
-BackImage[0][0][1][1][0]=shaft_coal_mine.0.1
-# upper parts
+BackImage[0][0][0][0][0][0]=shaft_coal_mine_hex.0.0
+BackImage[0][0][0][1][0][0]=shaft_coal_mine_hex.1.0
+BackImage[0][0][1][0][0][0]=shaft_coal_mine_hex.0.1
+BackImage[0][0][1][1][0][0]=shaft_coal_mine_hex.1.1
+BackImage[0][0][1][2][0][0]=shaft_coal_mine_hex.2.1
+BackImage[0][1][0][0][0][0]=shaft_coal_mine_hex.0.2
+BackImage[0][1][0][1][0][0]=shaft_coal_mine_hex.1.2
+BackImage[0][1][0][2][0][0]=shaft_coal_mine_hex.2.2
+BackImage[0][1][1][0][0][0]=shaft_coal_mine_hex.0.3
 
 # EOF

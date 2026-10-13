@@ -23,4 +23,4 @@ jobs:
       - name: Re-run parametric + bespoke bakers
         run: python3 -m tools.bake_all
       - name: Verify byte-identical output
-        run: git diff --exit-code -- landscape/grounds/ infrastructure/ special_buildings/
+        run: git diff --exit-code -- landscape/grounds/ infrastructure/ special_buildings/ factories/
