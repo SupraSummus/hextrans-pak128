@@ -492,6 +492,11 @@ next to their pak128 cells;
 `infrastructure/road_stops/hex_stops/scene.py` is the worked example
 for a family of 3D buildings from one parameterised scene,
 including rewriting the image block of each `.dat`.
+Terminal stops and depots stand on a dead end and face its exit,
+with one layout per hex side (`Dims=1,1,6`, layouts 0..5 facing S, SE, N, NW, NE, SW).
+`infrastructure/road_stops/hex_terminals/scene.py` places their parts
+along the six edges counted round from the exit,
+and puts a part on the camera side of the tile centre into `FrontImage`.
 
 ### Multi-tile buildings
 

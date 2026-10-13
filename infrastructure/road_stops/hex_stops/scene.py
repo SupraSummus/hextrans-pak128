@@ -169,9 +169,10 @@ def zigzag(model, fr, side, layer):
     model.add_quad(q, (0, 0, 0), layer=layer, shader=shader)
 
 
-def sign(model, fr, side, layer, s=0.42):
-    """Bus stop sign: grey pole, yellow plate with a green rim."""
-    p = side * (PLATFORM_IN + 0.05)
+def sign(model, fr, side, layer, s=0.42, kerb=PLATFORM_IN):
+    """Bus stop sign: grey pole, yellow plate with a green rim, just
+    behind the platform kerb at `kerb` from the road axis."""
+    p = side * (kerb + 0.05)
     z0 = PLATFORM_Z
     add_block(model, fr, s - 0.012, s + 0.012, p - 0.012, p + 0.012,
               z0, z0 + 0.34, POST, layer)

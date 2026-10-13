@@ -17,18 +17,22 @@ enables_ware=1
 Level=3
 allow_underground=2
 NoInfo=1
-Dims=1,1,4
+Dims=1,1,6
 intro_year = 1887
 icon=> player-loadbay-128.1.1
 cursor=player-loadbay-128.1.0
-BackImage[0][0][0][0][0]=player-loadbay-128.0.0
-FrontImage[0][0][0][0][0]=player-loadbay-128.0.4
-BackImage[1][0][0][0][0]=player-loadbay-128.0.3
-FrontImage[1][0][0][0][0]=player-loadbay-128.0.7
-BackImage[2][0][0][0][0]=player-loadbay-128.0.1
-FrontImage[2][0][0][0][0]=player-loadbay-128.0.5
-BackImage[3][0][0][0][0]=player-loadbay-128.0.2
-FrontImage[3][0][0][0][0]=player-loadbay-128.0.6
+BackImage[0][0][0][0][0][0]=player-loadbay-128_hex.0.0
+FrontImage[0][0][0][0][0][0]=player-loadbay-128_hex.0.1
+BackImage[1][0][0][0][0][0]=player-loadbay-128_hex.0.2
+FrontImage[1][0][0][0][0][0]=player-loadbay-128_hex.0.3
+BackImage[2][0][0][0][0][0]=player-loadbay-128_hex.0.4
+FrontImage[2][0][0][0][0][0]=player-loadbay-128_hex.0.5
+BackImage[3][0][0][0][0][0]=player-loadbay-128_hex.0.6
+FrontImage[3][0][0][0][0][0]=player-loadbay-128_hex.0.7
+BackImage[4][0][0][0][0][0]=player-loadbay-128_hex.0.8
+FrontImage[4][0][0][0][0][0]=player-loadbay-128_hex.0.9
+BackImage[5][0][0][0][0][0]=player-loadbay-128_hex.0.10
+FrontImage[5][0][0][0][0][0]=player-loadbay-128_hex.0.11
 
 --------------------------------------------------------------------------------
 

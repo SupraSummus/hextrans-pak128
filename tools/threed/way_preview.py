@@ -45,7 +45,7 @@ NETWORK = [
 LEGACY_CELLS = ((1, 5), (2, 5), (1, 7))
 
 
-def _dat_cells(dat: Path, png_stem: str) -> dict[str, tuple[int, int]]:
+def dat_cells(dat: Path, png_stem: str) -> dict[str, tuple[int, int]]:
     """`Image[<ribi>]` → (row, col) in `<png_stem>.png`, from the .dat."""
     cells = {}
     for line in dat.read_text(errors="replace").splitlines():
@@ -106,7 +106,7 @@ def build_sheet(way_dir: Path, names: list[str]) -> Image.Image:
     for name in names:
         dat = way_dir / f"{name}.dat"
         atlas = Image.open(way_dir / f"{name}_hex.png").convert("RGBA")
-        net = render_network(atlas, _dat_cells(dat, f"{name}_hex"),
+        net = render_network(atlas, dat_cells(dat, f"{name}_hex"),
                              geom, ground)
         legacy = legacy_strip(way_dir / f"{name}.png")
         rows.append((name, legacy, net))
