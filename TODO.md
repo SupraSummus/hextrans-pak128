@@ -85,6 +85,14 @@ Next move: a `BridgeParams` for it in `tools/threed/bridge.py`,
 a stone trough on arches,
 with the deck surface painted by `hex_canals/scene.py`'s `CanalSurface`.
 
+**Airport buildings: the 3x3 terminal is still legacy.**
+`infrastructure/airport_buildings_towers/hex_airport/scene.py` bakes
+every one-tile airport building and tower.
+`Very_Big_Terminal` is `Dims=3,3`, a 9-hex rhombus,
+which waits on the same layout decision as the `Dims=3,3` factories.
+Next move: a central hexagon for the hall, the rhombus corners as apron,
+once that decision is made.
+
 **Factories still legacy, except those baked below.**
 `factories/hex_mines/scene.py` bakes both shaft coal mines,
 `factories/hex_wood/scene.py` the sawmill, furniture factory, paper mill

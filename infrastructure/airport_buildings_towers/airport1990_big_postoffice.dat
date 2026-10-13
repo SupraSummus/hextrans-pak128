@@ -13,6 +13,6 @@ intro_year = 1989
 intro_month = 10
 cursor=airport1990_big_postoffice.1.2
 icon=> airport1990_big_postoffice.1.1
-BackImage[0][0][0][0][0]=airport1990_big_postoffice.2.0
-BackImage[0][0][0][1][0]=airport1990_big_postoffice.1.0
+BackImage[0][0][0][0][0][0]=airport1990_big_postoffice_hex.0.0
+BackImage[0][0][0][1][0][0]=airport1990_big_postoffice_hex.1.0
 

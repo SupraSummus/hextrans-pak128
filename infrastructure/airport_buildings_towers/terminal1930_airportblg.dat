@@ -16,8 +16,8 @@ retire_month = 1
 Level=5
 cursor=terminal1930_airportblg.1.5
 icon=> terminal1930_airportblg.1.4
-BackImage[0][0][0][0][0]=terminal1930_airportblg.1.0
-BackImage[1][0][0][0][0]=terminal1930_airportblg.1.1
-BackImage[2][0][0][0][0]=terminal1930_airportblg.1.2
-BackImage[3][0][0][0][0]=terminal1930_airportblg.1.3
+BackImage[0][0][0][0][0][0]=terminal1930_airportblg_hex.0.0
+BackImage[1][0][0][0][0][0]=terminal1930_airportblg_hex.0.1
+BackImage[2][0][0][0][0][0]=terminal1930_airportblg_hex.0.2
+BackImage[3][0][0][0][0][0]=terminal1930_airportblg_hex.0.3
 

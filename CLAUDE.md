@@ -522,6 +522,8 @@ the rhombus frame, walls, facades, beams, the footprint outline,
 and the bake into atlas and `.dat`.
 `tools/threed/factory_kit.py` adds the factory parts:
 chimneys, tanks and silos, logs and timber, cranes, fences and lorries.
+`tools/threed/blocks.py` builds one-tile buildings from boxes in a period style
+and bakes a catalogue of them, a layout per side.
 `tools/threed/solids.py` has the solids underneath.
 What to know before porting the next one:
 

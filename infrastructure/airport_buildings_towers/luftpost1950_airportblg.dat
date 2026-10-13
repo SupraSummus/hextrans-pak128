@@ -16,6 +16,6 @@ enables_post=1
 Level=7
 cursor=luftpost1950_airportblg.1.3
 icon=> luftpost1950_airportblg.1.2
-BackImage[0][0][0][0][0]=luftpost1950_airportblg.1.0
-BackImage[1][0][0][0][0]=luftpost1950_airportblg.1.1
+BackImage[0][0][0][0][0][0]=luftpost1950_airportblg_hex.0.0
+BackImage[1][0][0][0][0][0]=luftpost1950_airportblg_hex.0.1
 
