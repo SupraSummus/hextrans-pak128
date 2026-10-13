@@ -27,7 +27,7 @@ from .building_kit import (
 from .factory_kit import ground_shader, sawtooth_roof
 from .hex_synth import HexGeom
 from .render import Model
-from .solids import Frame, add_block, add_face, add_roof
+from .solids import Frame, add_block, add_face, add_roof, add_solid
 from .way import edge_midpoint
 
 # Layout -> the hex side a one-tile building faces (ribi_t::layout_to_ribi).
@@ -46,7 +46,7 @@ class Block:
     w: float                    # half width across the frame
     storeys: int
     pal: Palette
-    roof: str = "flat"          # flat, glazed, gable, hip, sawtooth
+    roof: str = "flat"          # flat, glazed, gable, hip, mansard, sawtooth
     bands: bool = False         # coloured bands at each floor
     parapet: str | None = None  # None, "plain", "chequer"
     door: bool = False
@@ -105,6 +105,8 @@ def block(model, fr: Frame, b: Block):
                    bays=bays, door=b.door and k == 0)
     if b.roof == "hip":
         hip(model, fr, b.s0, b.s1, b.w, top, b.pitch, pal.roof)
+    elif b.roof == "mansard":
+        mansard(model, fr, b, top)
     elif b.roof == "glazed":
         add_block(model, fr, b.s0 + 0.03, b.s1 - 0.03, -b.w + 0.03,
                   b.w - 0.03, top, top + 0.012, pal.roof)
@@ -129,6 +131,37 @@ def hip(model, fr: Frame, s0, s1, w, z, rise, colour):
     for face in ([e[0], e[1], r[1], r[0]], [e[2], e[3], r[0], r[1]],
                  [e[1], e[2], r[1]], [e[3], e[0], r[0]]):
         add_face(model, face, colour, outward=inside, shader=sh)
+
+
+def mansard(model, fr: Frame, b: Block, top):
+    """A steep lower slope with dormers, a low hipped cap above it."""
+    inset, h = 0.1, 0.2
+    ring0 = [(b.s0 - 0.02, -b.w - 0.02), (b.s1 + 0.02, -b.w - 0.02),
+             (b.s1 + 0.02, b.w + 0.02), (b.s0 - 0.02, b.w + 0.02)]
+    ring1 = [(b.s0 + inset, -b.w + inset), (b.s1 - inset, -b.w + inset),
+             (b.s1 - inset, b.w - inset), (b.s0 + inset, b.w - inset)]
+    add_solid(model, [fr.world(s, p, top) for s, p in ring0],
+              [fr.world(s, p, top + h) for s, p in ring1], b.pal.roof,
+              side_shader=speckle_shader(b.pal.roof))
+    hip(model, fr, b.s0 + inset, b.s1 - inset, b.w - inset, top + h,
+        b.pitch * 0.5, b.pal.roof)
+    # Dormers on the front and `-w` slopes, the two the camera sees on a
+    # building facing SE; turned to another face, it shows bare slopes.
+    for (a, c, inward) in (((b.s1, -b.w), (b.s1, b.w), (-1, 0)),
+                           ((b.s0, -b.w), (b.s1, -b.w), (0, 1))):
+        n = max(1, round(math.dist(a, c) / 0.22))
+        for k in range(n):
+            t = (k + 0.5) / n
+            ds, dp = a[0] + (c[0] - a[0]) * t, a[1] + (c[1] - a[1]) * t
+            ds += inward[0] * 0.06
+            dp += inward[1] * 0.06
+            add_block(model, fr, ds - 0.035, ds + 0.035, dp - 0.035,
+                      dp + 0.035, top + 0.04, top + 0.13, b.pal.trim)
+            add_block(model, fr, ds - 0.025 - inward[0] * 0.01,
+                      ds + 0.025 - inward[0] * 0.01,
+                      dp - 0.025 - inward[1] * 0.01,
+                      dp + 0.025 - inward[1] * 0.01, top + 0.055,
+                      top + 0.115, b.pal.glass)
 
 
 def parapet(model, fr: Frame, b: Block, top, *, chequer):

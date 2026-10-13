@@ -8,7 +8,7 @@ intro_year = 1801
 intro_month = 1
 copyright=Raven
 NoInfo=1
-BackImage[0][0][0][0][0]=goods_stationblg.1.0
+BackImage[0][0][0][0][0][0]=goods_stationblg_hex.0.0
 icon=> goods_stationblg.1.1
 cursor=goods_stationblg.1.2
 

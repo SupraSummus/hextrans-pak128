@@ -5,6 +5,6 @@ enables_ware=1
 Level=1
 copyright=Raven & Vladimir Slavik
 NoInfo=1
-BackImage[0][0][0][0][0]=plain_tile_high.1.0
+BackImage[0][0][0][0][0][0]=plain_tile_high_hex.0.0
 cursor=plain_tile_high.1.2
 icon=> plain_tile_high.1.1
