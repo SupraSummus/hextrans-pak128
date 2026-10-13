@@ -37,20 +37,14 @@ highway_130 / highway_200 additionally need a `FrontImage` block —
 `bespoke.bake_atlas` only writes a single back atlas today, so a
 second-layer pass needs adding before those tiers can migrate.
 
-**Asphalt-tier centre dashes.**  road_050 / road_070 / road_090 /
-highway_110 read as plain dark-grey slabs in the hex bake,
-because `RoadParams` captures one carriageway colour.  In pak128
-each of these tiers is the same colour with a white dashed
-centreline (single dashes on road_050 / road_070, double on
-road_090 / highway_110) — the most distinctive feature of the
-upstream art and the strongest cue distinguishing tiers from
-each other in-game.  Add a `lane_markings` field
-(None / "single" / "double") to `RoadParams` and have
-`RoadCrossSection.paint_straight` emit short-`s`-range white slabs
-along the chord centreline when set; cadence keyed off
-`chord_len` from `make_slab_emitter` so dashes line up across
-adjacent tiles regardless of chord length (full chord vs. bend
-piece).
+**Setts change direction at junctions and bends.**
+road_040's sett rows follow each leg's own `s`/`v`
+(`RoadSurface._material`),
+so where legs meet in a junction core the courses switch direction
+along the seam between legs, and on arcs the joints fan.
+Next move: in junction cells, lay the setts on one fixed grid
+keyed to plan coordinates along the hex axis nearest the through
+route, and keep per-leg courses only outside the core.
 
 **Bridge generator bypasses way_topology.**
 `tools/threed/bridge.py` builds every part along a `length_half`
@@ -71,8 +65,9 @@ the rail family (ballast + ties + rails cross-section,
 `RailCrossSection` in `infrastructure/rail_tracks/rail_params.py`) and
 the road family (`road_030` / `road_040` /
 `road_050` / `road_055` / `road_070` / `road_090` / `cityroad_030` /
-`highway_110`, all sharing the parameterised `RoadCrossSection` in
-`infrastructure/roads/road_params.py`) — every one bakes the full
+`highway_110`, all sharing the `RoadSurface` painter in
+`infrastructure/roads/road_params.py`, which overrides `paint_edges`
+to shade the whole cell from `tools/threed/way_surface.py`) — every one bakes the full
 63-cell hex set into `<asset>_hex.png` plus a 6-cell axis-slope
 atlas.  Open work: rail wants a buffer-stop short beam at the
 centre end of single-edge stubs (currently a clean cut reads as

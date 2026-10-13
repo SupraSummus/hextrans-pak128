@@ -142,6 +142,12 @@ class CrossSection:
     def paint_straight(self, model, path: StraightPath) -> None:
         raise NotImplementedError
 
+    def paint_edges(self, model, edges) -> None:
+        """Paint the way leaving the tile through `edges`.  Default
+        composes chords via `for_edges_paths`; painted-surface ways
+        (roads) override it to draw the whole cell at once."""
+        self.paint(model, for_edges_paths(edges))
+
     def paint(self, model, paths) -> None:
         """Walk a path list, dispatching each path to `paint_straight`.
         Used by `render_hex_cell` to consume whatever
@@ -290,7 +296,7 @@ def lay_axis_slope(cs: CrossSection, model, low_edge: str,
     the import cost.
     """
     high_edge = HEX_OPPOSITE_EDGE[low_edge]
-    cs.paint(model, between_edges_paths(low_edge, high_edge))
+    cs.paint_edges(model, (low_edge, high_edge))
     _tilt_ramp(model, low_edge, steps=steps)
 
 
@@ -306,5 +312,5 @@ def lay_axis_slope_half(cs: CrossSection, model, low_edge: str,
     image slots for ways that terminate on a slope (single-bit ribi on
     the slope's ramp axis)."""
     edge = HEX_OPPOSITE_EDGE[low_edge] if high_half else low_edge
-    cs.paint(model, stub_paths(edge))
+    cs.paint_edges(model, (edge,))
     _tilt_ramp(model, low_edge, steps=steps)

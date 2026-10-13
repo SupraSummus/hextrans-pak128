@@ -482,6 +482,14 @@ instance (`rail_bridges/rail_bridge_params.py`) built by the bridge
 family generator `tools/threed/bridge.py`; the bake writes
 `rail_060_bridge_hex.png`, keyed by `rail_060_bridge.dat`.
 
+Roads are not built from slabs:
+`RoadSurface` in `infrastructure/roads/road_params.py`
+shades each cell per pixel from `tools/threed/way_surface.py`,
+through a per-quad `shader` in `render.py`.
+`tools/threed/way_preview.py` lays tiers out as a small network
+next to their pak128 cells;
+`devdocs/hex-road-style.md` says what tells the tiers apart.
+
 Per-asset state — what's done, what's blocked, what's coming next —
 lives in `git log` and `TODO.md`, not here.
 
