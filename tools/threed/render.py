@@ -340,6 +340,11 @@ class HexCamera:
     ambient: float = 0.25
     sun_dir: tuple | None = None
     geom: HexGeom = field(default_factory=HexGeom)
+    # World (x, y) drawn at the cell centre and clipped to: the tile of
+    # a multi-tile model.  `levels` stacks that many cells, each a
+    # raster width higher, as the engine draws a building's heights.
+    centre: tuple[float, float] = (0.0, 0.0)
+    levels: int = 1
 
 
 # --- Render -------------------------------------------------------------------
@@ -359,10 +364,16 @@ def render(model: Model, camera, *, layer_filter=None, out_path=None
         np.asarray(camera.sun_dir, dtype=float) / np.linalg.norm(camera.sun_dir)
 
     if isinstance(camera, HexCamera):
-        out_w, out_h = camera.geom.w, camera.geom.h
-        plan_clip = hex_plan_clip
+        geom = camera.geom
+        lift = (camera.levels - 1) * geom.w
+        out_w, out_h = geom.w, geom.h + lift
+        anchor_y = (geom.mid_y if camera.anchor_y is None
+                    else camera.anchor_y) + lift
+        centre = np.array([*camera.centre, 0.0])
+        def plan_clip(wx, wy):
+            return hex_plan_clip(wx - centre[0], wy - centre[1])
         def project(wq):
-            return world_to_screen_hex(wq, camera.geom, anchor_y=camera.anchor_y)
+            return world_to_screen_hex(wq - centre, geom, anchor_y=anchor_y)
     elif isinstance(camera, SquareCamera):
         out_w = out_h = camera.img_size
         plan_clip = None

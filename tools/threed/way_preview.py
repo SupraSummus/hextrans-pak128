@@ -18,13 +18,11 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from PIL import Image, ImageDraw, ImageFilter
+import numpy as np
+from PIL import Image, ImageDraw
 
+from .building import SKY, composite, ground_cell
 from .hex_synth import HexGeom
-
-ROOT = Path(__file__).resolve().parents[2]
-CLIMATE_PNG = ROOT / "landscape/grounds/texture-climate.png"
-TEMPERATE = 4  # climate index in texture-climate.dat
 
 # Hex directions in `.dat` key order; axial offsets with +q = SE, +r = S.
 DIRS = ("se", "s", "sw", "nw", "n", "ne")
@@ -45,8 +43,6 @@ NETWORK = [
 
 # Legacy square cells per tier sheet: straight, curve, crossing.
 LEGACY_CELLS = ((1, 5), (2, 5), (1, 7))
-
-SKY = (231, 255, 255)
 
 
 def _dat_cells(dat: Path, png_stem: str) -> dict[str, tuple[int, int]]:
@@ -77,49 +73,17 @@ def _network_ribis() -> dict[tuple[int, int], set[str]]:
     return ribis
 
 
-def _hex_mask(geom: HexGeom) -> Image.Image:
-    m = Image.new("L", (geom.w, geom.h), 0)
-    pts = [(geom.vx[i], geom.vy_base[i]) for i in range(6)]
-    ImageDraw.Draw(m).polygon(pts, fill=255)
-    # Grow by a pixel so neighbouring hexes overlap instead of leaving
-    # background showing along the slanted edges.
-    return m.filter(ImageFilter.MaxFilter(3))
-
-
 def render_network(atlas: Image.Image, cells: dict, geom: HexGeom,
                    ground: Image.Image) -> Image.Image:
-    ribis = _network_ribis()
-    tiles = set(ribis)
-    u = geom.u
-    # Ground under the network plus a one-tile margin.
-    area = {(q + dq, r + dr) for q, r in tiles
-            for dq, dr in [(0, 0)] + list(STEP.values())}
-    xs = [3 * u * q for q, r in area]
-    ys = [2 * u * r + u * q for q, r in area]
-    ox, oy = -min(xs), -min(ys) + geom.mid_y
-    w = max(xs) + ox + geom.w
-    h = max(ys) + oy + 2 * u
-    canvas = Image.new("RGBA", (w, h), SKY + (255,))
-    mask = _hex_mask(geom)
-    # Back to front: screen y of the tile centre, then x.
-    order = sorted(area, key=lambda t: (2 * t[1] + t[0], t[0]))
-    for q, r in order:
-        x = 3 * u * q + ox
-        y = 2 * u * r + u * q + oy - geom.mid_y
-        canvas.paste(ground, (x, y), mask)
-    for q, r in order:
-        if (q, r) not in tiles:
-            continue
-        key = "_".join(d for d in DIRS if d in ribis[(q, r)])
-        if key not in cells:
-            continue
-        row, col = cells[key]
-        cell = atlas.crop((col * geom.w, row * geom.h,
-                           (col + 1) * geom.w, (row + 1) * geom.h))
-        x = 3 * u * q + ox
-        y = 2 * u * r + u * q + oy - geom.mid_y
-        canvas.alpha_composite(cell, (x, y))
-    return canvas
+    tiles = {}
+    for (q, r), ribi in _network_ribis().items():
+        key = "_".join(d for d in DIRS if d in ribi)
+        if key in cells:
+            row, col = cells[key]
+            tiles[(q, r)] = [np.asarray(atlas.crop((
+                col * geom.w, row * geom.h,
+                (col + 1) * geom.w, (row + 1) * geom.h)))]
+    return composite(tiles, ground)
 
 
 def legacy_strip(png: Path) -> Image.Image | None:
@@ -136,9 +100,7 @@ def legacy_strip(png: Path) -> Image.Image | None:
 
 def build_sheet(way_dir: Path, names: list[str]) -> Image.Image:
     geom = HexGeom()
-    climate = Image.open(CLIMATE_PNG).convert("RGBA")
-    ground = climate.crop((TEMPERATE * 128, 0,
-                           TEMPERATE * 128 + geom.w, geom.h))
+    ground = ground_cell(geom)
 
     rows = []
     for name in names:

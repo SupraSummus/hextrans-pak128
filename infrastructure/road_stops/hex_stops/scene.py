@@ -23,7 +23,6 @@ to each `.dat`, and rewrites the image lines of the `.dat`.
 """
 from __future__ import annotations
 
-import math
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -33,6 +32,7 @@ import numpy as np
 from tools.threed.bespoke import bake_atlas
 from tools.threed.hex_synth import hash_noise01
 from tools.threed.render import HexCamera, Model, render
+from tools.threed.solids import Frame, add_block, add_prism, add_roof
 from tools.threed.way import edge_midpoint
 from tools.threed.way_surface import APOTHEM
 
@@ -94,64 +94,10 @@ STOPS = [
 
 # --- Geometry helpers ---------------------------------------------------------
 
-class Frame:
-    """Plan-view frame of one axis: `s` along the road (towards the
-    axis edge), `p` across it (left of `s` positive)."""
-
-    def __init__(self, edge: str):
-        mx, my = edge_midpoint(edge)
-        n = math.hypot(mx, my)
-        self.u = (mx / n, my / n)
-        self.v = (-self.u[1], self.u[0])
-
-    def world(self, s, p, z):
-        return (s * self.u[0] + p * self.v[0],
-                s * self.u[1] + p * self.v[1], z)
-
-    def front_sign(self) -> int:
-        """Sign of `p` on the side nearer the camera (lower world y);
-        0 when both sides are equally near."""
-        if abs(self.v[1]) < 1e-9:
-            return 0
-        return -1 if self.v[1] > 0 else 1
-
-
-def _solid(model, bottom, top, color, layer, *, top_shader=None,
-           side_color=None):
-    """Solid between two 4-point rings (world xyz, same order): top face
-    plus four sides, each wound to face outwards."""
-    centre = np.mean(bottom + top, axis=0)
-    faces = [top] + [[bottom[i], bottom[i - 3], top[i - 3], top[i]]
-                     for i in range(4)]
-    for k, quad in enumerate(faces):
-        n = np.cross(np.subtract(quad[1], quad[0]),
-                     np.subtract(quad[3], quad[0]))
-        if np.dot(n, np.mean(quad, axis=0) - centre) < 0:
-            quad = quad[::-1]
-        model.add_quad(quad, color if k == 0 else side_color or color,
-                       layer=layer, shader=top_shader if k == 0 else None)
-
-
-def add_prism(model, fr: Frame, poly, z0, z1, color, layer, **kw):
-    """Vertical prism over a plan quadrilateral of (s, p) corners."""
-    _solid(model, [fr.world(s, p, z0) for s, p in poly],
-           [fr.world(s, p, z1) for s, p in poly], color, layer, **kw)
-
-
-def add_block(model, fr: Frame, s0, s1, p0, p1, z0, z1, color, layer, **kw):
-    """Box aligned with the frame."""
-    add_prism(model, fr, [(s0, p0), (s1, p0), (s1, p1), (s0, p1)],
-              z0, z1, color, layer, **kw)
-
-
-def add_roof(model, fr: Frame, s0, s1, p0, p1, z_p0, z_p1, t, color, layer,
-             shader=None):
-    """Roof slab `t` thick rising from `z_p0` at `p0` to `z_p1` at `p1`."""
-    poly = [(s0, p0), (s1, p0), (s1, p1), (s0, p1)]
-    zs = [z_p0, z_p0, z_p1, z_p1]
-    _solid(model, [fr.world(s, p, z) for (s, p), z in zip(poly, zs)],
-           [fr.world(s, p, z + t) for (s, p), z in zip(poly, zs)],
-           color, layer, top_shader=shader)
+def edge_frame(edge: str) -> Frame:
+    """Frame of one axis: `s` along the road (towards the axis edge),
+    `p` across it."""
+    return Frame(edge_midpoint(edge))
 
 
 def cobble_shader(kerb_p, fr: Frame, side: int):
@@ -331,7 +277,7 @@ def crates(model, fr, side, layer):
 # --- Scene --------------------------------------------------------------------
 
 def build(params: StopParams, layout: int) -> Model:
-    fr = Frame(AXES[layout])
+    fr = edge_frame(AXES[layout])
     model = Model()
     front = fr.front_sign()
     # Furniture side: away from the camera when one side is nearer.
