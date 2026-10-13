@@ -46,10 +46,17 @@ Next move: in junction cells, lay the setts on one fixed grid
 keyed to plan coordinates along the hex axis nearest the through
 route, and keep per-leg courses only outside the core.
 
-**Road stops still legacy: parking.**
-`parking.dat` is a 2-layout extension building.
-Next move: bake it through `hex_stops` as a through layout,
-a car park on each side of the road.
+**Platforms break at the joins between stop tiles.**
+`hex_stops.platform_poly` runs a platform out to `PLATFORM_OUT`, 0.62,
+from the middle of the way;
+past 0.5 it crosses the corner of the hex beside the way,
+which the stop's image is clipped off,
+so a row of road stops, rail stops or parkings
+shows a V-shaped gap at each join.
+Next move: clip the stop's image to its hex plus the corners it crosses,
+and check with `tools/ingame_check` that the neighbour's ground,
+drawn later, does not paint over them.
+If it does, the gaps stay and this entry goes.
 
 **Depots still legacy: monorail, air and the through depots.**
 `infrastructure/depots_rail_road_tram/hex_depots/scene.py` bakes the road,
