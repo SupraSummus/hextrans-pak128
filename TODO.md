@@ -51,6 +51,17 @@ route, and keep per-leg courses only outside the core.
 Next move: bake it through `hex_stops` as a through layout,
 a car park on each side of the road.
 
+**Depots still legacy: monorail, air and the through depots.**
+`infrastructure/depots_rail_road_tram/hex_depots/scene.py` bakes the road,
+rail and tram depots in six layouts, one per hex side.
+`ls-depot-monorail` and the air depots are 4-layout,
+so NE and SW dead ends show the N and S image.
+Next move: a `DepotParams` each
+(the monorail shed raised on its pillars, a hangar for the air depots),
+with `Dims=1,1,6` as `set_six_layouts` writes.
+`depot_train_1936` and the ship depot are 2-layout through depots,
+which wait on the engine's 3-axis through depot.
+
 **Townhalls still legacy: the desert set and the two 1-tile ones.**
 `special_buildings/townhalls/hex_townhalls/scene.py` bakes 01..05_CITY.
 `01_CITY_1`..`04_CITY_1` are `Dims=2,2` too,
