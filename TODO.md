@@ -112,12 +112,13 @@ on the same triangle-plus-yard layout.
 they need a layout decided first,
 probably the building on a central hexagon with the corners as yard.
 
-**Farm fields are square diamonds.**
-`grain_field`, `corn_field`, `cotton_field` and the other field objects
-are pak128's square cells, a diamond on each hex tile round a hex farm.
-Next move: a parametric baker for fields in `landscape/` (furrows along
-one hex axis, crop colour per field type), written over each field's
-`.dat` image lines.
+**Solar fields are square diamonds.**
+`factories/hex_fields/scene.py` bakes the crop fields and the plantation's
+stand of conifers as hexes.
+The six power-plant fields under `factories/powerplants/`
+(mirrors, trackers, dishes, collectors, the solar pond) are still square.
+Next move: a `Season`-like entry per kind in `hex_fields`
+with the panels laid along one hex axis.
 
 **Bridge generator bypasses way_topology.**
 `tools/threed/bridge.py` builds every part along a `length_half`

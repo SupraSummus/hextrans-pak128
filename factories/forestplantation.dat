@@ -57,11 +57,11 @@ obj=field
 name=forestplantation_field
 copyright=Fabio Gonella
 
-Image[0]=forestplantation.4.0
-Image[1]=forestplantation.4.0
-Image[2]=forestplantation.4.0
-Image[3]=forestplantation.4.0
-Image[4]=forestplantation.4.0
+Image[0]=fields_hex.3.0
+Image[1]=fields_hex.3.1
+Image[2]=fields_hex.3.2
+Image[3]=fields_hex.3.3
+Image[4]=fields_hex.3.4
 
 ----------------------------------
 
