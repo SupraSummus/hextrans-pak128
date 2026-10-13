@@ -46,10 +46,10 @@ obj=field
 name=corn_field
 copyright=Sarlock
 
-Image[0]=corn_farm.4.3
-Image[1]=corn_farm.4.0
-Image[2]=corn_farm.4.1
-Image[3]=corn_farm.4.2
-Image[4]=corn_farm.4.4
+Image[0]=fields_hex.2.0
+Image[1]=fields_hex.2.1
+Image[2]=fields_hex.2.2
+Image[3]=fields_hex.2.3
+Image[4]=fields_hex.2.4
 
 # EOF
