@@ -101,14 +101,23 @@ with the deck surface painted by `hex_canals/scene.py`'s `CanalSurface`.
 and printing works,
 `factories/hex_industry/scene.py` the cement mill, glass works and textile mill,
 `factories/hex_oil/scene.py` the oil field,
+`factories/hex_farms/scene.py` the corn, cotton and grain farms,
 all from the parts in `tools/threed/factory_kit.py`.
 Every other factory is square art cut into `Dims` tiles,
 which falls apart on the hex rhombus as the townhalls did.
-Next move: the dairy, the last early `Dims=2,2` factory,
+Next move: the five `Dims=2,2` factories left
+(dairy, Concretefactory, food_processing_plant, autoshop3, publisher)
 on the same triangle-plus-yard layout.
 `Dims=3,3` and larger are 9-hex and bigger rhombi, about 1.7 times as long as wide;
 they need a layout decided first,
 probably the building on a central hexagon with the corners as yard.
+
+**Farm fields are square diamonds.**
+`grain_field`, `corn_field`, `cotton_field` and the other field objects
+are pak128's square cells, a diamond on each hex tile round a hex farm.
+Next move: a parametric baker for fields in `landscape/` (furrows along
+one hex axis, crop colour per field type), written over each field's
+`.dat` image lines.
 
 **Bridge generator bypasses way_topology.**
 `tools/threed/bridge.py` builds every part along a `length_half`

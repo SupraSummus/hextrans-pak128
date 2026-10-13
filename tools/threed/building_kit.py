@@ -285,12 +285,12 @@ def edit_dat(dat: Path, edit) -> None:
     dat.write_bytes((nl.join(lines) + nl).encode())
 
 
-DIMS_1X1 = re.compile(r"(?i)^(dims\s*=\s*1\s*,\s*1)\s*,\s*\d+")
+DIMS = re.compile(r"(?i)^(dims\s*=\s*\d+\s*,\s*\d+)\s*,\s*\d+")
 
 
 def set_layouts(dat: Path, layouts: int | dict[str, int]) -> None:
-    """`Dims=1,1,n` for the 1x1 buildings in `dat`: `layouts` is `n`,
-    or `n` by object name."""
+    """`Dims=w,h,n` for the buildings in `dat`: `layouts` is `n`, or
+    `n` by object name."""
     def edit(lines):
         out, name = [], None
         for line in lines:
@@ -298,7 +298,7 @@ def set_layouts(dat: Path, layouts: int | dict[str, int]) -> None:
                 name = line[len("name="):].strip()
             n = layouts if isinstance(layouts, int) else layouts.get(name)
             out.append(line if n is None
-                       else DIMS_1X1.sub(rf"\g<1>,{n}", line))
+                       else DIMS.sub(rf"\g<1>,{n}", line))
         return out
     edit_dat(dat, edit)
 
