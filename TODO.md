@@ -67,16 +67,12 @@ Next move: build `platform_poly` on `hex_poly`,
 share one `bench` that takes the platform height,
 and rebake the road stops, rail stops and parking.
 
-**Depots still legacy: monorail, air and the through depots.**
-`infrastructure/depots_rail_road_tram/hex_depots/scene.py` bakes the road,
-rail and tram depots in six layouts, one per hex side.
-`ls-depot-monorail` and the air depots are 4-layout,
-so NE and SW dead ends show the N and S image.
-Next move: a `DepotParams` each
-(the monorail shed raised on its pillars, a hangar for the air depots),
-with `Dims=1,1,6` as `set_six_layouts` writes.
+**Depots still legacy: the through depots.**
 `depot_train_1936` and the ship depot are 2-layout through depots,
-which wait on the engine's 3-axis through depot.
+so on the NE-SW axis they show the N-S image.
+Next move: once the engine has a 3-axis through depot
+(engine `TODO.md`, "Depot 3rd-axis layout"),
+a `DepotParams` each in `hex_depots` with the shed open at both ends.
 
 **The water bridge is still square art.**
 `water_bridge` in `infrastructure/water_all/Canals.dat`

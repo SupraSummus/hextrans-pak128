@@ -186,14 +186,16 @@ def stepped_gable(model, fr, s, w, z_eave, z_ridge, pal: Palette, steps=4):
 
 
 def gabled_block(model, fr, s0, s1, w, storeys, pal: Palette, *,
-                 pitch=0.36, door=False, stepped=True, bays=None):
+                 pitch=0.36, door=False, stepped=True, bays=None,
+                 wall_shader=None):
     """Block from `s0` to `s1`, `w` either side of the frame axis, under
     a roof with its ridge along `s`: a plain gable at `s0` and, at `s1`,
-    the end that faces out, a stepped one or a plain one."""
+    the end that faces out, a stepped one or a plain one.  The walls
+    are brick or plaster unless `wall_shader` says otherwise."""
     z_eave = storeys * STOREY
     z_ridge = z_eave + pitch
     add_block(model, fr, s0, s1, -w, w, 0, z_eave, pal.wall,
-              side_shader=speckle_shader(pal.wall))
+              side_shader=wall_shader or speckle_shader(pal.wall))
     add_block(model, fr, s0 - 0.015, s1 + 0.015, -w - 0.015, w + 0.015,
               z_eave - 0.04, z_eave, pal.trim)
     o = 0.05
