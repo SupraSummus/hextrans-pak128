@@ -46,17 +46,10 @@ Next move: in junction cells, lay the setts on one fixed grid
 keyed to plan coordinates along the hex axis nearest the through
 route, and keep per-leg courses only outside the core.
 
-**Road stops still legacy: terminus, loadbay, parking.**
-`infrastructure/road_stops/hex_stops/scene.py` bakes every through
-stop (bus stops, mailbox, cargo dock) for the three hex axes.
-`terminus.dat` and `player-loadbay-128.dat` are 4-layout terminal
-stops, and the engine folds the NE and SW dead ends onto N and S
-(`building_desc_t::adjust_layout`), so a terminal has no NE/SW image
-to bake into.  Next move: let `tool_station_aux` accept a 6-layout
-terminal (layouts 0..5 per `ribi_t::layout_to_ribi`) in the engine,
-then add a terminal kit to `hex_stops` (one platform, buffer at the
-dead end).  `parking.dat` is a 2-layout extension building and can
-go through the same scene as a through layout once the rest is in.
+**Road stops still legacy: parking.**
+`parking.dat` is a 2-layout extension building.
+Next move: bake it through `hex_stops` as a through layout,
+a car park on each side of the road.
 
 **Townhalls still legacy: the desert set and the two 1-tile ones.**
 `special_buildings/townhalls/hex_townhalls/scene.py` bakes 01..05_CITY.

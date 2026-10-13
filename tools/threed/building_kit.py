@@ -229,6 +229,26 @@ def bake_tiles(model: Model, dims, out_png: Path) -> list[str]:
             for z in range(len(tiles[(x, y)]))]
 
 
+def bake_layers(cells: list[dict[str, np.ndarray]], out_png: Path
+                ) -> list[str]:
+    """Write the back and front cell of each layout of a 1x1 building
+    side by side; return the `.dat` image lines."""
+    bake_atlas(out_png=out_png,
+               entries=[(f"{layer}[{lo}]", lambda c=c[layer]: c)
+                        for lo, c in enumerate(cells)
+                        for layer in ("back", "front")])
+    return [f"{key}Image[{lo}][0][0][0][0][0]={out_png.stem}.0.{2 * lo + i}"
+            for lo in range(len(cells))
+            for i, key in enumerate(("Back", "Front"))]
+
+
+def set_layouts(dat: Path, n: int) -> None:
+    """`Dims=1,1,n` in a `.dat` of 1x1 buildings."""
+    text = dat.read_text(errors="replace")
+    dat.write_text(re.sub(r"(?im)^(dims\s*=\s*1\s*,\s*1)\s*,\s*\d+",
+                          rf"\g<1>,{n}", text))
+
+
 IMAGE_LINE = re.compile(r"^\s*(Back|Front)Image\[|^\s*animation_time=",
                         re.I)
 
