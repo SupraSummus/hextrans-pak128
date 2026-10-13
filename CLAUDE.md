@@ -501,6 +501,9 @@ with one layout per hex side (`Dims=1,1,6`, layouts 0..5 facing S, SE, N, NW, NE
 `infrastructure/road_stops/hex_terminals/scene.py` places their parts
 along the six edges counted round from the exit,
 and puts a part on the camera side of the tile centre into `FrontImage`.
+A building that fills the tile is cut on that plane instead
+(`render(..., plan_keep=...)`),
+as the hangars in `airport_depots/hex_hangars/` are.
 A 1x1 townhall is founded facing a road on any side,
 so it takes a layout per side too
 (`special_buildings/townhalls/hex_small/scene.py`,
