@@ -102,14 +102,14 @@ and printing works,
 `factories/hex_industry/scene.py` the cement mill, glass works and textile mill,
 `factories/hex_oil/scene.py` the oil field,
 `factories/hex_farms/scene.py` the corn, cotton and grain farms,
+`factories/hex_town_works/scene.py` the car dealer, publisher,
+food processing plant, dairy and concrete works,
 all from the parts in `tools/threed/factory_kit.py`.
 Every other factory is square art cut into `Dims` tiles,
 which falls apart on the hex rhombus as the townhalls did.
-Next move: the five `Dims=2,2` factories left
-(dairy, Concretefactory, food_processing_plant, autoshop3, publisher)
-on the same triangle-plus-yard layout.
-`Dims=3,3` and larger are 9-hex and bigger rhombi, about 1.7 times as long as wide;
-they need a layout decided first,
+Next move: the `Dims=3,3` and larger ones,
+9-hex and bigger rhombi about 1.7 times as long as wide,
+which need a layout decided first,
 probably the building on a central hexagon with the corners as yard.
 
 **Solar fields are square diamonds.**

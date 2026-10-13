@@ -46,12 +46,12 @@ intro_year=1915
 MapColor=119
 Dims=2,2
 
-BackImage[0][0][0][0][0]=food_processing_plant.1.1
-BackImage[0][0][0][1][0]=food_processing_plant.0.1
-BackImage[0][1][0][0][0]=food_processing_plant.1.0
-BackImage[0][1][0][1][0]=food_processing_plant.0.0
-BackImage[0][0][1][0][0]=food_processing_plant.2.2
-BackImage[0][0][1][1][0]=food_processing_plant.1.2
-BackImage[0][1][1][0][0]=food_processing_plant.2.0
+BackImage[0][0][0][0][0][0]=food_processing_plant_hex.0.0
+BackImage[0][0][0][1][0][0]=food_processing_plant_hex.1.0
+BackImage[0][0][1][0][0][0]=food_processing_plant_hex.0.1
+BackImage[0][0][1][1][0][0]=food_processing_plant_hex.1.1
+BackImage[0][1][0][0][0][0]=food_processing_plant_hex.0.2
+BackImage[0][1][0][1][0][0]=food_processing_plant_hex.1.2
+BackImage[0][1][1][0][0][0]=food_processing_plant_hex.0.3
 
 # EOF

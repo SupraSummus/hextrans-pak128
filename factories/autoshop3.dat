@@ -22,9 +22,9 @@ InputSupplier[0]=0
 MapColor=175
 Dims=2,2,1
 
-BackImage[0][0][0][0][0]=autoshop3.0.0
-BackImage[0][1][0][0][0]=autoshop3.1.0
-BackImage[0][0][1][0][0]=autoshop3.0.1
-BackImage[0][1][1][0][0]=autoshop3.1.1
+BackImage[0][0][0][0][0][0]=autoshop3_hex.0.0
+BackImage[0][0][1][0][0][0]=autoshop3_hex.0.1
+BackImage[0][1][0][0][0][0]=autoshop3_hex.0.2
+BackImage[0][1][1][0][0][0]=autoshop3_hex.0.3
 
 # EOF
