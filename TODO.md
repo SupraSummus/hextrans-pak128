@@ -67,13 +67,6 @@ Next move: build `platform_poly` on `hex_poly`,
 share one `bench` that takes the platform height,
 and rebake the road stops, rail stops and parking.
 
-**Depots still legacy: the through depots.**
-`depot_train_1936` and the ship depot are 2-layout through depots,
-so on the NE-SW axis they show the N-S image.
-Next move: once the engine has a 3-axis through depot
-(engine `TODO.md`, "Depot 3rd-axis layout"),
-a `DepotParams` each in `hex_depots` with the shed open at both ends.
-
 **The water bridge is still square art.**
 `water_bridge` in `infrastructure/water_all/Canals.dat`
 draws pak128's square aqueduct over hex canals.
