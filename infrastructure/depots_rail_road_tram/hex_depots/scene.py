@@ -1,4 +1,4 @@
-"""3D models of the pak128 road, rail and tram depots for the hex grid.
+"""3D models of the pak128 road, rail, tram and monorail depots for the hex grid.
 
 A depot stands on a dead end and faces its exit, one layout per hex
 side like the terminal stops (see `infrastructure.road_stops.hex_terminals`):
@@ -21,7 +21,7 @@ from pathlib import Path
 import numpy as np
 
 from infrastructure.road_stops.hex_terminals.scene import (
-    FACES, ROAD_050, apron, junction_preview)
+    FACES, ROAD_050, apron, junction_preview, ribbed_shader)
 from tools.threed.building_kit import (
     AMBIENT, Palette, bake_layers, facade, gabled_block, rewrite_images,
     set_layouts, speckle_shader, wall_quad)
@@ -31,10 +31,12 @@ from tools.threed.way import edge_midpoint
 
 DEPOTS_DIR = Path(__file__).resolve().parent.parent
 RAIL_060 = DEPOTS_DIR.parent / "rail_tracks" / "rail_060_tracks.dat"
+MONORAIL_DIR = DEPOTS_DIR.parent / "schwebebahn_all"
 
 DOOR = (64, 58, 54)
 PLANK = (84, 76, 70)
 SETTS = (150, 146, 136)
+HAZARD = ((232, 196, 40), (30, 30, 32))
 
 
 @dataclass(frozen=True)
@@ -49,9 +51,12 @@ class DepotParams:
     door_w: float = 0.19    # half width
     door_h: float = 0.29
     arched: bool = False
+    hazard: bool = False    # open doorway between striped posts
+    corrugated: bool = False  # sheet walls instead of brick
     lean_to: bool = False   # open shed along the left side
     setts: bool = False     # paved yard over the whole tile
     preview_way: Path = ROAD_050
+    folder: Path = DEPOTS_DIR
 
 
 DEPOTS = [
@@ -69,6 +74,13 @@ DEPOTS = [
                 Palette(wall=(222, 208, 176), trim=(244, 238, 222),
                         roof=(184, 92, 56)),
                 pitch=0.24, door_w=0.17, door_h=0.31, arched=True),
+    # The suspended train hangs under a girder about 0.5 up.
+    DepotParams("MonorailDepot", "ls-depot-monorail",
+                Palette(wall=(142, 140, 148), trim=(176, 174, 182),
+                        roof=(98, 94, 128)),
+                back_s=-0.74, front_s=0.14, pitch=0.2, door_w=0.2,
+                door_h=0.5, hazard=True, corrugated=True,
+                folder=MONORAIL_DIR),
 ]
 
 
@@ -94,11 +106,25 @@ def doors(model, fr: Frame, d: DepotParams):
 
     opening(d.door_w + 0.03, d.door_h + 0.03, 0.008, d.pal.trim)
     opening(d.door_w, d.door_h, 0.012, DOOR)
+    if d.hazard:
+        for side in (-1, 1):
+            p = side * (d.door_w + 0.02)
+            add_block(model, fr, d.front_s, d.front_s + 0.04, p - 0.035,
+                      p + 0.035, 0.0, d.door_h, HAZARD[0],
+                      side_shader=hazard_shader)
+        return
     plank_h = d.door_h - (d.door_w if d.arched else 0)
     for k in range(-3, 4):
         p = k * d.door_w / 3.5
         wall_quad(model, fr, (d.front_s, p - 0.004), (d.front_s, p + 0.004),
                   0.0, plank_h, 0.014, PLANK, (-1, 0))
+
+
+def hazard_shader(wx, wy, sx, sy):
+    """Yellow and black diagonal stripes."""
+    rgb = np.where((((sx + sy) // 6) % 2 == 0)[:, None],
+                   np.array(HAZARD[0], float), np.array(HAZARD[1], float))
+    return rgb, np.ones(len(wx), bool)
 
 
 def lantern(model, fr: Frame, d: DepotParams, z_ridge):
@@ -129,9 +155,10 @@ def build(d: DepotParams, face: str, *, yard=True, shed=True) -> Model:
         apron(model, speckle_shader(SETTS))
     if not shed:
         return model
+    wall_shader = ribbed_shader(fr, d.pal.wall) if d.corrugated else None
     z_eave, z_ridge = gabled_block(model, fr, d.back_s, d.front_s, d.half_w,
                                    2, d.pal, pitch=d.pitch, stepped=False,
-                                   bays=3)
+                                   bays=3, wall_shader=wall_shader)
     facade(model, fr, (d.back_s, d.half_w), (d.back_s, -d.half_w), (1, 0),
            d.pal, storeys=2, bays=3)
     lantern(model, fr, d, z_ridge)
@@ -156,8 +183,8 @@ def render_layers(d: DepotParams, face: str):
 def bake_pakset() -> None:
     for d in DEPOTS:
         lines = bake_layers([render_layers(d, face) for face in FACES],
-                            DEPOTS_DIR / f"{d.png}_hex.png")
-        dat = DEPOTS_DIR / f"{d.png}.dat"
+                            d.folder / f"{d.png}_hex.png")
+        dat = d.folder / f"{d.png}.dat"
         rewrite_images(dat, {d.name: lines})
         set_layouts(dat, len(FACES))
 
