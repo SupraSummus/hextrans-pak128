@@ -514,7 +514,10 @@ and two facing across the strip between parallel tracks make one island.
 `special_buildings/townhalls/hex_townhalls/scene.py` and
 `factories/hex_mines/scene.py` are the worked examples.
 `tools/threed/building_kit.py` has the parts they share:
-the rhombus frame, walls, facades, beams, and the bake into atlas and `.dat`.
+the rhombus frame, walls, facades, beams, the footprint outline,
+and the bake into atlas and `.dat`.
+`tools/threed/factory_kit.py` adds the factory parts:
+chimneys, tanks and silos, logs and timber, cranes, fences and lorries.
 `tools/threed/solids.py` has the solids underneath.
 What to know before porting the next one:
 

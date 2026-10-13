@@ -25,6 +25,7 @@ from tools.threed.building_kit import (
     STOREY, Palette, add_beam, bake_tiles, course_shader, facade,
     footprint_outline, gabled_block, outside_distance, preview,
     rewrite_images, speckle_shader)
+from tools.threed.factory_kit import lorry
 from tools.threed.hex_synth import hash_noise01
 from tools.threed.render import Model
 from tools.threed.solids import Frame, add_block, add_face, add_frustum
@@ -173,16 +174,6 @@ def nissen_hut(model, s, p, length=0.7, r=0.24):
               0, 0.15, (60, 60, 64))
 
 
-def lorry(model, s, p, colour=(40, 80, 170)):
-    fr = Frame(FRAME.u, origin=FRAME.world(s, p, 0)[:2])
-    add_block(model, fr, -0.2, 0.08, -0.07, 0.07, 0.04, 0.17, (200, 200, 196))
-    add_block(model, fr, 0.08, 0.2, -0.07, 0.07, 0.04, 0.15, colour)
-    add_block(model, fr, 0.15, 0.2, -0.065, 0.065, 0.1, 0.14, (60, 70, 90))
-    for ds in (-0.14, 0.12):
-        add_block(model, fr, ds - 0.03, ds + 0.03, -0.075, 0.075, 0.0, 0.05,
-                  (30, 30, 32))
-
-
 def picnic_table(model, s, p):
     add_block(model, FRAME, s - 0.1, s + 0.1, p - 0.05, p + 0.05, 0.08, 0.1,
               (150, 112, 70))
@@ -208,13 +199,13 @@ def yard(model, hq: HqParams):
     office = Frame(FRAME.u, origin=FRAME.world(-0.35, -0.25, 0)[:2])
     gabled_block(model, office, -0.3, 0.3, 0.22, 1, TIMBER, pitch=0.14,
                  door=True, stepped=False, bays=2)
-    lorry(model, 0.55, 0.35)
+    lorry(model, FRAME, 0.55, 0.35, cab=(40, 80, 170))
     flagpole(model, 0.45, -0.75)
     for k in range(hq.huts):
         nissen_hut(model, -0.35 - 0.75 * k, 0.65)
     if hq.picnic:
         picnic_table(model, 1.1, -0.6)
-        lorry(model, 0.9, 0.7, colour=(170, 50, 40))
+        lorry(model, FRAME, 0.9, 0.7)
     # Woods round the yard, thinning out towards the drive.
     for k, (s, p) in enumerate(((-2.9, 0.0), (-2.4, -0.55), (-2.3, 0.6),
                                 (-1.6, -1.15), (-1.7, 1.2), (-1.2, 0.0),
