@@ -21,7 +21,7 @@ Passenger_boost=500
 
 Smoke=industry_smoke
 SmokeTile[0]=0,0
-SmokeOffset[0]=3,-73
+SmokeOffset[0]=14,-72
 #SmokeUplift=0
 
 # stone input 350 (assume some stone from quarry intended for concrete factory.)
@@ -45,10 +45,12 @@ Dims=2,2
 #Portland cement invented
 intro_year=1824
 
-BackImage[0][0][0][0][0]=cementmill.1.0
-BackImage[0][0][0][1][0]=cementmill.0.0
-BackImage[0][1][0][0][0]=cementmill.2.0
-BackImage[0][0][1][0][0]=cementmill.3.0
-BackImage[0][1][1][0][0]=cementmill.4.0
+BackImage[0][0][0][0][0][0]=cementmill_hex.0.0
+BackImage[0][0][0][1][0][0]=cementmill_hex.1.0
+BackImage[0][0][1][0][0][0]=cementmill_hex.0.1
+BackImage[0][0][1][1][0][0]=cementmill_hex.1.1
+BackImage[0][1][0][0][0][0]=cementmill_hex.0.2
+BackImage[0][1][0][1][0][0]=cementmill_hex.1.2
+BackImage[0][1][1][0][0][0]=cementmill_hex.0.3
 
 # EOF

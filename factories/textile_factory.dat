@@ -20,8 +20,8 @@ Passenger_demand=40
 Passenger_boost=500
 
 Smoke=industry_smoke
-SmokeTile[0]=0,0
-SmokeOffset[0]=21,-72
+SmokeTile[0]=1,0
+SmokeOffset[0]=-13,-93
 #SmokeUplift=0
 
 # total wool input 660
@@ -45,12 +45,12 @@ intro_year=1870
 MapColor=39
 Dims=2,2
 
-BackImage[0][0][0][0][0]=textile_factory.1.1
-BackImage[0][1][0][0][0]=textile_factory.1.0
-BackImage[0][0][1][0][0]=textile_factory.1.3
-BackImage[0][1][1][0][0]=textile_factory.1.2
-BackImage[0][0][0][1][0]=textile_factory.0.1
-BackImage[0][1][0][1][0]=textile_factory.0.0
-BackImage[0][0][1][1][0]=textile_factory.0.3
+BackImage[0][0][0][0][0][0]=textile_factory_hex.0.0
+BackImage[0][0][0][1][0][0]=textile_factory_hex.1.0
+BackImage[0][0][1][0][0][0]=textile_factory_hex.0.1
+BackImage[0][0][1][1][0][0]=textile_factory_hex.1.1
+BackImage[0][1][0][0][0][0]=textile_factory_hex.0.2
+BackImage[0][1][0][1][0][0]=textile_factory_hex.1.2
+BackImage[0][1][1][0][0][0]=textile_factory_hex.0.3
 
 # EOF

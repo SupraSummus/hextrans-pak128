@@ -8,11 +8,15 @@ polygons fine enough to read round at 128 px.
 from __future__ import annotations
 
 import math
+import re
+from pathlib import Path
 
 import numpy as np
 
-from .building_kit import add_beam, speckle_shader, wall_quad
-from .hex_synth import hash_noise01
+from .building import footprint, tile_centre
+from .building_kit import add_beam, edit_dat, speckle_shader, wall_quad
+from .hex_synth import HexGeom, hash_noise01
+from .render import world_to_screen_hex
 from .solids import Frame, add_block, add_face, add_frustum, add_roof
 
 BRICK = (150, 72, 52)
@@ -198,6 +202,14 @@ def plank_stack(model, fr: Frame, s, p, length, width, h, *, layers=4,
                       (90, 70, 52))
 
 
+def heap(model, fr: Frame, s, p, r, h, color):
+    """A loose heap (sand, coal, gravel): stacked flattened cones."""
+    shader = speckle_shader(color)
+    for rr, z0, z1 in ((1.0, 0.0, 0.42), (0.7, 0.36, 0.76), (0.38, 0.7, 1.0)):
+        add_frustum(model, fr, s, p, r * rr, r * rr * 0.75, z0 * h, z1 * h,
+                    color, n=14, top_shader=shader, side_shader=shader)
+
+
 def crate_stack(model, fr: Frame, s, p, *, n=3, size=0.07,
                 color=(150, 104, 58)):
     for k in range(n):
@@ -237,3 +249,35 @@ def lorry(model, fr: Frame, s, p, *, cab=(170, 40, 36), box=(214, 210, 200),
               side_color=tuple(int(c * 0.85) for c in cab))
     add_block(model, fr, s1 - 0.004, s1 + 0.002, p - w + 0.012,
               p + w - 0.012, 0.09, 0.125, (70, 86, 104))
+
+
+# --- Smoke --------------------------------------------------------------------
+
+def smoke_lines(mouth, dims) -> list[str]:
+    """`SmokeTile` and `SmokeOffset` for smoke leaving the world point
+    `mouth`: the footprint tile under it, and the screen offset from
+    that tile's centre in the engine's offset units (two pixels at the
+    128 px raster, `fabrik_t::smoke`)."""
+    geom = HexGeom()
+    x, y = min(footprint(dims), key=lambda t: math.dist(tile_centre(*t),
+                                                         mouth[:2]))
+    cx, cy = tile_centre(x, y)
+    rel = np.array([mouth[0] - cx, mouth[1] - cy, mouth[2]])
+    sx, sy, _ = world_to_screen_hex(rel, geom) - \
+        world_to_screen_hex(np.zeros(3), geom)
+    scale = 64 / geom.w
+    return [f"SmokeTile[0]={x},{y}",
+            f"SmokeOffset[0]={round(sx * scale)},{round(sy * scale)}"]
+
+
+SMOKE_LINE = re.compile(r"(?i)^\s*Smoke(Tile|Offset)\[0\]\s*=")
+
+
+def set_smoke(dat: Path, lines: list[str]) -> None:
+    """Replace the `SmokeTile[0]` / `SmokeOffset[0]` lines of `dat`."""
+    keys = {line.split("[")[0].lower(): line for line in lines}
+
+    def edit(old):
+        return [keys[f"smoke{m.group(1).lower()}"]
+                if (m := SMOKE_LINE.match(line)) else line for line in old]
+    edit_dat(dat, edit)
