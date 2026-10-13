@@ -39,9 +39,9 @@ Dims=2,2
 #rotary printing press invented
 intro_year=1843
 
-BackImage[0][0][0][0][0]=druckerei.0.1
-BackImage[0][1][0][0][0]=druckerei.0.0
-BackImage[0][0][1][0][0]=druckerei.0.3
-BackImage[0][1][1][0][0]=druckerei.0.2
+BackImage[0][0][0][0][0][0]=druckerei_hex.0.0
+BackImage[0][0][1][0][0][0]=druckerei_hex.0.1
+BackImage[0][1][0][0][0][0]=druckerei_hex.0.2
+BackImage[0][1][1][0][0][0]=druckerei_hex.0.3
 
 # EOF

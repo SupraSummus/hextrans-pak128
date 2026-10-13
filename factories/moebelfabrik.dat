@@ -31,9 +31,9 @@ Dims=2,2
 
 intro_year=1836
 
-BackImage[0][0][0][0][0]=moebelfabrik.0.1
-BackImage[0][1][0][0][0]=moebelfabrik.0.0
-BackImage[0][0][1][0][0]=moebelfabrik.1.1
-BackImage[0][1][1][0][0]=moebelfabrik.1.0
+BackImage[0][0][0][0][0][0]=moebelfabrik_hex.0.0
+BackImage[0][0][1][0][0][0]=moebelfabrik_hex.0.1
+BackImage[0][1][0][0][0][0]=moebelfabrik_hex.0.2
+BackImage[0][1][1][0][0][0]=moebelfabrik_hex.0.3
 
 # EOF

@@ -36,9 +36,11 @@ climates=temperate,tundra
 intro_year=1801
 intro_month=10
 
-BackImage[0][0][0][0][0]=papierfabrik.0.3
-BackImage[0][1][0][0][0]=papierfabrik.0.1
-BackImage[0][0][1][0][0]=papierfabrik.0.2
-BackImage[0][1][1][0][0]=papierfabrik.0.0
+BackImage[0][0][0][0][0][0]=papierfabrik_hex.0.0
+BackImage[0][0][0][1][0][0]=papierfabrik_hex.1.0
+BackImage[0][0][1][0][0][0]=papierfabrik_hex.0.1
+BackImage[0][1][0][0][0][0]=papierfabrik_hex.0.2
+BackImage[0][1][0][1][0][0]=papierfabrik_hex.1.2
+BackImage[0][1][1][0][0][0]=papierfabrik_hex.0.3
 
 # EOF
