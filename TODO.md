@@ -72,6 +72,16 @@ Next move: a style switch on `TownhallParams`
 on the same triangle-plus-forecourt layout,
 and a 1-tile variant without the forecourt.
 
+**Rail stations still legacy, except the small stops.**
+`infrastructure/rail_stations/hex_rail_stops/scene.py` bakes the ten
+one-tile stops (TrainStop .. Container2TrainStop), a layout per axis
+and platform end.
+The SNFOS platforms and stations, `station_03_*` and the subway stations
+are 8- and 16-layout through stops with platform-end images,
+still square art.
+Next move: their buildings on the far platform in `hex_rail_stops`,
+as `station_house` is, baked to the same 12 layouts.
+
 **Factories still legacy, except the shaft coal mines.**
 `factories/hex_mines/scene.py` bakes both shaft coal mines.
 Every other factory is square art cut into `Dims` tiles,

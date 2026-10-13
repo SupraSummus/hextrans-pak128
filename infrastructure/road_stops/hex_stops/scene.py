@@ -130,35 +130,38 @@ def reach(p):
     return (2 * APOTHEM * (1 - p) if p > 0.5 else APOTHEM) - 0.02
 
 
-# An open platform end stops here, so that its ramp, down to where the
-# hex is shortest across the platform, stays inside the hex.
-OPEN_END = reach(PLATFORM_OUT) - RAMP
+def open_end(p_out=PLATFORM_OUT):
+    """Where an open platform end stops, so that its ramp, down to where
+    the hex is shortest across the platform, stays inside the hex."""
+    return reach(p_out) - RAMP
 
 
-def platform_poly(side, ends=0):
-    """Trapezoid between the platform's kerb and back lines, ending on the
-    hex edges so neighbouring stop tiles join into one platform; an open
-    end (`ends` bit 0 at `-s`, bit 1 at `+s`) stops at `OPEN_END`."""
-    a_in, a_out = reach(PLATFORM_IN), reach(PLATFORM_OUT)
-    lo_in, lo_out = (-OPEN_END,) * 2 if ends & 1 else (-a_in, -a_out)
-    hi_in, hi_out = (OPEN_END,) * 2 if ends & 2 else (a_in, a_out)
-    return [(lo_in, side * PLATFORM_IN), (hi_in, side * PLATFORM_IN),
-            (hi_out, side * PLATFORM_OUT), (lo_out, side * PLATFORM_OUT)]
+def platform_poly(side, ends=0, p_in=PLATFORM_IN, p_out=PLATFORM_OUT):
+    """Trapezoid between the platform's kerb and back lines, `p_in` and
+    `p_out` from the way, ending on the hex edges so neighbouring stop
+    tiles join into one platform; an open end (`ends` bit 0 at `-s`,
+    bit 1 at `+s`) stops at `open_end`."""
+    a_in, a_out, cut = reach(p_in), reach(p_out), open_end(p_out)
+    lo_in, lo_out = (-cut,) * 2 if ends & 1 else (-a_in, -a_out)
+    hi_in, hi_out = (cut,) * 2 if ends & 2 else (a_in, a_out)
+    return [(lo_in, side * p_in), (hi_in, side * p_in),
+            (hi_out, side * p_out), (lo_out, side * p_out)]
 
 
-def ramps(model, fr, side, layer, ends, z1, colour):
-    """A slope from the platform down to the road at each open end."""
+def ramps(model, fr, side, layer, ends, z1, colour, p_in=PLATFORM_IN,
+          p_out=PLATFORM_OUT):
+    """A slope from the platform down to the way at each open end."""
+    cut = open_end(p_out)
     for bit, sign in ((1, -1), (2, 1)):
         if not ends & bit:
             continue
-        top_s, foot_s = sign * OPEN_END, sign * (OPEN_END + RAMP)
-        pts = [fr.world(top_s, side * PLATFORM_IN, z1),
-               fr.world(top_s, side * PLATFORM_OUT, z1),
-               fr.world(foot_s, side * PLATFORM_OUT, 0.002),
-               fr.world(foot_s, side * PLATFORM_IN, 0.002)]
+        top_s, foot_s = sign * cut, sign * (cut + RAMP)
+        pts = [fr.world(top_s, side * p_in, z1),
+               fr.world(top_s, side * p_out, z1),
+               fr.world(foot_s, side * p_out, 0.002),
+               fr.world(foot_s, side * p_in, 0.002)]
         add_face(model, pts, colour, layer,
-                 outward=fr.world(0, side * (PLATFORM_IN + PLATFORM_OUT) / 2,
-                                  -1))
+                 outward=fr.world(0, side * (p_in + p_out) / 2, -1))
 
 
 def platform(model, fr, side, layer, *, high=False, ends=0):
