@@ -31,7 +31,7 @@ from .way import (
 
 def _render_flat(cs: wt.CrossSection, edges):
     m = Model()
-    cs.paint(m, wt.for_edges_paths(edges))
+    cs.paint_edges(m, edges)
     return render(m, HexCamera())
 
 

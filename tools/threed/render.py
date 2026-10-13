@@ -185,7 +185,7 @@ def _quad_normal(verts):
 
 
 def _draw_triangle(rgba, zbuf, verts_screen, color, dither_keep=1.0,
-                   world_xy=None, plan_clip=None):
+                   world_xy=None, plan_clip=None, shader=None, shade=1.0):
     H, W = rgba.shape[:2]
     xs, ys, zs = verts_screen[:, 0], verts_screen[:, 1], verts_screen[:, 2]
     x_min = max(int(np.floor(xs.min())), 0)
@@ -218,16 +218,27 @@ def _draw_triangle(rgba, zbuf, verts_screen, color, dither_keep=1.0,
         keep_mask = hash_noise01(ix.astype(np.uint32),
                                  iy.astype(np.uint32)) < dither_keep
         write = write & keep_mask
-    if plan_clip is not None and world_xy is not None:
-        # Clip in world plan view, not screen — z-lifted geometry (rails
-        # above ties) keeps its overshoot above the silhouette top while
-        # pixels whose ground footprint lies outside the tile are dropped.
+    if world_xy is not None and (plan_clip is not None or shader is not None):
         wx0, wy0 = world_xy[0]
         wx1, wy1 = world_xy[1]
         wx2, wy2 = world_xy[2]
         wx = w0 * wx0 + w1 * wx1 + w2 * wx2
         wy = w0 * wy0 + w1 * wy1 + w2 * wy2
+    if plan_clip is not None and world_xy is not None:
+        # Clip in world plan view, not screen — z-lifted geometry (rails
+        # above ties) keeps its overshoot above the silhouette top while
+        # pixels whose ground footprint lies outside the tile are dropped.
         write = write & plan_clip(wx, wy)
+    if shader is not None:
+        # Per-pixel colour from plan-view position (see `Model.add_quad`).
+        iy, ix = np.nonzero(write)
+        rgb, keep = shader(wx[iy, ix], wy[iy, ix],
+                           ix + x_min, iy + y_min)
+        iy, ix, rgb = iy[keep], ix[keep], rgb[keep]
+        region_z[iy, ix] = z[iy, ix]
+        region_rgba[iy, ix, :3] = (rgb * shade).clip(0, 255).astype(np.uint8)
+        region_rgba[iy, ix, 3] = 255
+        return
     region_z[write] = z[write]
     region_rgba[write, 0] = color[0]
     region_rgba[write, 1] = color[1]
@@ -241,7 +252,7 @@ class Model:
     no camera or projection state.  One `Model` populated by an asset's
     `build_*` functions, rendered through one or more cameras.
 
-    A quad is `(i0, i1, i2, i3, color_rgb, layer, dither_keep)` with
+    A quad is `(i0, i1, i2, i3, color_rgb, layer, dither_keep, shader)` with
     vertices in CCW order seen from outside (so the cross product
     `(v1-v0) x (v3-v0)` points outward).
     """
@@ -250,7 +261,8 @@ class Model:
         self.verts: list[tuple] = []
         self.quads: list[tuple] = []
 
-    def add_quad(self, points, color, layer="back", dither_keep=1.0):
+    def add_quad(self, points, color, layer="back", dither_keep=1.0,
+                 shader=None):
         """Append a quad given 4 world-space points (CCW from outside).
 
         `layer` tags which sheet entry the quad belongs to ("back" /
@@ -259,11 +271,19 @@ class Model:
         the quad's pixels so the rendered surface blends with whatever
         terrain texture the engine composites underneath (the pak128
         ballast convention — see cell 1.5 of `rail_060_tracks.png`).
+
+        `shader`, when given, replaces `color`: it is called with the
+        plan-view world position `(wx, wy)` and the cell pixel `(sx,
+        sy)` of every covered pixel (1-D arrays) and returns `(rgb,
+        keep)` — an `(n, 3)` float colour before lighting and a bool
+        mask of the pixels to draw.  Flat painted surfaces (road
+        bands, markings) use it instead of one slab per band.
         """
         base = len(self.verts)
         self.verts.extend(map(tuple, points))
         self.quads.append(
-            (base, base + 1, base + 2, base + 3, color, layer, dither_keep)
+            (base, base + 1, base + 2, base + 3, color, layer, dither_keep,
+             shader)
         )
 
     def add_box(self, p0, p1, color, layer="back", dither_keep=1.0):
@@ -280,11 +300,11 @@ class Model:
             (x0, y0, z1), (x1, y0, z1), (x1, y1, z1), (x0, y1, z1),
         ])
         self.quads.extend([
-            (b + 4, b + 5, b + 6, b + 7, color, layer, dither_keep),  # top
-            (b + 0, b + 1, b + 5, b + 4, color, layer, dither_keep),  # south (-y)
-            (b + 2, b + 3, b + 7, b + 6, color, layer, dither_keep),  # north (+y)
-            (b + 1, b + 2, b + 6, b + 5, color, layer, dither_keep),  # east  (+x)
-            (b + 0, b + 4, b + 7, b + 3, color, layer, dither_keep),  # west  (-x)
+            (b + 4, b + 5, b + 6, b + 7, color, layer, dither_keep, None),  # top
+            (b + 0, b + 1, b + 5, b + 4, color, layer, dither_keep, None),  # south (-y)
+            (b + 2, b + 3, b + 7, b + 6, color, layer, dither_keep, None),  # north (+y)
+            (b + 1, b + 2, b + 6, b + 5, color, layer, dither_keep, None),  # east  (+x)
+            (b + 0, b + 4, b + 7, b + 3, color, layer, dither_keep, None),  # west  (-x)
         ])
 
 
@@ -355,7 +375,7 @@ def render(model: Model, camera, *, layer_filter=None, out_path=None
     rgba = np.zeros((out_h, out_w, 4), dtype=np.uint8)
     zbuf = np.full((out_h, out_w), -np.inf, dtype=np.float32)
 
-    for v0, v1, v2, v3, color, layer, dither_keep in model.quads:
+    for v0, v1, v2, v3, color, layer, dither_keep, shader in model.quads:
         if layer_filter is not None and layer != layer_filter:
             continue
         wq = verts[[v0, v1, v2, v3]]
@@ -369,7 +389,8 @@ def render(model: Model, camera, *, layer_filter=None, out_path=None
             _draw_triangle(rgba, zbuf, sq[[i0, i1, i2]], c,
                            dither_keep=dither_keep,
                            world_xy=world_xy[[i0, i1, i2]],
-                           plan_clip=plan_clip)
+                           plan_clip=plan_clip,
+                           shader=shader, shade=shade)
 
     if out_path is not None:
         Image.fromarray(rgba, mode="RGBA").save(out_path)
