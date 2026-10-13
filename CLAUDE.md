@@ -493,6 +493,50 @@ next to their pak128 cells;
 for a family of 3D buildings from one parameterised scene,
 including rewriting the image block of each `.dat`.
 
+### Multi-tile buildings
+
+`special_buildings/townhalls/hex_townhalls/scene.py` and
+`factories/hex_mines/scene.py` are the worked examples.
+`tools/threed/building_kit.py` has the parts they share:
+the rhombus frame, walls, facades, beams, and the bake into atlas and `.dat`.
+`tools/threed/solids.py` has the solids underneath.
+What to know before porting the next one:
+
+- **Footprint.**
+  `BackImage[layout][y][x][h]` lands on axial tile `pos + (x, y)`,
+  +x SE and +y S, so `Dims=2,2` is the 4-hex rhombus.
+  It is a triangle of three hexes at the back plus one tile in front.
+  Stand the building on the triangle, centred on the vertex the three share,
+  and put the forecourt on the front tile,
+  so it carries over unchanged once the engine has 3-hex footprints.
+- **Slicing.**
+  `tools/threed/building.py` renders the whole model once per tile,
+  clipped to that tile's hex prism, heights stacked a raster width apart.
+  The engine draws a tile after every tile north of it in the same screen columns,
+  the order the camera sees the prisms in,
+  so the images composite exactly and no image-space cutting is needed.
+- **Orientation.**
+  A wall parallel to a hex edge (0°, ±60°) shows as a horizontal or 45° line,
+  the lines of the tile grid.
+  A wall along a road direction (90°, ±30°) shows as a vertical or ~18° line.
+  A frame aligned with the rhombus's long diagonal gets one of each,
+  and shows two faces to the camera, like pak128's square view.
+- **Proportions.**
+  World z draws at 90 px per unit against 64 for x,
+  so heights read tall; `building_kit.STOREY` is 0.22,
+  which matches pak128's townhalls side by side.
+  Buildings render with `building_kit.AMBIENT`, 0.5;
+  the ways' 0.25 leaves walls too dark.
+- **Reference.**
+  `tools/threed/square_stitch.py` stitches the pak128 original from its tiles
+  (`--rev` for a `.dat` a bake has rewritten).
+  Compare against that, not against single cells.
+  `--preview` on each scene draws the hex side on grass.
+- `SupraSummus/hextrans-pak128.britain` tried the other route,
+  `pak/remap_2d_building.py`: square pixels re-cut onto the rhombus.
+  It is cheap, but the square ground stays a diamond
+  and the camera does not match.
+
 Per-asset state — what's done, what's blocked, what's coming next —
 lives in `git log` and `TODO.md`, not here.
 

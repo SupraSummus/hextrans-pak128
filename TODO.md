@@ -68,6 +68,19 @@ Next move: a style switch on `TownhallParams`
 on the same triangle-plus-forecourt layout,
 and a 1-tile variant without the forecourt.
 
+**Factories still legacy, except the shaft coal mines.**
+`factories/hex_mines/scene.py` bakes both shaft coal mines.
+Every other factory is square art cut into `Dims` tiles,
+which falls apart on the hex rhombus as the townhalls did.
+Next move: the other early `Dims=2,2` factories
+(Saegewerk, Papierfabrik, Cementmill, Oelfeld, Moebelfabrik, Druckerei,
+dairy, textile_factory, Glass_factory)
+on the same triangle-plus-yard layout with `building_kit`,
+one scene per family as `hex_mines` is.
+`Dims=3,3` and larger are 9-hex and bigger rhombi, about 1.7 times as long as wide;
+they need a layout decided first,
+probably the building on a central hexagon with the corners as yard.
+
 **Bridge generator bypasses way_topology.**
 `tools/threed/bridge.py` builds every part along a `length_half`
 picked per projection (`length_half()`: chord 1.0 in square, √3 in hex
