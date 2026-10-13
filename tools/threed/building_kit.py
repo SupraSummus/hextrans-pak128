@@ -22,7 +22,7 @@ from .building import (
     NEIGHBOURS, SQRT3, composite, footprint, ground_cell, render_tiles,
     tile_centre)
 from .hex_synth import HexGeom, hash_noise01
-from .render import Model, unit
+from .render import Model, render, unit
 from .solids import Frame, add_block, add_face, add_roof, add_solid
 
 RHOMBUS_FRAME = Frame((0.5, -SQRT3 / 2), origin=(0.5, -SQRT3 / 2))
@@ -219,6 +219,41 @@ def gabled_block(model, fr, s0, s1, w, storeys, pal: Palette, *,
     return z_eave, z_ridge
 
 
+def gable(w, eave, ridge):
+    """Cross-section of a pitched roof, `w` either side of the ridge."""
+    return [(-w, eave), (0.0, ridge), (w, eave)]
+
+
+def vault(w, eave, rise, n=10):
+    """Cross-section of an arched roof `rise` above the eaves (a half
+    ellipse from the ground when `eave` is 0)."""
+    return [(-w * math.cos(math.pi * k / n),
+             eave + rise * math.sin(math.pi * k / n)) for k in range(n + 1)]
+
+
+def hall(model, fr, s0, s1, profile, pal: Palette, *, roof_shader=None):
+    """A hall from `s0` to `s1` under one cross-section, `profile`
+    ((p, z) across, wall to wall): the roof in strips a little past both
+    ends, the end walls under it and, when the profile starts above the
+    ground, the side walls."""
+    shader = roof_shader or speckle_shader(pal.roof)
+    for (p0, z0), (p1, z1) in zip(profile, profile[1:]):
+        add_roof(model, fr, s0 - 0.03, s1 + 0.03, p0, p1, z0, z1, 0.025,
+                 pal.roof, shader=shader)
+    inside = fr.world((s0 + s1) / 2, 0, 0.1)
+    for s in (s0, s1):
+        for (p0, z0), (p1, z1) in zip(profile, profile[1:]):
+            add_face(model, [fr.world(s, p0, 0), fr.world(s, p1, 0),
+                             fr.world(s, p1, z1), fr.world(s, p0, z0)],
+                     pal.wall, outward=inside)
+    (w0, eave), w1 = profile[0], profile[-1][0]
+    if eave > 0:
+        for p in (w0, w1):
+            side = 1 if p > 0 else -1
+            add_block(model, fr, s0, s1, p - side * 0.02, p, 0, eave,
+                      pal.wall, side_shader=speckle_shader(pal.wall))
+
+
 def side_frame(side, s_centre, fr=RHOMBUS_FRAME):
     """Frame of a wing across `fr`: `s` runs out from `fr`'s axis."""
     return Frame((side * fr.v[0], side * fr.v[1]),
@@ -290,6 +325,14 @@ def bake_layers(cells: list[dict[str, np.ndarray]], out_png: Path
     return [f"{key}Image[{lo}][0][0][0][0][0]={out_png.stem}.0.{2 * lo + i}"
             for lo in range(len(cells))
             for i, key in enumerate(("Back", "Front"))]
+
+
+def cut_at_centre(model: Model, camera) -> dict[str, np.ndarray]:
+    """Back and front image of a 1x1 building that stands across the
+    tile centre, cut on the plane through it: the camera side in front,
+    drawn over a vehicle on the tile."""
+    return {"back": render(model, camera, plan_keep=lambda wx, wy: wy >= 0),
+            "front": render(model, camera, plan_keep=lambda wx, wy: wy < 0)}
 
 
 def edit_dat(dat: Path, edit) -> None:

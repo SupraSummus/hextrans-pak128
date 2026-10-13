@@ -368,8 +368,8 @@ class HexCamera:
 
 
 # --- Render -------------------------------------------------------------------
-def render(model: Model, camera, *, layer_filter=None, out_path=None
-           ) -> np.ndarray:
+def render(model: Model, camera, *, layer_filter=None, plan_keep=None,
+           out_path=None) -> np.ndarray:
     """Render `model` through `camera`; return an `(h, w, 4)` uint8 RGBA
     buffer and optionally save it as `out_path`.  Output dimensions are
     set by the camera (`SquareCamera.img_size` square; hex `geom.w` ×
@@ -379,6 +379,9 @@ def render(model: Model, camera, *, layer_filter=None, out_path=None
     drawn — used to emit one PNG per pak128 sheet entry (Back vs.
     Front).  The depth buffer still considers only included quads, so
     occlusion within the slice is correct.
+
+    `plan_keep`: hex only, world `(x, y)` arrays -> mask of the pixels
+    to draw, on top of the tile clip; cuts a model on a vertical plane.
     """
     sun = SUN_DIR if camera.sun_dir is None else unit(camera.sun_dir)
 
@@ -390,7 +393,8 @@ def render(model: Model, camera, *, layer_filter=None, out_path=None
                     else camera.anchor_y) + lift
         centre = np.array([*camera.centre, 0.0])
         def plan_clip(wx, wy):
-            return hex_plan_clip(wx - centre[0], wy - centre[1])
+            keep = hex_plan_clip(wx - centre[0], wy - centre[1])
+            return keep if plan_keep is None else keep & plan_keep(wx, wy)
         def project(wq):
             return world_to_screen_hex(wq - centre, geom, anchor_y=anchor_y)
     elif isinstance(camera, SquareCamera):
