@@ -28,9 +28,10 @@ Dims=2,2
 #Drilling technology introduced to Europe from China
 intro_year=1828
 
-BackImage[0][0][0][0][0]=oelfeld.0.3
-BackImage[0][1][0][0][0]=oelfeld.0.1
-BackImage[0][0][1][0][0]=oelfeld.0.2
-BackImage[0][1][1][0][0]=oelfeld.0.0
+BackImage[0][0][0][0][0][0]=oelfeld_hex.0.0
+BackImage[0][0][1][0][0][0]=oelfeld_hex.0.1
+BackImage[0][1][0][0][0][0]=oelfeld_hex.0.2
+BackImage[0][1][1][0][0][0]=oelfeld_hex.0.3
+BackImage[0][1][1][1][0][0]=oelfeld_hex.1.3
 
 # EOF

@@ -72,8 +72,9 @@ def chimney(model, fr: Frame, s, p, h, *, r0=0.07, r1=0.05, color=BRICK):
 
 
 def cylinder(model, fr: Frame, s, p, r, z0, z1, color, *, roof="flat",
-             n=16, shader=None):
-    """Upright tank or silo; `roof` is `flat`, `cone` or `dome`."""
+             n=16, shader=None, dome=0.5):
+    """Upright tank or silo; `roof` is `flat`, `cone` or `dome`, the
+    dome `dome * r` high."""
     add_frustum(model, fr, s, p, r, r, z0, z1, color, n=n,
                 side_shader=shader or speckle_shader(color))
     shade = tuple(int(c * 0.9) for c in color)
@@ -85,8 +86,8 @@ def cylinder(model, fr: Frame, s, p, r, z0, z1, color, *, roof="flat",
         for k in range(steps):
             a0, a1 = k / steps * math.pi / 2, (k + 1) / steps * math.pi / 2
             add_frustum(model, fr, s, p, r * math.cos(a0), r * math.cos(a1),
-                        z1 + r * 0.5 * math.sin(a0),
-                        z1 + r * 0.5 * math.sin(a1), shade, n=n)
+                        z1 + r * dome * math.sin(a0),
+                        z1 + r * dome * math.sin(a1), shade, n=n)
 
 
 def legs(model, fr: Frame, s, p, r, h, color=STEEL):
@@ -249,6 +250,58 @@ def lorry(model, fr: Frame, s, p, *, cab=(170, 40, 36), box=(214, 210, 200),
               side_color=tuple(int(c * 0.85) for c in cab))
     add_block(model, fr, s1 - 0.004, s1 + 0.002, p - w + 0.012,
               p + w - 0.012, 0.09, 0.125, (70, 86, 104))
+
+
+def lattice_tower(model, fr: Frame, s, p, base, top, h, color, *,
+                  levels=None, w=0.025):
+    """Four legs leaning in from `base` to `top` half-width, braced
+    across every face at each level."""
+    levels = levels or max(3, round(h / 0.25))
+
+    def corner(i, z):
+        r = base + (top - base) * z / h
+        return fr.world(s + (-1 if i in (0, 3) else 1) * r,
+                        p + (-1 if i in (0, 1) else 1) * r, z)
+
+    for i in range(4):
+        add_beam(model, corner(i, 0), corner(i, h), w, color)
+    for k in range(1, levels + 1):
+        z0, z1 = h * (k - 1) / levels, h * k / levels
+        for i in range(4):
+            j = (i + 1) % 4
+            add_beam(model, corner(i, z1), corner(j, z1), w * 0.8, color)
+            add_beam(model, corner(i, z0), corner(j, z1), w * 0.6, color)
+
+
+def pumpjack(model, fr: Frame, s, p, *, tilt=0.15, color=(40, 40, 44),
+             head=(214, 170, 40)):
+    """A beam pump along `s`, the horse head over the well at `+s`."""
+    base = (96, 96, 100)
+    add_block(model, fr, s - 0.22, s + 0.2, p - 0.05, p + 0.05, 0.0, 0.03,
+              base)
+    pivot = fr.world(s, p, 0.27)
+    for side in (-1, 1):
+        for ds in (-0.07, 0.05):
+            add_beam(model, fr.world(s + ds, p + side * 0.045, 0.03), pivot,
+                     0.022, color)
+    rise = math.sin(tilt) * 0.2
+    a = fr.world(s - 0.19, p, 0.27 - rise)
+    b = fr.world(s + 0.19, p, 0.27 + rise)
+    add_beam(model, a, b, 0.035, color)
+    add_block(model, fr, s + 0.17, s + 0.23, p - 0.025, p + 0.025,
+              0.17 + rise, 0.31 + rise, head)
+    add_beam(model, fr.world(s + 0.23, p, 0.0), fr.world(s + 0.23, p,
+                                                          0.18 + rise),
+             0.01, (180, 180, 184))
+    # Gearbox and the crank's counterweights at the back.
+    add_block(model, fr, s - 0.2, s - 0.11, p - 0.04, p + 0.04, 0.03, 0.11,
+              color)
+    for side in (-1, 1):
+        add_block(model, fr, s - 0.22, s - 0.12, p + side * 0.05,
+                  p + side * 0.065, 0.05, 0.15, head)
+        add_beam(model, fr.world(s - 0.16, p + side * 0.06, 0.1), a, 0.014,
+                 color)
+    add_frustum(model, fr, s + 0.23, p, 0.03, 0.03, 0.0, 0.06, base, n=8)
 
 
 # --- Smoke --------------------------------------------------------------------

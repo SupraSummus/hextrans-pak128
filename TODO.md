@@ -100,13 +100,12 @@ with the deck surface painted by `hex_canals/scene.py`'s `CanalSurface`.
 `factories/hex_wood/scene.py` the sawmill, furniture factory, paper mill
 and printing works,
 `factories/hex_industry/scene.py` the cement mill, glass works and textile mill,
+`factories/hex_oil/scene.py` the oil field,
 all from the parts in `tools/threed/factory_kit.py`.
 Every other factory is square art cut into `Dims` tiles,
 which falls apart on the hex rhombus as the townhalls did.
-Next move: the other early `Dims=2,2` factories
-(Oelfeld, dairy)
-on the same triangle-plus-yard layout,
-one scene per family as `hex_wood` is.
+Next move: the dairy, the last early `Dims=2,2` factory,
+on the same triangle-plus-yard layout.
 `Dims=3,3` and larger are 9-hex and bigger rhombi, about 1.7 times as long as wide;
 they need a layout decided first,
 probably the building on a central hexagon with the corners as yard.
