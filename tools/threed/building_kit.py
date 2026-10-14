@@ -56,6 +56,28 @@ def outside_distance(dims, wx, wy):
     return d
 
 
+def footprint_outline(dims, inset: float = 0.0
+                      ) -> list[tuple[tuple[float, float], tuple[float, float]]]:
+    """The hex edges round the footprint as world plan segments, each
+    pulled `inset` towards the centre of its own tile; a fence or a hedge
+    follows them."""
+    tiles = set(footprint(dims))
+    out = []
+    for x, y in sorted(tiles):
+        cx, cy = tile_centre(x, y)
+        for dx, dy in NEIGHBOURS:
+            if (x + dx, y + dy) in tiles:
+                continue
+            nx, ny = tile_centre(x + dx, y + dy)
+            ux, uy = (nx - cx) / SQRT3, (ny - cy) / SQRT3
+            mx, my = cx + ux * SQRT3 / 2, cy + uy * SQRT3 / 2
+            k = 1 - inset / (SQRT3 / 2)
+            ends = [(cx + (mx + sgn * 0.5 * -uy - cx) * k,
+                     cy + (my + sgn * 0.5 * ux - cy) * k) for sgn in (-1, 1)]
+            out.append((ends[0], ends[1]))
+    return out
+
+
 def ground(model: Model, shader):
     """One flat quad over the whole rhombus, coloured by `shader`; each
     tile's render clips it to its own hex."""
@@ -212,10 +234,12 @@ def add_beam(model, a, b, w, color, *, up=(0.0, 0.0, 1.0), **kw):
 
 # --- Bake ---------------------------------------------------------------------
 
-def bake_tiles(model: Model, dims, out_png: Path) -> list[str]:
+def bake_tiles(model: Model, dims, out_png: Path, *, levels: int = 4
+               ) -> list[str]:
     """Write the atlas of `model` sliced over `dims` tiles, one column
-    per tile and one row per height; return the `.dat` image lines."""
-    tiles = render_tiles(model, dims, ambient=AMBIENT)
+    per tile and one row per height; return the `.dat` image lines.
+    `levels` is the most heights a tile may take."""
+    tiles = render_tiles(model, dims, levels=levels, ambient=AMBIENT)
     keys = footprint(dims)
     rows = max(len(c) for c in tiles.values())
     blank = np.zeros_like(tiles[keys[0]][0])
@@ -273,10 +297,11 @@ def rewrite_images(dat: Path, images: dict[str, list[str]]) -> None:
     dat.write_text("\n".join(out) + "\n")
 
 
-def preview(models: list[Model], dims, out: Path) -> None:
+def preview(models: list[Model], dims, out: Path, *, levels: int = 4) -> None:
     """The models side by side on grass, as the engine draws them."""
     grass = ground_cell(HexGeom())
-    sheets = [composite(render_tiles(m, dims, ambient=AMBIENT), grass)
+    sheets = [composite(render_tiles(m, dims, levels=levels, ambient=AMBIENT),
+                        grass)
               for m in models]
     sheet = Image.new("RGBA", (sum(s.width for s in sheets),
                                max(s.height for s in sheets)))
