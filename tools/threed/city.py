@@ -31,7 +31,7 @@ from .building_kit import AMBIENT, STOREY, edit_dat, speckle_shader, wall_quad
 from .factory_kit import ground_shader
 from .hex_synth import hash_noise01
 from .render import Model
-from .solids import Frame, add_block, add_face, add_frustum
+from .solids import Frame, add_block, add_face, add_frustum, add_roof
 from .way import edge_midpoint
 
 FACES = ("S", "SE", "N", "NW", "NE", "SW")
@@ -97,7 +97,8 @@ def facade_shader(fr: Frame, a, b, wall, storeys, bays, z0, *,
 
 
 def walls(model, fr: Frame, s0, s1, w, z0, z1, colour, storeys, *,
-          sill=0.06, pitch=0.16, glass=GLASS, frame=FRAME_WHITE):
+          sill=0.06, pitch=0.16, glass=GLASS, frame=FRAME_WHITE,
+          win_w=0.36, win_h=0.12):
     """A box's four walls from `z0` to `z1`, windowed by `facade_shader`."""
     corners = ((s1, -w), (s1, w), (s0, w), (s0, -w))
     inside = fr.world((s0 + s1) / 2, 0, (z0 + z1) / 2)
@@ -108,7 +109,8 @@ def walls(model, fr: Frame, s0, s1, w, z0, z1, colour, storeys, *,
                          fr.world(*b, z1), fr.world(*a, z1)], colour,
                  outward=inside,
                  shader=facade_shader(fr, a, b, colour, storeys, bays, sill,
-                                      glass=glass, frame=frame))
+                                      glass=glass, frame=frame, h=win_h,
+                                      w=win_w))
 
 
 # --- Apartment blocks ---------------------------------------------------------
@@ -379,6 +381,185 @@ def house_roof(model, fr: Frame, h: House, top):
               (150, 80, 60))
 
 
+# --- Shops and offices --------------------------------------------------------
+
+CARS = ((190, 40, 40), (230, 230, 226), (60, 90, 160), (220, 200, 60),
+        (80, 80, 86), (90, 130, 80))
+
+
+def parked_car(model, fr: Frame, s, p, colour):
+    add_block(model, fr, s - 0.05, s + 0.05, p - 0.09, p + 0.09, 0.012,
+              0.045, colour, side_color=tuple(int(c * 0.78) for c in colour))
+    add_block(model, fr, s - 0.04, s + 0.04, p - 0.05, p + 0.035, 0.045,
+              0.075, (70, 86, 104))
+
+
+@dataclass(frozen=True)
+class Shop:
+    storeys: int                # 1: a shop; more: flats over a shop
+    s0: float
+    s1: float
+    w: float
+    wall: tuple[int, int, int]
+    awning: tuple[int, int, int]
+    sign: tuple[int, int, int]
+    roof: str = "flat"          # flat or hip
+    roof_colour: tuple[int, int, int] = (110, 110, 114)
+    parking: bool = True
+    seed: str = ""
+    snow: bool = False
+
+
+def shop(h: Shop, face: str) -> Model:
+    model = Model()
+    fr = Frame(edge_midpoint(face))
+    lot(model, fr, (110, 110, 114) if h.parking else (160, 154, 144), h.snow)
+    ground = STOREY * 1.15
+    top = ground + (h.storeys - 1) * STOREY + 0.03
+    # The shop: glass along the front and half the sides, a band above.
+    add_block(model, fr, h.s0, h.s1, -h.w, h.w, 0.0, ground, h.wall,
+              side_shader=speckle_shader(h.wall))
+    for a, b, inward in (((h.s1, -h.w + 0.03), (h.s1, h.w - 0.03), (-1, 0)),
+                         ((h.s1 - 0.03, -h.w), ((h.s0 + h.s1) / 2, -h.w),
+                          (0, 1))):
+        wall_quad(model, fr, a, b, 0.02, ground - 0.07, 0.006,
+                  (150, 186, 210), inward)
+    wall_quad(model, fr, (h.s1, -0.05), (h.s1, 0.05), 0.0, ground - 0.07,
+              0.01, (60, 70, 80), (-1, 0))
+    if h.storeys > 1:
+        walls(model, fr, h.s0, h.s1, h.w, ground, top, h.wall, h.storeys - 1,
+              sill=ground)
+    # Awning over the shop window, a sign board above it.
+    add_roof(model, fr, h.s1, h.s1 + 0.12, -h.w + 0.02, h.w - 0.02,
+             ground - 0.05, ground - 0.1, 0.012,
+             SNOW if h.snow else h.awning)
+    add_block(model, fr, h.s1, h.s1 + 0.015, -h.w * 0.7, h.w * 0.7,
+              ground - 0.02, ground + 0.06, h.sign)
+    roof_top = top if h.storeys > 1 else ground
+    colour = SNOW if h.snow else h.roof_colour
+    if h.roof == "hip":
+        hip(model, fr, h.s0, h.s1, h.w, roof_top, 0.18, colour)
+    else:
+        add_block(model, fr, h.s0 - 0.015, h.s1 + 0.015, -h.w - 0.015,
+                  h.w + 0.015, roof_top, roof_top + 0.035, (200, 196, 186))
+        add_block(model, fr, h.s0 + 0.02, h.s1 - 0.02, -h.w + 0.02,
+                  h.w - 0.02, roof_top + 0.005, roof_top + 0.025, colour)
+        add_block(model, fr, h.s0 + 0.1, h.s0 + 0.25, -0.1, 0.1, roof_top,
+                  roof_top + 0.07, (150, 152, 156))
+    if h.parking:
+        for k, q in enumerate((-0.45, -0.15, 0.15, 0.45)):
+            if unit(h.seed, f"car{k}") < 0.7:
+                parked_car(model, fr, h.s1 + 0.3, q,
+                           pick(h.seed, f"carc{k}", CARS))
+    return model
+
+
+@dataclass(frozen=True)
+class Office:
+    storeys: int
+    s0: float
+    s1: float
+    w: float
+    wall: tuple[int, int, int]      # piers and spandrels
+    glass: tuple[int, int, int]
+    ribbon: bool = False            # continuous window bands
+    crown: tuple[int, int, int] | None = None   # a coloured top storey
+    snow: bool = False
+
+
+def office(o: Office, face: str) -> Model:
+    model = Model()
+    fr = Frame(edge_midpoint(face))
+    lot(model, fr, (168, 164, 156), o.snow)
+    top = o.storeys * STOREY + 0.08
+    walls(model, fr, o.s0, o.s1, o.w, 0.0, top, o.wall, o.storeys,
+          sill=0.08, pitch=0.12 if o.ribbon else 0.14, glass=o.glass,
+          frame=o.glass if o.ribbon else FRAME_WHITE,
+          win_w=0.96 if o.ribbon else 0.6, win_h=0.14)
+    # Glazed entrance hall across the front.
+    wall_quad(model, fr, (o.s1, -o.w * 0.6), (o.s1, o.w * 0.6), 0.0, 0.08,
+              0.01, (60, 70, 80), (-1, 0))
+    if o.crown:
+        add_block(model, fr, o.s0 - 0.01, o.s1 + 0.01, -o.w - 0.01, o.w + 0.01,
+                  top - STOREY, top, o.crown)
+    add_block(model, fr, o.s0 - 0.015, o.s1 + 0.015, -o.w - 0.015,
+              o.w + 0.015, top, top + 0.04, o.wall)
+    add_block(model, fr, o.s0 + 0.02, o.s1 - 0.02, -o.w + 0.02, o.w - 0.02,
+              top + 0.005, top + 0.03, SNOW if o.snow else (120, 120, 124))
+    add_block(model, fr, o.s0 + 0.15, o.s0 + 0.45, -0.18, 0.18, top,
+              top + 0.12, (150, 152, 156))
+    return model
+
+
+# --- Workshops and works ------------------------------------------------------
+
+DRUMS = ((60, 90, 150), (170, 60, 40), (90, 120, 70))
+
+
+@dataclass(frozen=True)
+class Works:
+    storeys: int
+    s0: float
+    s1: float
+    w: float
+    wall: tuple[int, int, int]
+    roof: str = "gable"         # gable, sawtooth or flat
+    roof_colour: tuple[int, int, int] = (96, 96, 100)
+    chimney: float = 0.0        # its height, 0 for none
+    tank: bool = False
+    yard: bool = True           # crates and drums in front
+    seed: str = ""
+    snow: bool = False
+
+
+def works(h: Works, face: str) -> Model:
+    from .building_kit import Palette
+    from .factory_kit import chimney, crate_stack, cylinder, sawtooth_roof
+    model = Model()
+    fr = Frame(edge_midpoint(face))
+    lot(model, fr, (140, 134, 122), h.snow)
+    top = h.storeys * STOREY + 0.06
+    walls(model, fr, h.s0, h.s1, h.w, 0.0, top, h.wall, h.storeys,
+          sill=0.06, pitch=0.13, win_w=0.5, win_h=0.13)
+    # A goods door in the front.
+    wall_quad(model, fr, (h.s1, -0.12), (h.s1, 0.12), 0.0, 0.2, 0.01,
+              (84, 80, 76), (-1, 0))
+    colour = SNOW if h.snow else h.roof_colour
+    pal = Palette(wall=h.wall, trim=h.wall, roof=colour,
+                  glass=(150, 180, 200))
+    if h.roof == "sawtooth":
+        sawtooth_roof(model, fr, h.s0, h.s1, -h.w, h.w, top, pal, teeth=3,
+                      rise=0.12)
+    elif h.roof == "gable":
+        inside = fr.world((h.s0 + h.s1) / 2, 0, top)
+        for side in (-1, 1):
+            add_roof(model, fr, h.s0 - 0.03, h.s1 + 0.03, side * (h.w + 0.03),
+                     0.0, top, top + 0.16, 0.02, colour,
+                     shader=speckle_shader(colour))
+        for s in (h.s0, h.s1):
+            add_face(model, [fr.world(s, -h.w, top), fr.world(s, h.w, top),
+                             fr.world(s, 0, top + 0.16)], h.wall,
+                     outward=inside)
+    else:
+        add_block(model, fr, h.s0 - 0.015, h.s1 + 0.015, -h.w - 0.015,
+                  h.w + 0.015, top, top + 0.035, h.wall)
+        add_block(model, fr, h.s0 + 0.02, h.s1 - 0.02, -h.w + 0.02,
+                  h.w - 0.02, top + 0.005, top + 0.025, colour)
+    if h.chimney:
+        chimney(model, fr, h.s0 + 0.12, h.w - 0.1, h.chimney, r0=0.05,
+                r1=0.035)
+    if h.tank:
+        cylinder(model, fr, h.s1 + 0.25, -h.w + 0.12, 0.12, 0.0, 0.32,
+                 (200, 200, 196), roof="cone")
+    if h.yard:
+        crate_stack(model, fr, h.s1 + 0.25, h.w - 0.1, n=2)
+        for k in range(3):
+            q = -0.05 + 0.08 * k
+            cylinder(model, fr, h.s1 + 0.3 + 0.03 * (k % 2), q, 0.03, 0.0,
+                     0.08, pick(h.seed, f"drum{k}", DRUMS), n=8)
+    return model
+
+
 # --- Bake ---------------------------------------------------------------------
 
 def layout_face(layout: int) -> int:
@@ -391,7 +572,8 @@ def bake_city(models: list[list[Model]], out_png: Path, layouts: int
     """Write the atlas of a one-tile city building, `models[season][face]`
     over the six faces, a column per face and a row per season and
     height; return the `.dat` image lines for `layouts` layouts."""
-    stacks = [[render_tiles(m, (1, 1), ambient=AMBIENT)[(0, 0)] for m in row]
+    stacks = [[render_tiles(m, (1, 1), levels=6, ambient=AMBIENT)[(0, 0)]
+               for m in row]
               for row in models]
     heights = max(len(s) for row in stacks for s in row)
     blank = np.zeros_like(stacks[0][0][0])

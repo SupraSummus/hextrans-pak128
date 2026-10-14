@@ -2,12 +2,19 @@
 # brick store
 obj=building
 name=COM_20_20
+dims=1,1,8
 copyright=AI & prissi
 type=com
 level=12
 intro_year=1880
 retire_year=1910
 climates=tropic,desert,mediterran,temperate,tundra
-backimage[0][0][0][1][0]=com_20_12.0.0
-backimage[0][0][0][0][0]=com_20_12.1.0
+BackImage[0][0][0][0][0][0]=com_20_12_hex.0.0
+BackImage[1][0][0][0][0][0]=com_20_12_hex.0.1
+BackImage[2][0][0][0][0][0]=com_20_12_hex.0.2
+BackImage[3][0][0][0][0][0]=com_20_12_hex.0.3
+BackImage[4][0][0][0][0][0]=com_20_12_hex.0.4
+BackImage[5][0][0][0][0][0]=com_20_12_hex.0.5
+BackImage[6][0][0][0][0][0]=com_20_12_hex.0.0
+BackImage[7][0][0][0][0][0]=com_20_12_hex.0.1
 --
