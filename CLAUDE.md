@@ -585,6 +585,24 @@ so an object from outside the map's starting year can be built.
 A scene's `--preview` only shows what the scene assumes;
 this is where the engine's layout choice and draw order show up.
 
+## Prose line breaks
+
+Markdown in this repo uses [Semantic Line Breaks](https://sembr.org/):
+break the line after every sentence,
+and usually after a clause that ends in a comma, semicolon, colon or dash.
+Never break inside a hyphenated word
+or in a way that changes the rendered text,
+such as before a `- `, `+ `, `# ` or `> `
+that would then start a list item, heading or quote.
+Keep lines under 80 characters unless a link or code span needs more.
+A change to one sentence then shows up as a change to one line.
+
+Adopted lazily:
+new or rewritten paragraphs use semantic line breaks,
+the rest stays as it is until someone edits it for a reason.
+No reformatting passes.
+`git diff --word-diff` reads well across both styles.
+
 ## Commit message rules
 
 Default to short. The diff already shows *what* changed; the message
