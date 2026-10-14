@@ -6,18 +6,21 @@ kiosk, a canopy with benches, a mailbox, or a raised cargo dock with
 crates.  `STOPS` lists each stop as a `StopParams`; one scene builds
 any of them along any of the three hex axes.
 
-Through stops pick their layout with `ribi_t::axis_to_layout`: the
-N-S axis is layout 0, NW-SE layout 1 and NE-SW layout 5, so the .dat
-points those three layouts at the three axis renders (the other five
-of the eight layouts repeat them; see `dat_lines`).
+A through stop has 12 layouts, `4 * axis + ends` (the engine's
+`building_desc_t::has_axis_layouts`): axes 0, 1, 2 run N-S, NW-SE and
+NE-SW, and the two end bits say where the platform stops, bit 0 at
+its S/SE/SW end, bit 1 at its N/NW/NE end, both on a lone tile.  An
+open end drops to the road in a ramp; a joined end runs to the hex
+edge, into the next tile's platform.
 
 Each axis renders twice: furniture on the side of the road nearer the
 camera goes to `FrontImage` (drawn over vehicles), the rest to
 `BackImage`.  On the N-S axis neither side is nearer, so all of it is
 back.
 
-Writes `<name>_hex.png` (one row: back/front for layouts 0, 1, 5) next
-to each `.dat`, and rewrites the image lines of the `.dat`.
+Writes `<name>_hex.png` (a row per axis: back/front for its four end
+cases) next to each `.dat`, and rewrites the image lines and `Dims` of
+the `.dat`.
 
     python3 -m infrastructure.road_stops.hex_stops.scene
 """
@@ -32,16 +35,18 @@ import numpy as np
 from tools.threed.bespoke import bake_atlas
 from tools.threed.hex_synth import hash_noise01
 from tools.threed.render import HexCamera, Model, render
-from tools.threed.solids import Frame, add_block, add_prism, add_roof
+from tools.threed.building_kit import set_layouts
+from tools.threed.solids import Frame, add_block, add_face, add_prism, add_roof
 from tools.threed.way import edge_midpoint
 from tools.threed.way_surface import APOTHEM
 
 STOPS_DIR = Path(__file__).resolve().parent.parent
 
-# Axis per layout: the edge the stop's road leaves through, both ways.
-AXES = {0: "N", 1: "NW", 5: "NE"}
-# Remaining layouts repeat an axis (layout & 1 was the axis bit in square).
-LAYOUT_AXIS = {0: 0, 1: 1, 2: 0, 3: 1, 4: 0, 5: 5, 6: 0, 7: 1}
+# Per axis, the edge the stop's road leaves through, both ways; `s` of
+# its frame points there.
+AXES = ("N", "NW", "NE")
+LAYOUTS = 12                # 4 * axis + ends
+RAMP = 0.12                 # length of the ramp at an open platform end
 
 # Cross-section, in world units from the road centreline.
 PLATFORM_IN, PLATFORM_OUT = 0.42, 0.62
@@ -120,23 +125,50 @@ def cobble_shader(kerb_p, fr: Frame, side: int):
 
 # --- Parts --------------------------------------------------------------------
 
-def platform_poly(side):
+def reach(p):
+    """Half the hex's length along the axis at `p` across it."""
+    return (2 * APOTHEM * (1 - p) if p > 0.5 else APOTHEM) - 0.02
+
+
+# An open platform end stops here, so that its ramp, down to where the
+# hex is shortest across the platform, stays inside the hex.
+OPEN_END = reach(PLATFORM_OUT) - RAMP
+
+
+def platform_poly(side, ends=0):
     """Trapezoid between the platform's kerb and back lines, ending on the
-    hex edges so neighbouring stop tiles join into one platform."""
-    def reach(p):
-        return (2 * APOTHEM * (1 - p) if p > 0.5 else APOTHEM) - 0.02
+    hex edges so neighbouring stop tiles join into one platform; an open
+    end (`ends` bit 0 at `-s`, bit 1 at `+s`) stops at `OPEN_END`."""
     a_in, a_out = reach(PLATFORM_IN), reach(PLATFORM_OUT)
-    return [(-a_in, side * PLATFORM_IN), (a_in, side * PLATFORM_IN),
-            (a_out, side * PLATFORM_OUT), (-a_out, side * PLATFORM_OUT)]
+    lo_in, lo_out = (-OPEN_END,) * 2 if ends & 1 else (-a_in, -a_out)
+    hi_in, hi_out = (OPEN_END,) * 2 if ends & 2 else (a_in, a_out)
+    return [(lo_in, side * PLATFORM_IN), (hi_in, side * PLATFORM_IN),
+            (hi_out, side * PLATFORM_OUT), (lo_out, side * PLATFORM_OUT)]
 
 
-def platform(model, fr, side, layer, *, high=False):
+def ramps(model, fr, side, layer, ends, z1, colour):
+    """A slope from the platform down to the road at each open end."""
+    for bit, sign in ((1, -1), (2, 1)):
+        if not ends & bit:
+            continue
+        top_s, foot_s = sign * OPEN_END, sign * (OPEN_END + RAMP)
+        pts = [fr.world(top_s, side * PLATFORM_IN, z1),
+               fr.world(top_s, side * PLATFORM_OUT, z1),
+               fr.world(foot_s, side * PLATFORM_OUT, 0.002),
+               fr.world(foot_s, side * PLATFORM_IN, 0.002)]
+        add_face(model, pts, colour, layer,
+                 outward=fr.world(0, side * (PLATFORM_IN + PLATFORM_OUT) / 2,
+                                  -1))
+
+
+def platform(model, fr, side, layer, *, high=False, ends=0):
     z1 = 0.11 if high else PLATFORM_Z
     top = (150, 150, 146) if high else COBBLE
-    add_prism(model, fr, platform_poly(side), 0.0, z1, top, layer,
+    add_prism(model, fr, platform_poly(side, ends), 0.0, z1, top, layer,
               top_shader=None if high else
               cobble_shader(PLATFORM_IN + 0.035, fr, side),
               side_color=(120, 120, 116) if high else PLATFORM_SIDE)
+    ramps(model, fr, side, layer, ends, z1, top)
     if high:
         # Yellow safety line along the edge.
         a = APOTHEM - 0.04
@@ -278,14 +310,15 @@ def crates(model, fr, side, layer):
 # --- Scene --------------------------------------------------------------------
 
 def build(params: StopParams, layout: int) -> Model:
-    fr = edge_frame(AXES[layout])
+    ends = layout & 3
+    fr = edge_frame(AXES[layout // 4])
     model = Model()
     front = fr.front_sign()
     # Furniture side: away from the camera when one side is nearer.
     back_side = -front if front else -1
     for side in (+1, -1):
         layer = "front" if side == front else "back"
-        platform(model, fr, side, layer, high=params.cargo)
+        platform(model, fr, side, layer, high=params.cargo, ends=ends)
         if params.zigzag:
             zigzag(model, fr, side, layer)
     far, near = back_side, -back_side
@@ -311,16 +344,17 @@ def render_layer(params, layout, layer):
 
 # --- Bake ---------------------------------------------------------------------
 
-CELL_ORDER = [(layout, layer) for layout in AXES for layer in ("back", "front")]
+CELL_ORDER = [(layout, layer) for layout in range(LAYOUTS)
+              for layer in ("back", "front")]
 
 
 def dat_lines(name: str) -> list[str]:
     lines = []
-    for layout in range(8):
-        axis = LAYOUT_AXIS[layout]
-        col = list(AXES).index(axis) * 2
-        lines.append(f"BackImage[{layout}][0][0][0][0]={name}_hex.0.{col}")
-        lines.append(f"FrontImage[{layout}][0][0][0][0]={name}_hex.0.{col + 1}")
+    for layout in range(LAYOUTS):
+        row, col = layout // 4, (layout % 4) * 2
+        lines.append(f"BackImage[{layout}][0][0][0][0]={name}_hex.{row}.{col}")
+        lines.append(f"FrontImage[{layout}][0][0][0][0]="
+                     f"{name}_hex.{row}.{col + 1}")
     return lines
 
 
@@ -334,8 +368,9 @@ def rewrite_dat(path: Path, name: str) -> None:
     lines = path.read_text(errors="replace").splitlines()
     idx = [i for i, line in enumerate(lines) if IMAGE_LINE.match(line)]
     first, last = idx[0], idx[-1]
-    header = ["# Layouts 0, 1, 5: N-S, NW-SE, NE-SW road; the others repeat",
-              "# them.  Baked by hex_stops/scene.py."]
+    header = ["# Layouts 4 * axis + ends: axes N-S, NW-SE, NE-SW; end bit 0",
+              "# at the S/SE/SW end, bit 1 at N/NW/NE.  Baked by",
+              "# hex_stops/scene.py."]
     out = [line for line in lines[:first]
            if not LEGEND_LINE.match(line) and line not in header]
     block = header + dat_lines(name)
@@ -350,8 +385,9 @@ def bake_pakset() -> None:
                     render_layer(p, lo, la))
                    for layout, layer in CELL_ORDER]
         bake_atlas(out_png=STOPS_DIR / f"{params.name}_hex.png",
-                   entries=entries)
+                   entries=entries, cols_per_row=8)
         rewrite_dat(STOPS_DIR / f"{params.name}.dat", params.name)
+        set_layouts(STOPS_DIR / f"{params.name}.dat", LAYOUTS)
 
 
 if __name__ == "__main__":
