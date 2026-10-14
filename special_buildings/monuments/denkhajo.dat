@@ -4,4 +4,4 @@ Type=mon
 Passengers=60
 Copyright=Hajo
 #BackImage[Layout][x Position][y Position][Height][Phase]
-BackImage[0][0][0][0][0]=denkhajo.1.0
+BackImage[0][0][0][0][0][0]=denkhajo_hex.0.0

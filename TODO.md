@@ -103,6 +103,15 @@ Next move: `Block`s placed across a `Dims` footprint
 (the per-tile slicing of `building.render_tiles`, a frame per layout),
 starting with the `Dims=2,1` ones, whose two tiles are hex neighbours.
 
+**Attractions still legacy: the multi-tile ones.**
+`special_buildings/hex_landmarks/scene.py` bakes the 48 one-tile
+monuments and attractions, a builder each.
+The multi-tile attractions under `special_buildings/city` and `landscape`
+(`Dims=2,2` and larger: stadium, castle, parks, the zoo...)
+are square art cut into tiles.
+Next move: the `Dims=2,2` ones on the triangle-plus-front-tile layout
+of the townhalls, a builder each in a `hex_attractions` scene.
+
 **Factories still legacy, except those baked below.**
 `factories/hex_mines/scene.py` bakes both shaft coal mines,
 `factories/hex_wood/scene.py` the sawmill, furniture factory, paper mill

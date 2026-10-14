@@ -3,4 +3,4 @@ Name=DenkTrikky
 Type=mon
 Passengers=60
 #BackImage[Layout][x Position][y Position][Height][Phase]
-BackImage[0][0][0][0][0]=denktrikky.1.0
+BackImage[0][0][0][0][0][0]=denktrikky_hex.0.0

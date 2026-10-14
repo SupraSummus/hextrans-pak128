@@ -6,5 +6,5 @@ type=mon
 Passengers=30
 needs_ground=0
 climates=temperate
-BackImage[0][0][0][0][0][0]=roundabout.1.0
-BackImage[0][0][0][0][0][1]=roundabout.1.1
+BackImage[0][0][0][0][0][0]=roundabout_hex.0.0
+BackImage[0][0][0][0][0][1]=roundabout_hex_winter.0.0
