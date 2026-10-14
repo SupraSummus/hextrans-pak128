@@ -16,19 +16,16 @@ NoInfo=1
 icon=> shipstop.0.2
 cursor=shipstop.0.3
 
-BackImage[0][1][0][0][0][0]=shipstop.1.0
-BackImage[3][0][0][0][0][0]=shipstop.1.1
-BackImage[2][0][0][0][0][0]=shipstop.1.2
-BackImage[1][0][1][0][0][0]=shipstop.1.3
+BackImage[0][0][0][0][0][0]=shipstop_hex.0.0
+BackImage[0][0][0][1][0][0]=shipstop_hex.0.1
+BackImage[0][1][0][0][0][0]=shipstop_hex.0.2
+BackImage[1][0][0][0][0][0]=shipstop_hex.1.0
+BackImage[1][0][1][0][0][0]=shipstop_hex.1.2
+BackImage[2][1][0][0][0][0]=shipstop_hex.2.0
+BackImage[2][0][0][0][0][0]=shipstop_hex.2.2
+BackImage[3][0][1][0][0][0]=shipstop_hex.3.0
+BackImage[3][0][0][0][0][0]=shipstop_hex.3.2
 
-BackImage[0][0][0][0][0][0]=shipstop.2.0
-BackImage[3][0][1][0][0][0]=shipstop.2.1
-BackImage[2][1][0][0][0][0]=shipstop.2.2
-BackImage[1][0][0][0][0][0]=shipstop.2.3
 
-BackImage[0][0][0][0][0][1]=shipstop.3.0
-BackImage[3][0][1][0][0][1]=shipstop.3.1
-BackImage[2][1][0][0][0][1]=shipstop.3.2
-BackImage[1][0][0][0][0][1]=shipstop.3.3
 
 # EOF
