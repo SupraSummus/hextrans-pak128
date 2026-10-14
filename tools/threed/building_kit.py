@@ -242,11 +242,31 @@ def bake_layers(cells: list[dict[str, np.ndarray]], out_png: Path
             for i, key in enumerate(("Back", "Front"))]
 
 
-def set_layouts(dat: Path, n: int) -> None:
-    """`Dims=1,1,n` in a `.dat` of 1x1 buildings."""
-    text = dat.read_text(errors="replace")
-    dat.write_text(re.sub(r"(?im)^(dims\s*=\s*1\s*,\s*1)\s*,\s*\d+",
-                          rf"\g<1>,{n}", text))
+def edit_dat(dat: Path, edit) -> None:
+    """Rewrite `dat` through `edit`, a function of its list of lines,
+    keeping the file's line ends."""
+    raw = dat.read_bytes()
+    nl = "\r\n" if b"\r\n" in raw else "\n"
+    lines = edit(raw.decode(errors="replace").splitlines())
+    dat.write_bytes((nl.join(lines) + nl).encode())
+
+
+DIMS_1X1 = re.compile(r"(?i)^(dims\s*=\s*1\s*,\s*1)\s*,\s*\d+")
+
+
+def set_layouts(dat: Path, layouts: int | dict[str, int]) -> None:
+    """`Dims=1,1,n` for the 1x1 buildings in `dat`: `layouts` is `n`,
+    or `n` by object name."""
+    def edit(lines):
+        out, name = [], None
+        for line in lines:
+            if line.lower().startswith("name="):
+                name = line[len("name="):].strip()
+            n = layouts if isinstance(layouts, int) else layouts.get(name)
+            out.append(line if n is None
+                       else DIMS_1X1.sub(rf"\g<1>,{n}", line))
+        return out
+    edit_dat(dat, edit)
 
 
 IMAGE_LINE = re.compile(r"^\s*(Back|Front)Image\[|^\s*animation_time=",
@@ -257,20 +277,22 @@ def rewrite_images(dat: Path, images: dict[str, list[str]]) -> None:
     """Replace the image lines of each named object in `dat`, its
     `animation_time`, which only animated the replaced images, and the
     comments among them, which described the old cells."""
-    pending, names = dict(images), set(images)
-    out, name, in_images = [], None, False
-    for line in dat.read_text(errors="replace").splitlines():
-        if line.lower().startswith("name="):
-            name = line[len("name="):].strip()
-        if name in names and IMAGE_LINE.match(line):
-            out += pending.pop(name, [])
-            in_images = True
-            continue
-        if in_images and line.startswith("#"):
-            continue
-        in_images = False
-        out.append(line)
-    dat.write_text("\n".join(out) + "\n")
+    def edit(lines):
+        pending = dict(images)
+        out, name, in_images = [], None, False
+        for line in lines:
+            if line.lower().startswith("name="):
+                name = line[len("name="):].strip()
+            if name in images and IMAGE_LINE.match(line):
+                out += pending.pop(name, [])
+                in_images = True
+                continue
+            if in_images and line.startswith("#"):
+                continue
+            in_images = False
+            out.append(line)
+        return out
+    edit_dat(dat, edit)
 
 
 def preview(models: list[Model], dims, out: Path) -> None:
