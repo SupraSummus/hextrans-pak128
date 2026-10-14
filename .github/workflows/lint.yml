@@ -14,12 +14,17 @@ jobs:
 
   rebake-constant:
     runs-on: ubuntu-latest
+    env:
+      # One BLAS kernel whatever CPU the runner has, so a baker that
+      # depends on it fails on every run, not on some runners.
+      OPENBLAS_CORETYPE: Prescott
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.x'
-      - run: pip install numpy Pillow
+          python-version: '3.13'
+      # Pinned, so a new release does not change the bytes under main.
+      - run: pip install numpy==2.5.4 Pillow==12.3.0
       - name: Re-run parametric + bespoke bakers
         run: python3 -m tools.bake_all
       - name: Verify byte-identical output

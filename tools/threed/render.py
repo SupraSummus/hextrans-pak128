@@ -73,14 +73,25 @@ PIXELS_PER_UNIT = 128.0 / np.sqrt(2.0)
 SCREEN_CENTER_X = IMG_SIZE / 2.0
 SCREEN_CENTER_Y_GROUND = IMG_SIZE / 2.0 + 32.0  # 96: matches flat-tile bbox
 
+
+def dot(a, b):
+    """a·b in plain floats: np.dot hands small vectors to BLAS, whose last
+    bit depends on the CPU, and a bake must give the same bytes anywhere."""
+    return math.sumprod(map(float, a), map(float, b))
+
+
+def unit(v):
+    v = np.asarray(v, dtype=float)
+    return v / math.hypot(*v)
+
+
 # Sun: from south (-y), 60 deg above horizon. Light travels +y (north) +
 # downward.
-SUN_DIR = np.array([
+SUN_DIR = unit([
     0.0,
     float(np.cos(np.deg2rad(60.0))),
     -float(np.sin(np.deg2rad(60.0))),
 ])
-SUN_DIR /= np.linalg.norm(SUN_DIR)
 
 
 def world_to_screen(p, screen_center_y=SCREEN_CENTER_Y_GROUND):
@@ -180,8 +191,7 @@ def _quad_normal(verts):
     a = verts[1] - verts[0]
     b = verts[3] - verts[0]
     n = np.cross(a, b)
-    norm = np.linalg.norm(n)
-    return n / norm if norm > 0 else np.array([0.0, 0.0, 1.0])
+    return unit(n) if n.any() else np.array([0.0, 0.0, 1.0])
 
 
 def _draw_triangle(rgba, zbuf, verts_screen, color, dither_keep=1.0,
@@ -360,8 +370,7 @@ def render(model: Model, camera, *, layer_filter=None, out_path=None
     Front).  The depth buffer still considers only included quads, so
     occlusion within the slice is correct.
     """
-    sun = SUN_DIR if camera.sun_dir is None else \
-        np.asarray(camera.sun_dir, dtype=float) / np.linalg.norm(camera.sun_dir)
+    sun = SUN_DIR if camera.sun_dir is None else unit(camera.sun_dir)
 
     if isinstance(camera, HexCamera):
         geom = camera.geom
@@ -391,7 +400,7 @@ def render(model: Model, camera, *, layer_filter=None, out_path=None
             continue
         wq = verts[[v0, v1, v2, v3]]
         n = _quad_normal(wq)
-        light = max(0.0, float(np.dot(-sun, n)))
+        light = max(0.0, -dot(sun, n))
         shade = camera.ambient + (1.0 - camera.ambient) * light
         c = (np.array(color) * shade).clip(0, 255).astype(np.uint8)
         sq = project(wq)

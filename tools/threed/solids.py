@@ -11,7 +11,7 @@ import math
 
 import numpy as np
 
-from .render import Model
+from .render import Model, dot
 
 
 class Frame:
@@ -48,7 +48,7 @@ def add_face(model: Model, pts, color, layer="back", *, outward=None,
         pts.append(pts[2])
     if outward is not None:
         n = np.cross(np.subtract(pts[1], pts[0]), np.subtract(pts[3], pts[0]))
-        if np.dot(n, np.mean(pts, axis=0) - outward) < 0:
+        if dot(n, np.mean(pts, axis=0) - outward) < 0:
             pts = pts[::-1]
     model.add_quad(pts, color, layer=layer, shader=shader)
 

@@ -429,9 +429,12 @@ Conventions, in order:
   every remaining synth family.
 - **Generated outputs are committed.** PNGs and .dats produced by a
   baker are checked into git inside the model dir so reviewers see
-  the current state without rebuilding. Re-running the baker should
-  produce a byte-identical result; a future CI check will enforce
-  that.
+  the current state without rebuilding.
+  Re-running the bakers must give the same bytes on any machine;
+  CI's `rebake-constant` job checks it.
+  So a baker takes dot products and lengths
+  from `render.dot` and `render.unit`, not `np.dot` or `np.linalg.norm`:
+  numpy hands those to BLAS, whose last bit depends on the CPU.
 - **Source art for complex bespoke assets is kept** (e.g. the bridge
   PNG/dat) even after a model exists, both because models start out
   incomplete and because we want to keep them in sync with upstream
