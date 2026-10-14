@@ -195,7 +195,8 @@ def _quad_normal(verts):
 
 
 def _draw_triangle(rgba, zbuf, verts_screen, color, dither_keep=1.0,
-                   world_xy=None, plan_clip=None, shader=None, shade=1.0):
+                   world_xy=None, plan_clip=None, shader=None, shade=1.0,
+                   world_z=None):
     H, W = rgba.shape[:2]
     xs, ys, zs = verts_screen[:, 0], verts_screen[:, 1], verts_screen[:, 2]
     x_min = max(int(np.floor(xs.min())), 0)
@@ -234,6 +235,9 @@ def _draw_triangle(rgba, zbuf, verts_screen, color, dither_keep=1.0,
         wx2, wy2 = world_xy[2]
         wx = w0 * wx0 + w1 * wx1 + w2 * wx2
         wy = w0 * wy0 + w1 * wy1 + w2 * wy2
+        wants_z = getattr(shader, "wants_z", False)
+        if wants_z:
+            wz = (w0 * world_z[0] + w1 * world_z[1] + w2 * world_z[2])
     if plan_clip is not None and world_xy is not None:
         # Clip in world plan view, not screen — z-lifted geometry (rails
         # above ties) keeps its overshoot above the silhouette top while
@@ -242,8 +246,12 @@ def _draw_triangle(rgba, zbuf, verts_screen, color, dither_keep=1.0,
     if shader is not None:
         # Per-pixel colour from plan-view position (see `Model.add_quad`).
         iy, ix = np.nonzero(write)
-        rgb, keep = shader(wx[iy, ix], wy[iy, ix],
-                           ix + x_min, iy + y_min)
+        if wants_z:
+            rgb, keep = shader(wx[iy, ix], wy[iy, ix], ix + x_min,
+                               iy + y_min, wz[iy, ix])
+        else:
+            rgb, keep = shader(wx[iy, ix], wy[iy, ix],
+                               ix + x_min, iy + y_min)
         iy, ix, rgb = iy[keep], ix[keep], rgb[keep]
         region_z[iy, ix] = z[iy, ix]
         region_rgba[iy, ix, :3] = (rgb * shade).clip(0, 255).astype(np.uint8)
@@ -287,7 +295,9 @@ class Model:
         sy)` of every covered pixel (1-D arrays) and returns `(rgb,
         keep)` — an `(n, 3)` float colour before lighting and a bool
         mask of the pixels to draw.  Flat painted surfaces (road
-        bands, markings) use it instead of one slab per band.
+        bands, markings) use it instead of one slab per band.  A shader
+        with a true `wants_z` attribute also gets the world height `wz`
+        as a fifth argument, for patterns on walls (windows).
         """
         base = len(self.verts)
         self.verts.extend(map(tuple, points))
@@ -410,7 +420,8 @@ def render(model: Model, camera, *, layer_filter=None, out_path=None
                            dither_keep=dither_keep,
                            world_xy=world_xy[[i0, i1, i2]],
                            plan_clip=plan_clip,
-                           shader=shader, shade=shade)
+                           shader=shader, shade=shade,
+                           world_z=wq[[i0, i1, i2], 2])
 
     if out_path is not None:
         Image.fromarray(rgba, mode="RGBA").save(out_path)

@@ -112,6 +112,18 @@ are square art cut into tiles.
 Next move: the `Dims=2,2` ones on the triangle-plus-front-tile layout
 of the townhalls, a builder each in a `hex_attractions` scene.
 
+**City buildings still legacy, except the apartment blocks.**
+`cityhouses/hex_blocks/scene.py` bakes the 504 blocks
+of `cityhouses/res/blocks` from `tools/threed/city.py`,
+each facing any of the six sides.
+The other 680 city buildings (`cityhouses/res`, `com`, `ind`,
+detached houses, shops, offices, workshops, parks) are square art.
+Next move: one family at a time in `city.py`, as `Apartment` is —
+a detached house with a garden for the low residential levels,
+a shop or office block keyed to level for `com`,
+a workshop with a yard for `ind` —
+each mapped from its `.dat` by level, climates and a name hash.
+
 **Factories still legacy, except those baked below.**
 `factories/hex_mines/scene.py` bakes both shaft coal mines,
 `factories/hex_wood/scene.py` the sawmill, furniture factory, paper mill

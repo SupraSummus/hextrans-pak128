@@ -524,6 +524,12 @@ and the bake into atlas and `.dat`.
 chimneys, tanks and silos, logs and timber, cranes, fences and lorries.
 `tools/threed/blocks.py` builds one-tile buildings from boxes in a period style
 and bakes a catalogue of them, a layout per side.
+`tools/threed/city.py` turns a city building's `.dat` into a model
+(level, climates and a hash of its name pick the parameters)
+and bakes it facing all six sides, with a winter season;
+its walls are windowed per pixel by a shader that sees the height
+(`wants_z`, see `render.Model.add_quad`),
+and its atlases are 256-colour PNGs (`bake_atlas(palette=True)`).
 `tools/threed/solids.py` has the solids underneath.
 What to know before porting the next one:
 
