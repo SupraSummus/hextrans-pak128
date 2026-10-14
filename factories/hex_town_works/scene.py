@@ -20,7 +20,7 @@ from infrastructure.road_stops.hex_parking.scene import ERAS, car
 from tools.threed.building_kit import (
     FRONT_S, RHOMBUS_FRAME as FRAME, STOREY, Palette, add_beam, bake_tiles,
     facade, ground, preview, rewrite_images, side_frame, speckle_shader,
-    wall_quad)
+    vault, wall_quad)
 from tools.threed.factory_kit import (
     YELLOW, conveyor, cylinder, ground_shader, legs, lorry, windows_band)
 from tools.threed.hex_synth import hash_noise01
@@ -161,8 +161,7 @@ def food_processing_plant() -> Model:
 # --- Dairy --------------------------------------------------------------------
 
 def barrel_roof(model, fr: Frame, s0, s1, w, z, rise, colour, n=10):
-    prof = [(-w * math.cos(a), z + rise * math.sin(a))
-            for a in (math.pi * k / n for k in range(n + 1))]
+    prof = vault(w, z, rise, n)
     for (p0, z0), (p1, z1) in zip(prof, prof[1:]):
         add_roof(model, fr, s0 - 0.03, s1 + 0.03, p0, p1, z0, z1, 0.02, colour,
                  shader=speckle_shader(colour))
