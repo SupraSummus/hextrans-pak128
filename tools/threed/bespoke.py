@@ -30,7 +30,8 @@ CellFn = Callable[[], np.ndarray]
 
 
 def bake_atlas(*, out_png: Path, entries: Iterable[tuple[str, CellFn]],
-               cols_per_row: int | None = None) -> None:
+               cols_per_row: int | None = None, palette: bool = False,
+               verbose: bool = True) -> None:
     """Render each entry's RGBA cell, place them in an atlas grid,
     write `out_png`, print a per-cell bbox summary.
 
@@ -45,6 +46,10 @@ def bake_atlas(*, out_png: Path, entries: Iterable[tuple[str, CellFn]],
     explicit value when the cell count makes a single row absurdly
     wide; sheet rows fill in entry order, last row may be partial.
     Atlas size is `cols_per_row × cell_w` by `ceil(n/cols) × cell_h`.
+
+    `palette`: write a 256-colour PNG, a quarter the size for grainy
+    art and not visibly different at 128 px; makeobj expands it.
+    `verbose`: print the per-cell summary.
     """
     entries = list(entries)
     if not entries:
@@ -60,12 +65,17 @@ def bake_atlas(*, out_png: Path, entries: Iterable[tuple[str, CellFn]],
         atlas[r * h:(r + 1) * h, c * w:(c + 1) * w] = cell
 
     out_png.parent.mkdir(parents=True, exist_ok=True)
-    Image.fromarray(atlas, mode="RGBA").save(out_png)
+    image = Image.fromarray(atlas, mode="RGBA")
+    if palette:
+        image = image.quantize(256, method=Image.Quantize.FASTOCTREE)
+    image.save(out_png, optimize=palette)
 
     label_w = max(len(label) for label, _ in entries)
     rel = os.path.relpath(out_png)
     print(f"wrote {rel} "
           f"({atlas.shape[1]}x{atlas.shape[0]} px, {len(cells)} cells)")
+    if not verbose:
+        return
     for i, ((label, _), cell) in enumerate(zip(entries, cells)):
         r, c = divmod(i, cols)
         m = cell[..., 3] > 0
