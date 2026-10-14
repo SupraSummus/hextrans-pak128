@@ -5,8 +5,8 @@ Copyright=Gelion
 Name=Secession_Chapel
 
 Dims=1,1
-BackImage[0][0][0][0][0][0]=secession_chapel.1.0
-BackImage[0][0][0][0][0][1]=secession_chapel.1.1
+BackImage[0][0][0][0][0][0]=secession_chapel_hex.0.0
+BackImage[0][0][0][0][0][1]=secession_chapel_hex_winter.0.0
 
 needs_ground=1
 

@@ -8,5 +8,5 @@ Passengers=80
 Dims=1,1
 climates=temperate,tundra,rocky
 climates=temperate,rocky
-BackImage[0][0][0][0][0][0]=church_03.1.0
-BackImage[0][0][0][0][0][1]=church_03.1.1
+BackImage[0][0][0][0][0][0]=church_03_hex.0.0
+BackImage[0][0][0][0][0][1]=church_03_hex_winter.0.0

@@ -3,4 +3,4 @@ Name=DenkVolker
 Type=mon
 Passengers=60
 #BackImage[Layout][x Position][y Position][Height][Phase]
-BackImage[0][0][0][0][0]=denkvolker.1.0
+BackImage[0][0][0][0][0][0]=denkvolker_hex.0.0

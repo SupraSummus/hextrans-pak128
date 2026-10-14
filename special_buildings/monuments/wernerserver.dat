@@ -15,5 +15,4 @@ type=mon
 level=61
 needs_ground=1
 #climates=mediterran,tropic,temperate
-BackImage[0][0][0][0][0][0]=wernerserver.1.0
-BackImage[0][0][0][0][1][0]=wernerserver.1.1
+BackImage[0][0][0][0][0][0]=wernerserver_hex.0.0

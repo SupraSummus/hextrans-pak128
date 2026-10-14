@@ -5,4 +5,4 @@ Copyright=Rmax500
 Type=mon
 Passengers=60
 #intro_year=1933
-BackImage[0][0][0][0][0]=rmax_fabio_bust.1.0
+BackImage[0][0][0][0][0][0]=rmax_fabio_bust_hex.0.0

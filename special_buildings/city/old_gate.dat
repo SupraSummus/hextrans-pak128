@@ -7,8 +7,10 @@ Copyright=Gelion
 Name=Old_gate
 
 Dims=1,1
-BackImage[0][0][0][0][0][0]=old_gate.1.0
-BackImage[0][0][0][0][0][1]=old_gate.1.1
+BackImage[0][0][0][0][0][0]=old_gate_hex.0.0
+BackImage[0][0][0][1][0][0]=old_gate_hex.1.0
+BackImage[0][0][0][0][0][1]=old_gate_hex_winter.0.0
+BackImage[0][0][0][1][0][1]=old_gate_hex_winter.1.0
 
 needs_ground=1
 

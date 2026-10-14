@@ -12,4 +12,4 @@ Name=DenkSeth
 Type=mon
 Passengers=60
 #BackImage[Layout][x Position][y Position][Height][Phase]
-BackImage[0][0][0][0][0]=denkseth.1.0
+BackImage[0][0][0][0][0][0]=denkseth_hex.0.0

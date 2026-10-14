@@ -3,4 +3,4 @@ Name=DenkOwen
 Type=mon
 Passengers=60
 #BackImage[Layout][x Position][y Position][Height][Phase]
-BackImage[0][0][0][0][0]=denkowen.1.0
+BackImage[0][0][0][0][0][0]=denkowen_hex.0.0
