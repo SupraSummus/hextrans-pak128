@@ -112,19 +112,15 @@ are square art cut into tiles.
 Next move: the `Dims=2,2` ones on the triangle-plus-front-tile layout
 of the townhalls, a builder each in a `hex_attractions` scene.
 
-**City buildings still legacy, except the residential ones.**
-`cityhouses/hex_blocks/scene.py` bakes the 504 blocks
-of `cityhouses/res/blocks`
-and `cityhouses/hex_houses/scene.py` the other 352 residential buildings,
-from `tools/threed/city.py`, each facing any of the six sides.
-The few parks, pools and statues among them bake as houses of their level.
-The 331 commercial and industrial ones (`cityhouses/com`, `ind`:
-shops, offices, workshops) are square art.
-Next move: one family at a time in `city.py`, as `House` is:
-a shop or office block keyed to level for `com`,
-a workshop with a yard for `ind`,
-each mapped from its `.dat` by level, climates and a name hash;
-then a park builder for the residential parks and pools, picked by name.
+**City buildings: parks, pools and statues bake as buildings.**
+`cityhouses/hex_blocks`, `hex_houses` and `hex_work` bake every pak128
+city building from `tools/threed/city.py`, mapped from its `.dat`
+by level, climates, year and a hash of its name.
+A handful of them were drawn as a park, a pool, a statue, a field
+or a construction site; they now bake as a house, shop or workshop
+of their level.
+Next move: a table of those names in the family scenes
+and a `Park` model in `city.py` (lawn, paths, trees, a fountain or a statue).
 
 **Factories still legacy, except those baked below.**
 `factories/hex_mines/scene.py` bakes both shaft coal mines,
