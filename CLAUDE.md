@@ -545,6 +545,26 @@ What to know before porting the next one:
 Per-asset state — what's done, what's blocked, what's coming next —
 lives in `git log` and `TODO.md`, not here.
 
+### Checking in game
+
+`tools/ingame_check.py` builds the pakset,
+lays the buildings out on an empty flat map through a throwaway scenario,
+runs the engine on a virtual display
+and saves a screenshot of each group:
+
+```
+python3 -m tools.ingame_check --place terminal road CarDepot \
+    --place through track Depot_train_1936 \
+    --place building - Saegewerk --any-year
+```
+
+KIND is `terminal`, `through`, `island`, `dock` or `building`;
+the script's docstring says what each lays out.
+`--any-year` drops the placed objects' timeline,
+so an object from outside the map's starting year can be built.
+A scene's `--preview` only shows what the scene assumes;
+this is where the engine's layout choice and draw order show up.
+
 ## Commit message rules
 
 Default to short. The diff already shows *what* changed; the message
