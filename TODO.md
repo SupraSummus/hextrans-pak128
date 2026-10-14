@@ -88,6 +88,14 @@ Next move: a style switch on `TownhallParams`
 on the same triangle-plus-forecourt layout,
 and a 1-tile variant without the forecourt.
 
+**Canals and the water bridge are still square art.**
+`canal_020`, `canal_030` and `water_bridge` in `infrastructure/water_all/`
+draw pak128's diamonds on hex tiles,
+under the hex canal stops and ship depot of `hex_water/scene.py`.
+Next move: a canal surface in `tools/threed/way_surface.py`,
+water between stone banks,
+baked through the way bake the roads use.
+
 **Factories still legacy, except the shaft coal mines.**
 `factories/hex_mines/scene.py` bakes both shaft coal mines.
 Every other factory is square art cut into `Dims` tiles,

@@ -264,11 +264,12 @@ def coal_loader(model, fr, side, layer):
 
 # --- Scene --------------------------------------------------------------------
 
-def crates(model, fr, s, p, n=3, size=0.07, colour=(150, 104, 58)):
+def crates(model, fr, s, p, n=3, size=0.07, colour=(150, 104, 58),
+           layer="back"):
     for k in range(n):
         add_block(model, fr, s - size, s + size, p - size + k * 0.02,
                   p + size + k * 0.02, P_Z + k * size * 1.6,
-                  P_Z + (k + 1) * size * 1.6, colour,
+                  P_Z + (k + 1) * size * 1.6, colour, layer,
                   side_color=tuple(int(c * 0.82) for c in colour))
 
 
