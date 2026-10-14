@@ -134,8 +134,10 @@ function through(pl, c, way, desc)
 
 function island(pl, c, way, desc)
 {
-	// w is 60 degrees from v: the parallel way's tiles touch the first's
-	foreach (i, d in [[dir.south, dir.southeast], [dir.southeast, dir.northeast], [dir.southwest, dir.south]]) {
+	// w is 60 degrees from v: the parallel way's tiles touch the first's,
+	// on the side a lone stop's platform takes (left looking from the
+	// S, SE or SW end), so the second way's stops mirror it into an island
+	foreach (i, d in [[dir.south, dir.southwest], [dir.southeast, dir.south], [dir.southwest, dir.northwest]]) {
 		local v = dir.to_coord(d[0])
 		local m = coord3d(c.x, c.y + 4 * (i - 1), c.z)
 		foreach (o in [m, m + dir.to_coord(d[1])]) {
