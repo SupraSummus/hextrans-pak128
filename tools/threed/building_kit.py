@@ -22,7 +22,7 @@ from .building import (
     NEIGHBOURS, SQRT3, composite, footprint, ground_cell, render_tiles,
     tile_centre)
 from .hex_synth import HexGeom, hash_noise01
-from .render import Model
+from .render import Model, unit
 from .solids import Frame, add_block, add_face, add_roof, add_solid
 
 RHOMBUS_FRAME = Frame((0.5, -SQRT3 / 2), origin=(0.5, -SQRT3 / 2))
@@ -197,11 +197,11 @@ def add_beam(model, a, b, w, color, *, up=(0.0, 0.0, 1.0), **kw):
     """Square beam `w` thick between world points `a` and `b`."""
     a, b = np.asarray(a, float), np.asarray(b, float)
     d = b - a
-    d /= np.linalg.norm(d)
+    d = unit(d)
     side = np.cross(d, up)
-    if np.linalg.norm(side) < 1e-6:
+    if math.hypot(*side) < 1e-6:
         side = np.cross(d, (1.0, 0.0, 0.0))
-    side /= np.linalg.norm(side)
+    side = unit(side)
     lift = np.cross(side, d)
     h = w / 2
     ring = [side * h + lift * h, -side * h + lift * h,
