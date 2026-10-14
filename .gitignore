@@ -28,3 +28,4 @@ __pycache__/
 infrastructure/**/refs/
 infrastructure/**/out_*.png
 infrastructure/**/diff_debug_*.png
+/build-ingame/
