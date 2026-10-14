@@ -1,8 +1,16 @@
 obj=building
 name=RES_06_02
+dims=1,1,8
 copyright=Patrick
 type=res
 level=2
 intro_year=1950
 retire_year=1996
-backimage[0][0][0][0][0]=res_06_02.1.0
+BackImage[0][0][0][0][0][0]=res_06_02_hex.0.0
+BackImage[1][0][0][0][0][0]=res_06_02_hex.0.1
+BackImage[2][0][0][0][0][0]=res_06_02_hex.0.2
+BackImage[3][0][0][0][0][0]=res_06_02_hex.0.3
+BackImage[4][0][0][0][0][0]=res_06_02_hex.0.4
+BackImage[5][0][0][0][0][0]=res_06_02_hex.0.5
+BackImage[6][0][0][0][0][0]=res_06_02_hex.0.0
+BackImage[7][0][0][0][0][0]=res_06_02_hex.0.1
