@@ -431,7 +431,8 @@ Conventions, in order:
   baker are checked into git inside the model dir so reviewers see
   the current state without rebuilding.
   Re-running the bakers must give the same bytes on any machine;
-  CI's `rebake-constant` job checks it.
+  CI's `rebake-constant` job checks it on main,
+  and a PR rebakes the scenes it changes before it goes up.
   So a baker takes dot products and lengths
   from `render.dot` and `render.unit`, not `np.dot` or `np.linalg.norm`:
   numpy hands those to BLAS, whose last bit depends on the CPU.

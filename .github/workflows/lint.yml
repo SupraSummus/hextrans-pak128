@@ -13,6 +13,9 @@ jobs:
       - run: ./check_changelog.sh pak128.prototype/doc/changelog.txt
 
   rebake-constant:
+    # Minutes per run with every family baked: on main only, a PR rebakes
+    # the scenes it touches by hand.
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     env:
       # One BLAS kernel whatever CPU the runner has, so a baker that
