@@ -31,7 +31,7 @@ from .building_kit import AMBIENT, STOREY, edit_dat, speckle_shader, wall_quad
 from .factory_kit import ground_shader
 from .hex_synth import hash_noise01
 from .render import Model
-from .solids import Frame, add_block, add_face
+from .solids import Frame, add_block, add_face, add_frustum
 from .way import edge_midpoint
 
 FACES = ("S", "SE", "N", "NW", "NE", "SW")
@@ -199,6 +199,186 @@ def wing(model, fr: Frame, a: Apartment):
               top + 0.005, top + 0.025, SNOW if a.snow else a.roof_colour)
 
 
+# --- Houses -------------------------------------------------------------------
+
+LAWN = (96, 140, 62)
+PATH = (176, 168, 150)
+LEAF = ((70, 120, 50), (90, 130, 56), (60, 104, 52))
+TRUNK = (84, 60, 42)
+
+
+@dataclass(frozen=True)
+class House:
+    storeys: int
+    s0: float                   # back wall
+    s1: float                   # front wall, towards the road
+    w: float                    # half width across
+    wall: tuple[int, int, int]
+    trim: tuple[int, int, int]
+    roof_colour: tuple[int, int, int]
+    roof: str = "gable"         # gable (ridge across the front), hip, flat
+    pitch: float = 0.24
+    garden: bool = True         # lawn, a hedge, trees; paving otherwise
+    timber: bool = False        # dark beams over the walls
+    dormers: bool = False
+    porch: bool = False
+    trees: int = 1
+    seed: str = ""
+    snow: bool = False
+
+
+def tree(model, fr: Frame, s, p, h, colour, snow):
+    add_frustum(model, fr, s, p, 0.025, 0.02, 0.0, h * 0.4, TRUNK, n=6)
+    crown = tuple(int(c * 0.4 + w * 0.6) for c, w in zip(colour, SNOW)) \
+        if snow else colour
+    # A round crown, squashed so it draws round (z draws at 90 px a
+    # unit against 64 across).
+    r, zc = 0.16 + 0.06 * h, h * 0.62
+    rings = 6
+    for k in range(rings):
+        a0 = -math.pi / 2 + math.pi * k / rings
+        a1 = -math.pi / 2 + math.pi * (k + 1) / rings
+        add_frustum(model, fr, s, p, max(r * math.cos(a0), 0.01),
+                    max(r * math.cos(a1), 0.01),
+                    zc + r * 0.72 * math.sin(a0), zc + r * 0.72 * math.sin(a1),
+                    crown, n=10, side_shader=speckle_shader(crown))
+
+
+def garden_lot(model, fr: Frame, h: House):
+    """Lawn over the tile with a path from the door to the road."""
+    lawn = np.array(tuple(int(c * 0.3 + s * 0.7) for c, s in
+                          zip(LAWN, SNOW)) if h.snow else LAWN, float)
+    path = np.array(PATH, float)
+
+    def shader(wx, wy, sx, sy):
+        s, p = fr.local(wx, wy)
+        n = hash_noise01(sx.astype(np.uint32), sy.astype(np.uint32))
+        rgb = lawn * (0.88 + 0.22 * n)[:, None]
+        on_path = (np.abs(p) < 0.07) & (s > h.s1)
+        rgb[on_path] = path * (0.92 + 0.12 * n[on_path])[:, None]
+        return rgb, np.ones(len(wx), bool)
+
+    pts = [fr.world(s, p, 0.003) for s, p in
+           ((-1, -1), (1, -1), (1, 1), (-1, 1))]
+    add_face(model, pts, (0, 0, 0), outward=fr.world(0, 0, -1),
+             shader=shader)
+
+
+def timber_shader(fr: Frame, a, b, wall, z0, z1):
+    """Plaster between dark posts and rails, a brace in every bay."""
+    wall = np.array(wall, float)
+    beam = np.array((70, 50, 36), float)
+    ax, ay = fr.world(*a, 0)[:2]
+    bx, by = fr.world(*b, 0)[:2]
+    length = math.dist((ax, ay), (bx, by))
+    ux, uy = (bx - ax) / length, (by - ay) / length
+    bays = max(2, round(length / 0.12))
+    pitch = length / bays
+
+    def shader(wx, wy, sx, sy, wz):
+        t = ((wx - ax) * ux + (wy - ay) * uy) / pitch
+        n = hash_noise01(sx.astype(np.uint32), sy.astype(np.uint32))
+        rgb = wall * (0.95 + 0.07 * n)[:, None]
+        fz = (wz - z0) / STOREY
+        fx = t % 1.0
+        post = (fx < 0.12) | (fx > 0.88)
+        rail = (np.abs(fz % 1.0) < 0.08) | (np.abs(fz % 1.0 - 0.5) < 0.04)
+        brace = np.abs((fz % 1.0) * 0.5 - np.abs(fx - 0.5)) < 0.05
+        rgb[post | rail | brace] = beam
+        return rgb, np.ones(len(wx), bool)
+
+    shader.wants_z = True
+    return shader
+
+
+def house(h: House, face: str) -> Model:
+    model = Model()
+    fr = Frame(edge_midpoint(face))
+    if h.garden:
+        garden_lot(model, fr, h)
+    else:
+        lot(model, fr, (160, 154, 144), h.snow)
+    top = h.storeys * STOREY + 0.04
+    walls(model, fr, h.s0, h.s1, h.w, 0.0, top, h.wall, h.storeys,
+          sill=0.04, pitch=0.15)
+    if h.timber:
+        # The upper storeys framed, over the ground-floor plaster.
+        corners = ((h.s1, -h.w), (h.s1, h.w), (h.s0, h.w), (h.s0, -h.w))
+        inside = fr.world((h.s0 + h.s1) / 2, 0, top / 2)
+        for i in range(4):
+            a, b = corners[i], corners[(i + 1) % 4]
+            pts = [fr.world(*a, STOREY + 0.04), fr.world(*b, STOREY + 0.04),
+                   fr.world(*b, top), fr.world(*a, top)]
+            add_face(model, pts, h.wall, outward=inside, shader=
+                     timber_shader(fr, a, b, h.wall, STOREY + 0.04, top))
+    add_block(model, fr, h.s0 - 0.01, h.s1 + 0.01, -h.w - 0.01, h.w + 0.01,
+              0.0, 0.04, h.trim)
+    # The door, a step and, maybe, a porch roof over them.
+    wall_quad(model, fr, (h.s1, -0.05), (h.s1, 0.05), 0.0, 0.17, 0.008,
+              (96, 60, 40), (-1, 0))
+    add_block(model, fr, h.s1, h.s1 + 0.05, -0.08, 0.08, 0.0, 0.02, h.trim)
+    if h.porch:
+        add_block(model, fr, h.s1, h.s1 + 0.14, -0.13, 0.13, 0.2, 0.225,
+                  h.roof_colour if not h.snow else SNOW)
+        for q in (-0.11, 0.11):
+            add_block(model, fr, h.s1 + 0.11, h.s1 + 0.13, q - 0.01, q + 0.01,
+                      0.0, 0.2, h.trim)
+    house_roof(model, fr, h, top)
+    if h.garden:
+        hedge = (60, 100, 52) if not h.snow else (210, 216, 214)
+        for q in (-0.75, 0.75):
+            add_block(model, fr, -0.6, 0.65, q - 0.03, q + 0.03, 0.0, 0.07,
+                      hedge, side_shader=speckle_shader(hedge))
+        spots = ((-0.65, -0.55), (0.55, 0.55), (-0.6, 0.6), (0.6, -0.55))
+        for k in range(h.trees):
+            s, p = spots[k % len(spots)]
+            tree(model, fr, s, p, 0.55 + 0.25 * unit(h.seed, f"tree{k}"),
+                 pick(h.seed, f"leaf{k}", LEAF), h.snow)
+    return model
+
+
+def house_roof(model, fr: Frame, h: House, top):
+    colour = SNOW if h.snow else h.roof_colour
+    sh = speckle_shader(colour)
+    if h.roof == "flat":
+        add_block(model, fr, h.s0 - 0.015, h.s1 + 0.015, -h.w - 0.015,
+                  h.w + 0.015, top, top + 0.035, h.trim)
+        add_block(model, fr, h.s0 + 0.02, h.s1 - 0.02, -h.w + 0.02,
+                  h.w - 0.02, top + 0.005, top + 0.025, colour)
+        return
+    if h.roof == "hip":
+        hip(model, fr, h.s0, h.s1, h.w, top, h.pitch, colour)
+        return
+    # Gable: the ridge runs across the front, the gables at the sides.
+    o = 0.04
+    inside = fr.world((h.s0 + h.s1) / 2, 0, top)
+    sm = (h.s0 + h.s1) / 2
+    for s_eave in (h.s0 - o, h.s1 + o):
+        add_face(model, [fr.world(s_eave, -h.w - o, top),
+                         fr.world(s_eave, h.w + o, top),
+                         fr.world(sm, h.w + o, top + h.pitch),
+                         fr.world(sm, -h.w - o, top + h.pitch)],
+                 colour, outward=inside, shader=sh)
+    for q in (-h.w, h.w):
+        add_face(model, [fr.world(h.s0, q, top), fr.world(h.s1, q, top),
+                         fr.world(sm, q, top + h.pitch)], h.wall,
+                 outward=inside)
+    if h.dormers:
+        for q in (-h.w * 0.5, h.w * 0.5):
+            s = (sm + h.s1) / 2
+            z = top + h.pitch * 0.35
+            add_block(model, fr, s - 0.02, s + 0.05, q - 0.05, q + 0.05,
+                      z - 0.02, z + 0.09, h.wall)
+            add_block(model, fr, s + 0.05, s + 0.054, q - 0.035, q + 0.035,
+                      z, z + 0.07, GLASS)
+            add_block(model, fr, s - 0.03, s + 0.07, q - 0.06, q + 0.06,
+                      z + 0.09, z + 0.11, colour)
+    # A chimney on the ridge.
+    add_block(model, fr, sm - 0.04, sm + 0.04, h.w * 0.4 - 0.04,
+              h.w * 0.4 + 0.04, top + h.pitch * 0.6, top + h.pitch + 0.1,
+              (150, 80, 60))
+
+
 # --- Bake ---------------------------------------------------------------------
 
 def layout_face(layout: int) -> int:
@@ -247,6 +427,56 @@ def rewrite_city_dat(dat: Path, lines: list[str]) -> None:
                     out += lines
                     done = True
                 continue
+            out.append(line)
+        return out
+    edit_dat(dat, edit)
+
+
+def city_buildings(dat: Path) -> list[dict[str, str]]:
+    """The `key=value` fields of each building in `dat` (keys
+    lower-case), with `seasons`: how many its images have."""
+    out = []
+    text = dat.read_text(errors="replace")
+    for block in re.split(r"(?im)^\s*obj\s*=", text)[1:]:
+        if not block.strip().lower().startswith("building"):
+            continue
+        f = {}
+        for line in block.splitlines():
+            m = re.match(r"^\s*([A-Za-z_]+)\s*=\s*(.*?)\s*$", line)
+            if m:
+                f.setdefault(m.group(1).lower(), m.group(2))
+        keys = re.findall(r"(?im)^\s*backimage((?:\[\d+\])+)", block)
+        f["seasons"] = str(1 + max((int(re.findall(r"\d+", k)[5])
+                                     for k in keys if k.count("[") >= 6),
+                                    default=0))
+        out.append(f)
+    return out
+
+
+def rewrite_city_building(dat: Path, name: str, lines: list[str]) -> None:
+    """Give building `name` in `dat` the image lines `lines` and
+    `dims=1,1,8`, dropping its old images, season comments and dims."""
+    def edit(old):
+        out, current, done = [], None, False
+        for line in old:
+            m = re.match(r"(?i)^\s*name\s*=\s*(.*?)\s*$", line)
+            if m:
+                current, done = m.group(1), False
+                out.append(line)
+                if current == name:
+                    out.append("dims=1,1,8")
+                continue
+            if re.match(r"(?i)^\s*obj\s*=", line):
+                current = None
+            if current == name:
+                if re.match(r"(?i)^\s*dims\s*=", line) or \
+                        SEASON_COMMENT.match(line):
+                    continue
+                if IMAGE_LINE.match(line):
+                    if not done:
+                        out += lines
+                        done = True
+                    continue
             out.append(line)
         return out
     edit_dat(dat, edit)
