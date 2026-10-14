@@ -58,6 +58,15 @@ and check with `tools/ingame_check` that the neighbour's ground,
 drawn later, does not paint over them.
 If it does, the gaps stay and this entry goes.
 
+**Two sets of platform parts.**
+`hex_platforms` cuts its platforms with `hex_poly`,
+the hex between two lines along the track;
+`hex_stops` and `hex_rail_stops` use `platform_poly`, a trapezoid inside it,
+and the two modules each have their own `reach` and `bench`.
+Next move: build `platform_poly` on `hex_poly`,
+share one `bench` that takes the platform height,
+and rebake the road stops, rail stops and parking.
+
 **Depots still legacy: monorail, air and the through depots.**
 `infrastructure/depots_rail_road_tram/hex_depots/scene.py` bakes the road,
 rail and tram depots in six layouts, one per hex side.
@@ -78,16 +87,6 @@ Next move: a style switch on `TownhallParams`
 (plaster walls, flat roofs with domes, palms for conifers)
 on the same triangle-plus-forecourt layout,
 and a 1-tile variant without the forecourt.
-
-**Rail stations still legacy, except the small stops.**
-`infrastructure/rail_stations/hex_rail_stops/scene.py` bakes the ten
-one-tile stops (TrainStop .. Container2TrainStop), a layout per axis
-and platform end.
-The SNFOS platforms and stations, `station_03_*` and the subway stations
-are 8- and 16-layout through stops with platform-end images,
-still square art.
-Next move: their buildings on the far platform in `hex_rail_stops`,
-as `station_house` is, baked to the same 12 layouts.
 
 **Factories still legacy, except the shaft coal mines.**
 `factories/hex_mines/scene.py` bakes both shaft coal mines.

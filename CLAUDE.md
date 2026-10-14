@@ -500,6 +500,14 @@ with one layout per hex side (`Dims=1,1,6`, layouts 0..5 facing S, SE, N, NW, NE
 `infrastructure/road_stops/hex_terminals/scene.py` places their parts
 along the six edges counted round from the exit,
 and puts a part on the camera side of the tile centre into `FrontImage`.
+Through stops have 12 layouts, `4 * axis + ends`,
+and one-sided platforms 24, `12 * side + 4 * axis + ends`,
+side 0 left of the track looking from its S, SE or SW end.
+`infrastructure/rail_stations/hex_platforms/scene.py` cuts a one-sided
+platform, and the roof over it, to the hex beyond the track,
+so stops along a track join
+and two facing across the strip between parallel tracks make one island.
+`tools/ingame_check.py --place island` builds such a pair.
 
 ### Multi-tile buildings
 
